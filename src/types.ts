@@ -1,6 +1,24 @@
-export type EventType = 'all' | 'wedding' | 'corporate' | 'party' | 'gala';
+export type EventCategory =
+  | 'all'
+  | 'meetings-conferences'
+  | 'weddings'
+  | 'parties-celebrations'
+  | 'training-workshops'
+  | 'private-dining'
+  | 'exhibitions-events';
 
-export type LayoutCategory = 'banquet' | 'cocktail' | 'theater' | 'outdoor' | 'ceremony';
+export type EventType =
+  | EventCategory
+  | 'wedding'
+  | 'corporate'
+  | 'party'
+  | 'gala'
+  | 'workshop'
+  | 'conference'
+  | 'dining'
+  | 'exhibition';
+
+export type LayoutCategory = 'banquet' | 'cocktail' | 'theater' | 'classroom' | 'outdoor' | 'ceremony';
 
 export interface Milestone {
   timeSec: number;
@@ -71,7 +89,7 @@ export interface Venue {
     neighborhood: string;
     zipCode: string;
   };
-  eventTypes: ('wedding' | 'corporate' | 'party' | 'gala')[];
+  eventTypes: EventType[];
   aesthetic: string;
   capacity: {
     cocktail: number;
@@ -120,6 +138,68 @@ export interface WalkthroughBooking {
   status: 'confirmed' | 'completed' | 'cancelled';
   createdAt: string;
   hostName: string;
+}
+
+export type VenueBookingStatus =
+  | 'requested'
+  | 'venue_confirmed'
+  | 'confirmed_by_venue' // alias for deposit_due
+  | 'deposit_due'
+  | 'deposit_paid' // alias for confirmed
+  | 'confirmed'
+  | 'final_payment_due'
+  | 'fully_paid'
+  | 'completed'
+  | 'cancelled'
+  | 'declined';
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+  dueDate?: string;
+  category?: 'Inspection' | 'Contract & Payment' | 'Catering & AV' | 'Logistics';
+}
+
+export interface VenueBooking {
+  id: string;
+  bookingNumber: string;
+  venueId: string;
+  venueName: string;
+  venueLocation: string;
+  venueImage: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  clientCompany?: string;
+  eventType: string;
+  guestCount: number;
+  eventDate: string;
+  startTime?: string;
+  endTime?: string;
+  selectedLayout?: string;
+  specialRequirements?: string;
+  status: VenueBookingStatus;
+  grossAmount: number;
+  depositPercentage: number;
+  depositAmount: number;
+  depositPaidAt?: string;
+  finalBalance: number;
+  finalBalanceDueDate?: string;
+  finalPaidAt?: string;
+  createdAt: string;
+  hostName: string;
+  checklist?: ChecklistItem[];
+  personalNotes?: string;
+  associatedWalkthroughId?: string;
+}
+
+export interface MarketplaceConfig {
+  commissionPercentage: number;
+  depositPercentage: number;
+  balanceDueDaysBeforeEvent?: number;
+  freeCancellationHours?: number;
+  payoutScheduleNote?: string;
 }
 
 export interface AiMatchRequest {

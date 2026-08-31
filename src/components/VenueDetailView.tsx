@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Info,
   Maximize,
+  Video,
 } from 'lucide-react';
 import { Venue, WalkthroughClip, LayoutCategory } from '../types';
 
@@ -35,6 +36,7 @@ interface VenueDetailViewProps {
   venue: Venue;
   onBack: () => void;
   onBookWalkthrough: (venue: Venue) => void;
+  onRequestToBook: (venue: Venue) => void;
   isFavorited: boolean;
   onToggleFavorite: (venueId: string) => void;
 }
@@ -43,6 +45,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   venue,
   onBack,
   onBookWalkthrough,
+  onRequestToBook,
   isFavorited,
   onToggleFavorite,
 }) => {
@@ -154,24 +157,24 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f12] text-gray-100 pb-20">
+    <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] pb-20">
       {/* Top Header Bar */}
-      <div className="border-b border-[#232731] bg-[#11141b]/95 backdrop-blur-lg sticky top-20 z-30">
+      <div className="border-b border-[#DDD8CF] bg-[#F4F1EA]/95 backdrop-blur-lg sticky top-20 z-30 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               id="back-to-venues-btn"
               onClick={onBack}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#191e28] text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#222938] border border-[#2a3242] transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] border border-[#DDD8CF] shadow-xs transition-colors"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3.5 h-3.5 text-[#66737A]" />
               <span>Back to Directory</span>
             </button>
-            <div className="hidden sm:block h-4 w-[1px] bg-gray-700" />
-            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400">
+            <div className="hidden sm:block h-4 w-[1px] bg-[#DDD8CF]" />
+            <div className="hidden sm:flex items-center gap-2 text-xs text-[#66737A]">
               <span>{venue.location.city}</span>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-white font-medium truncate max-w-[200px]">{venue.name}</span>
+              <ChevronRight className="w-3 h-3 text-[#94A3B8]" />
+              <span className="text-[#26343D] font-medium truncate max-w-[200px]">{venue.name}</span>
             </div>
           </div>
 
@@ -179,7 +182,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             <button
               id="share-venue-btn"
               onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#191e28] border border-[#2a3242] text-xs text-gray-300 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#DDD8CF] text-xs text-[#66737A] hover:text-[#26343D] shadow-xs transition-colors"
             >
               <Share2 className="w-3.5 h-3.5" />
               <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
@@ -188,23 +191,32 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             <button
               id="detail-fav-btn"
               onClick={() => onToggleFavorite(venue.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs shadow-xs transition-colors ${
                 isFavorited
-                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
-                  : 'bg-[#191e28] border-[#2a3242] text-gray-300 hover:text-white'
+                  ? 'bg-rose-50 border-rose-300 text-rose-600'
+                  : 'bg-white border-[#DDD8CF] text-[#66737A] hover:text-[#26343D]'
               }`}
             >
-              <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-current text-rose-400' : ''}`} />
+              <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-current text-rose-500' : ''}`} />
               <span className="hidden sm:inline">{isFavorited ? 'Saved' : 'Save'}</span>
             </button>
 
             <button
-              id="detail-top-book-btn"
+              id="detail-top-tour-btn"
               onClick={() => onBookWalkthrough(venue)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b38622] text-black font-bold text-xs shadow-md shadow-[#d4af37]/20 hover:brightness-110 active:scale-95 transition-all"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white border border-[#DDD8CF] text-[#26343D] hover:bg-[#F4F1EA] font-semibold text-xs shadow-xs transition-all"
+            >
+              <Video className="w-3.5 h-3.5 text-[#A86445]" />
+              <span>Live Tour</span>
+            </button>
+
+            <button
+              id="detail-top-book-btn"
+              onClick={() => onRequestToBook(venue)}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-sm hover:bg-[#8F5439] active:scale-95 transition-all"
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span>Book Walkthrough</span>
+              <span>Request to Book</span>
             </button>
           </div>
         </div>
@@ -214,43 +226,43 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
         {/* Title and Key Badges */}
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-[#d4af37]/15 text-[#fae29c] border border-[#d4af37]/40 rounded-full">
+            <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-[#F3E7DF] text-[#A86445] border border-[#A86445]/25 rounded-full">
               {venue.aesthetic}
             </span>
-            <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               Live Walkthroughs Available
             </span>
-            <div className="flex items-center gap-1 text-xs text-amber-400 font-semibold px-2.5 py-1 bg-[#1a1f2c] border border-[#2b3342] rounded-full">
-              <Star className="w-3.5 h-3.5 fill-current" />
+            <div className="flex items-center gap-1 text-xs text-[#26343D] font-semibold px-2.5 py-1 bg-white border border-[#DDD8CF] rounded-full shadow-xs">
+              <Star className="w-3.5 h-3.5 fill-current text-amber-400" />
               <span>{venue.rating.toFixed(2)}</span>
-              <span className="text-gray-400">({venue.reviewCount} verified reviews)</span>
+              <span className="text-[#66737A]">({venue.reviewCount} verified reviews)</span>
             </div>
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-4xl font-bold text-white font-serif-luxury tracking-tight">
+              <h1 className="text-2xl sm:text-4xl font-bold text-[#26343D] tracking-tight">
                 {venue.name}
               </h1>
-              <p className="text-sm text-gray-400 flex items-center gap-1.5 mt-1">
-                <MapPin className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-sm text-[#66737A] flex items-center gap-1.5 mt-1">
+                <MapPin className="w-4 h-4 text-[#A86445] shrink-0" />
                 <span>{venue.location.address}, {venue.location.neighborhood}, {venue.location.city}, {venue.location.state} {venue.location.zipCode}</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-4 bg-[#141822] border border-[#242b3a] p-3 rounded-xl">
+            <div className="flex items-center gap-4 bg-white border border-[#DDD8CF] p-3.5 rounded-xl shadow-sm">
               <div className="text-right">
-                <span className="text-[10px] uppercase font-semibold text-gray-400 block">Starting Rate</span>
-                <div className="text-xl font-bold text-[#fae29c]">
+                <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Starting Rate</span>
+                <div className="text-xl font-bold text-[#26343D]">
                   ${venue.pricing.startingPrice.toLocaleString()}
-                  <span className="text-xs font-normal text-gray-400"> /day</span>
+                  <span className="text-xs font-normal text-[#66737A]"> /day</span>
                 </div>
               </div>
-              <div className="h-8 w-[1px] bg-gray-700" />
+              <div className="h-8 w-[1px] bg-[#DDD8CF]" />
               <div>
-                <span className="text-[10px] uppercase font-semibold text-gray-400 block">Max Guests</span>
-                <span className="text-sm font-semibold text-white">
+                <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Capacity</span>
+                <span className="text-sm font-semibold text-[#26343D]">
                   {venue.capacity.seatedBanquet} seated / {venue.capacity.cocktail} cocktail
                 </span>
               </div>
@@ -263,21 +275,21 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
           {/* Left Column: Video Walkthrough Studio */}
           <div className="lg:col-span-8 space-y-6">
             {/* View Mode & Layout Switcher Bar */}
-            <div className="bg-[#141822] border border-[#252c3c] rounded-2xl p-2 sm:p-3 space-y-3">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5 px-2">
-                  <Layers className="w-3.5 h-3.5 text-[#d4af37]" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-1.5 px-1">
+                  <Layers className="w-3.5 h-3.5 text-[#A86445]" />
                   Select Layout Setup:
                 </span>
 
                 {/* View Mode Toggle (Video vs Blueprint Floorplan) */}
-                <div className="flex items-center bg-[#0d1017] p-1 rounded-xl border border-[#222836]">
+                <div className="flex items-center bg-[#F4F1EA] p-1 rounded-xl border border-[#DDD8CF]">
                   <button
                     onClick={() => setViewMode('video')}
                     className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
                       viewMode === 'video'
-                        ? 'bg-[#d4af37] text-black font-semibold shadow'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                        : 'text-[#66737A] hover:text-[#26343D]'
                     }`}
                   >
                     4K Video Tour
@@ -286,8 +298,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     onClick={() => setViewMode('floorplan')}
                     className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
                       viewMode === 'floorplan'
-                        ? 'bg-[#d4af37] text-black font-semibold shadow'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                        : 'text-[#66737A] hover:text-[#26343D]'
                     }`}
                   >
                     Floor Plan
@@ -296,8 +308,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     onClick={() => setViewMode('360')}
                     className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
                       viewMode === '360'
-                        ? 'bg-[#d4af37] text-black font-semibold shadow'
-                        : 'text-gray-400 hover:text-white'
+                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                        : 'text-[#66737A] hover:text-[#26343D]'
                     }`}
                   >
                     360° Panorama
@@ -319,21 +331,21 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       }}
                       className={`relative p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
                         isSelected
-                          ? 'bg-gradient-to-br from-[#241e12] to-[#171922] border-[#d4af37] ring-1 ring-[#d4af37]'
-                          : 'bg-[#181d28] border-[#293142] hover:border-gray-500 opacity-80 hover:opacity-100'
+                          ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445]'
+                          : 'bg-[#F4F1EA] border-[#DDD8CF] hover:border-[#A86445]/60'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white truncate">
+                        <span className="text-xs font-bold text-[#26343D] truncate">
                           {clip.title}
                         </span>
                         {isSelected && (
-                          <span className="w-2 h-2 rounded-full bg-[#d4af37] animate-ping" />
+                          <span className="w-2 h-2 rounded-full bg-[#A86445] animate-ping" />
                         )}
                       </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400">
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#66737A]">
                         <span>Max {clip.maxCapacityForLayout} guests</span>
-                        <span className="text-[#fae29c] font-medium">{formatTime(clip.durationSec)}</span>
+                        <span className="text-[#A86445] font-semibold">{formatTime(clip.durationSec)}</span>
                       </div>
                     </button>
                   );
@@ -342,7 +354,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </div>
 
             {/* Video Player Display Container */}
-            <div className="relative rounded-2xl overflow-hidden bg-black border border-[#2a3243] shadow-2xl group">
+            <div className="relative rounded-2xl overflow-hidden bg-black border border-[#DDD8CF] shadow-xl group">
               {viewMode === 'video' && (
                 <>
                   <video
@@ -361,25 +373,25 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   {/* Top Bar inside video */}
                   <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between pointer-events-none">
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
+                      <span className="px-2.5 py-1 rounded-md bg-[#A86445] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
                         <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                         4K Ultra-HD Walkthrough
                       </span>
-                      <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-[#fae29c] text-xs font-semibold border border-amber-500/30">
+                      <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-white text-xs font-semibold border border-white/20">
                         {activeClip.title}
                       </span>
                     </div>
 
                     {/* Camera Angle Selector */}
                     <div className="pointer-events-auto flex items-center gap-1 bg-black/70 backdrop-blur-md p-1 rounded-lg border border-white/10 text-xs">
-                      <Compass className="w-3.5 h-3.5 text-[#d4af37] ml-1.5" />
+                      <Compass className="w-3.5 h-3.5 text-[#A86445] ml-1.5" />
                       <select
                         value={selectedCameraAngle}
                         onChange={(e) => setSelectedCameraAngle(e.target.value)}
-                        className="bg-transparent text-gray-200 text-xs px-2 py-0.5 rounded focus:outline-none cursor-pointer"
+                        className="bg-transparent text-white text-xs px-2 py-0.5 rounded focus:outline-none cursor-pointer"
                       >
                         {activeClip.cameraAngles.map((angle) => (
-                          <option key={angle} value={angle} className="bg-[#161a22] text-white">
+                          <option key={angle} value={angle} className="bg-stone-900 text-white">
                             Angle: {angle}
                           </option>
                         ))}
@@ -393,7 +405,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       onClick={togglePlay}
                       className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer"
                     >
-                      <div className="w-20 h-20 rounded-full bg-[#d4af37]/90 text-black flex items-center justify-center shadow-2xl shadow-[#d4af37]/40 transform hover:scale-110 transition-transform">
+                      <div className="w-18 h-18 rounded-full bg-[#A86445] text-white flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform">
                         <Play className="w-8 h-8 fill-current ml-1" />
                       </div>
                     </div>
@@ -404,7 +416,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     {/* Scrubbable Progress Bar with Milestone Markers */}
                     <div className="relative group/timeline py-2 cursor-pointer">
                       <div
-                        className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden relative"
+                        className="h-1.5 w-full bg-white/25 rounded-full overflow-hidden relative"
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
                           const pos = (e.clientX - rect.left) / rect.width;
@@ -412,7 +424,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                         }}
                       >
                         <div
-                          className="h-full bg-gradient-to-r from-[#d4af37] to-[#fae29c] rounded-full transition-all duration-100"
+                          className="h-full bg-[#A86445] rounded-full transition-all duration-100"
                           style={{
                             width: `${((currentTime || 0) / (duration || activeClip.durationSec || 1)) * 100}%`,
                           }}
@@ -428,7 +440,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                             onClick={() => handleSeek(m.timeSec)}
                             title={`${m.label}: ${m.description}`}
                             style={{ left: `${pct}%` }}
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-amber-300 border-2 border-black hover:scale-150 transition-transform"
+                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#A86445] border-2 border-white hover:scale-150 transition-transform shadow-xs"
                           />
                         );
                       })}
@@ -453,25 +465,25 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                           {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
                         </button>
 
-                        <span className="text-gray-300 font-mono">
+                        <span className="text-stone-200 font-mono">
                           {formatTime(currentTime)} / {formatTime(duration || activeClip.durationSec)}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Ambient Lounge Sound Synthesizer toggle */}
+                        {/* Ambient Sound Synthesizer toggle */}
                         <button
                           id="ambient-audio-toggle-btn"
                           onClick={() => setAmbientAudioOn(!ambientAudioOn)}
                           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
                             ambientAudioOn
-                              ? 'bg-[#d4af37] text-black font-semibold'
-                              : 'bg-white/10 text-gray-300 hover:text-white'
+                              ? 'bg-[#A86445] text-white font-semibold'
+                              : 'bg-white/15 text-stone-200 hover:text-white'
                           }`}
-                          title="Toggle ambient jazz cocktail background audio"
+                          title="Toggle ambient background audio"
                         >
                           <Music className="w-3 h-3" />
-                          <span>{ambientAudioOn ? 'Ambient Audio ON' : 'Add Venue Ambience'}</span>
+                          <span>{ambientAudioOn ? 'Ambience ON' : 'Venue Ambience'}</span>
                         </button>
                       </div>
                     </div>
@@ -481,41 +493,41 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
               {/* Floor Plan Blueprint View */}
               {viewMode === 'floorplan' && (
-                <div className="w-full aspect-[16/9] bg-[#0d121c] p-6 flex flex-col justify-between relative overflow-hidden border border-[#2a3854]">
-                  <div className="flex items-center justify-between border-b border-[#1f2b42] pb-3">
+                <div className="w-full aspect-[16/9] bg-[#1F2B33] p-6 flex flex-col justify-between relative overflow-hidden border border-[#2B3942]">
+                  <div className="flex items-center justify-between border-b border-[#2B3942] pb-3">
                     <div>
                       <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
                         Architectural Layout Diagram • {activeClip.title}
                       </h4>
-                      <p className="text-xs text-gray-400">Total usable floor area: {venue.specs.squareFootage.toLocaleString()} sq. ft.</p>
+                      <p className="text-xs text-stone-300">Total usable floor area: {venue.specs.squareFootage.toLocaleString()} sq. ft.</p>
                     </div>
-                    <span className="px-3 py-1 rounded bg-[#d4af37]/20 text-[#fae29c] font-mono text-xs border border-[#d4af37]/40">
+                    <span className="px-3 py-1 rounded bg-[#A86445]/20 text-[#D89B7F] font-mono text-xs border border-[#A86445]/40">
                       SCALE: 1/8" = 1'-0"
                     </span>
                   </div>
 
                   {/* Simulated Blueprint Graphic */}
                   <div className="my-auto py-6 grid grid-cols-3 gap-4 text-center font-mono">
-                    <div className="p-4 rounded-lg bg-[#141b29] border border-dashed border-[#34466d] space-y-1">
-                      <span className="text-xs text-amber-400 block font-bold">ZONE A: RECEPTION</span>
-                      <p className="text-[11px] text-gray-400">Welcome bar & coat check</p>
-                      <span className="text-[10px] text-gray-500">1,800 sq ft</span>
+                    <div className="p-4 rounded-lg bg-[#27353F] border border-dashed border-[#3D505D] space-y-1">
+                      <span className="text-xs text-amber-200 block font-bold">ZONE A: RECEPTION</span>
+                      <p className="text-[11px] text-stone-300">Welcome bar & coat check</p>
+                      <span className="text-[10px] text-stone-400">1,800 sq ft</span>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-[#1b2438] border border-[#d4af37] space-y-1 shadow-lg shadow-[#d4af37]/10">
-                      <span className="text-xs text-[#fae29c] block font-bold">ZONE B: MAIN BALLROOM</span>
-                      <p className="text-[11px] text-gray-300">Dining tables & oak dance floor</p>
-                      <span className="text-[10px] text-[#fae29c]">4,800 sq ft (Cap: {activeClip.maxCapacityForLayout})</span>
+                    <div className="p-4 rounded-lg bg-[#2D3E49] border border-[#A86445] space-y-1 shadow-lg shadow-[#A86445]/10">
+                      <span className="text-xs text-[#D89B7F] block font-bold">ZONE B: MAIN SPACE</span>
+                      <p className="text-[11px] text-stone-200">Main hall & flexible seating</p>
+                      <span className="text-[10px] text-[#D89B7F]">4,800 sq ft (Cap: {activeClip.maxCapacityForLayout})</span>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-[#141b29] border border-dashed border-[#34466d] space-y-1">
-                      <span className="text-xs text-emerald-400 block font-bold">ZONE C: BACKSTAGE & PREP</span>
-                      <p className="text-[11px] text-gray-400">Commercial kitchen & green room</p>
-                      <span className="text-[10px] text-gray-500">1,900 sq ft</span>
+                    <div className="p-4 rounded-lg bg-[#27353F] border border-dashed border-[#3D505D] space-y-1">
+                      <span className="text-xs text-emerald-300 block font-bold">ZONE C: BACKSTAGE & PREP</span>
+                      <p className="text-[11px] text-stone-300">Commercial kitchen & green room</p>
+                      <span className="text-[10px] text-stone-400">1,900 sq ft</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-[#1f2b42]">
+                  <div className="flex items-center justify-between text-xs text-stone-300 pt-3 border-t border-[#2B3942]">
                     <span>Ceiling Clearance: {venue.specs.ceilingHeightFt} ft</span>
                     <span>Restrooms: {venue.specs.restroomCount} Dedicated</span>
                     <span>Emergency Exits: 4 Calibrated</span>
@@ -533,16 +545,16 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-[#d4af37]/30 border border-[#d4af37] flex items-center justify-center text-[#fae29c] animate-bounce">
+                    <div className="w-16 h-16 rounded-full bg-[#A86445]/30 border border-[#A86445] flex items-center justify-center text-white animate-bounce">
                       <Compass className="w-8 h-8" />
                     </div>
-                    <h4 className="text-lg font-bold text-white font-serif-luxury">Interactive 360° Spatial Mode</h4>
-                    <p className="text-xs text-gray-300 max-w-md">
+                    <h4 className="text-lg font-bold text-white tracking-tight">Interactive 360° Spatial Mode</h4>
+                    <p className="text-xs text-stone-200 max-w-md">
                       Drag to look around or schedule a live video walkthrough with host {venue.host.name} to control the pan-tilt-zoom cameras in real time.
                     </p>
                     <button
                       onClick={() => onBookWalkthrough(venue)}
-                      className="px-4 py-2 bg-[#d4af37] text-black font-bold text-xs rounded-xl hover:shadow-lg shadow-[#d4af37]/20"
+                      className="px-4 py-2 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-sm transition-all"
                     >
                       Request Live Camera Control Tour
                     </button>
@@ -552,13 +564,13 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </div>
 
             {/* Layout Milestones & Setup Highlights */}
-            <div className="bg-[#141822] border border-[#252c3c] rounded-2xl p-5 space-y-4">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#d4af37]" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#A86445]" />
                   Walkthrough Key Checkpoints & Layout Highlights
                 </h3>
-                <span className="text-xs text-gray-400 font-medium">Click checkpoint to jump in video</span>
+                <span className="text-xs text-[#66737A] font-medium">Click checkpoint to jump in video</span>
               </div>
 
               {/* Milestones grid */}
@@ -570,28 +582,28 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       setViewMode('video');
                       handleSeek(milestone.timeSec);
                     }}
-                    className="p-3 rounded-xl bg-[#1a1f2c] border border-[#2b3342] text-left hover:border-[#d4af37]/60 hover:bg-[#202738] transition-all group"
+                    className="p-3.5 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-left hover:border-[#A86445] hover:bg-white transition-all group shadow-xs"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-[#fae29c] group-hover:text-white transition-colors">
+                      <span className="text-xs font-bold text-[#A86445] group-hover:text-[#26343D] transition-colors">
                         {milestone.label}
                       </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#10131a] text-gray-400">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#DDD8CF] text-[#66737A]">
                         {formatTime(milestone.timeSec)}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-300 leading-relaxed">{milestone.description}</p>
+                    <p className="text-xs text-[#66737A] leading-relaxed">{milestone.description}</p>
                   </button>
                 ))}
               </div>
 
               {/* Setup Highlights Chips */}
-              <div className="pt-2 border-t border-[#232836] flex items-center gap-2 flex-wrap text-xs">
-                <span className="text-gray-400 font-semibold">Included in this setup:</span>
+              <div className="pt-2 border-t border-[#DDD8CF] flex items-center gap-2 flex-wrap text-xs">
+                <span className="text-[#66737A] font-semibold">Included in this setup:</span>
                 {activeClip.setupHighlights.map((hl, i) => (
                   <span
                     key={i}
-                    className="px-2.5 py-1 rounded-md bg-[#1d2331] text-gray-200 border border-[#2e374a]"
+                    className="px-2.5 py-1 rounded-md bg-[#F4F1EA] text-[#66737A] border border-[#DDD8CF]"
                   >
                     ✓ {hl}
                   </span>
@@ -601,21 +613,21 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
             {/* Photo Gallery Grid */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D]">
                 High-Resolution Gallery ({venue.galleryImages.length} Perspectives)
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {venue.galleryImages.map((img, idx) => (
                   <div
                     key={idx}
-                    className="aspect-[4/3] rounded-xl overflow-hidden border border-[#242c3c] bg-black group relative cursor-pointer"
+                    className="aspect-[4/3] rounded-xl overflow-hidden border border-[#DDD8CF] bg-stone-900 group relative cursor-pointer shadow-xs"
                   >
                     <img
                       src={img}
                       alt={`${venue.name} perspective ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Maximize className="w-5 h-5 text-white" />
                     </div>
                   </div>
@@ -624,20 +636,20 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </div>
 
             {/* Comprehensive Amenities Checklist */}
-            <div className="bg-[#141822] border border-[#252c3c] rounded-2xl p-6 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D]">
                 Venue Amenities & Facilities Included
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {venue.amenities.map((amenity, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-2.5 p-2.5 rounded-xl bg-[#191e2a] border border-[#262f3f]"
+                    className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF]"
                   >
-                    <CheckCircle2 className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
-                      <span className="text-xs font-semibold text-white block">{amenity.name}</span>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{amenity.category}</span>
+                      <span className="text-xs font-semibold text-[#26343D] block">{amenity.name}</span>
+                      <span className="text-[10px] text-[#66737A] uppercase tracking-wider">{amenity.category}</span>
                     </div>
                   </div>
                 ))}
@@ -648,115 +660,126 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
           {/* Right Column: Real-Time Specs, Dynamic Pricing Calculator & Booking Widget */}
           <div className="lg:col-span-4 space-y-6">
             {/* Host Card */}
-            <div className="bg-[#141822] border border-[#283042] rounded-2xl p-5 space-y-4 shadow-xl">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <img
                   src={venue.host.avatar}
                   alt={venue.host.name}
-                  className="w-13 h-13 rounded-full object-cover border-2 border-[#d4af37] shadow-md shadow-[#d4af37]/20"
+                  className="w-13 h-13 rounded-full object-cover border-2 border-[#A86445] shadow-xs"
                 />
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-sm font-bold text-white">{venue.host.name}</h4>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" title="Online now" />
+                    <h4 className="text-sm font-bold text-[#26343D]">{venue.host.name}</h4>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online now" />
                   </div>
-                  <p className="text-xs text-gray-400">{venue.host.title}</p>
-                  <div className="flex items-center gap-1 text-[11px] text-amber-400 font-semibold mt-0.5">
-                    <Star className="w-3 h-3 fill-current" />
+                  <p className="text-xs text-[#66737A]">{venue.host.title}</p>
+                  <div className="flex items-center gap-1 text-[11px] text-[#26343D] font-semibold mt-0.5">
+                    <Star className="w-3 h-3 fill-current text-amber-400" />
                     <span>{venue.host.rating.toFixed(2)} Rating</span>
-                    <span className="text-gray-500">• {venue.host.totalToursConducted} Tours Led</span>
+                    <span className="text-[#66737A]">• {venue.host.totalToursConducted} Tours Led</span>
                   </div>
                 </div>
               </div>
 
-              <p className="text-xs text-gray-300 italic bg-[#181d28] p-3 rounded-xl border border-[#273042] leading-relaxed">
+              <p className="text-xs text-[#66737A] italic bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] leading-relaxed">
                 "{venue.host.bio}"
               </p>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-300 pt-1">
-                <div className="p-2 rounded-lg bg-[#191e2b] border border-[#262f40]">
-                  <span className="text-gray-400 block text-[10px]">Response Time</span>
-                  <span className="font-semibold text-emerald-400">{venue.host.responseTime}</span>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-[#66737A] pt-1">
+                <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
+                  <span className="text-[#66737A] block text-[10px]">Response Time</span>
+                  <span className="font-semibold text-emerald-600">{venue.host.responseTime}</span>
                 </div>
-                <div className="p-2 rounded-lg bg-[#191e2b] border border-[#262f40]">
-                  <span className="text-gray-400 block text-[10px]">Languages</span>
-                  <span className="font-semibold text-white">{venue.host.languages.join(', ')}</span>
+                <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
+                  <span className="text-[#66737A] block text-[10px]">Languages</span>
+                  <span className="font-semibold text-[#26343D]">{venue.host.languages.join(', ')}</span>
                 </div>
               </div>
 
-              {/* Primary Call to Action Button */}
-              <button
-                id="sidebar-book-live-tour-btn"
-                onClick={() => onBookWalkthrough(venue)}
-                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#e5c064] to-[#b38622] text-black font-bold text-sm shadow-xl shadow-[#d4af37]/20 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Book Live Video Walkthrough</span>
-              </button>
+              {/* Primary Call to Action Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  id="sidebar-request-to-book-btn"
+                  onClick={() => onRequestToBook(venue)}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#A86445] text-white font-semibold text-sm shadow-sm hover:bg-[#8F5439] active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Request to Book Space</span>
+                </button>
+
+                <button
+                  id="sidebar-book-live-tour-btn"
+                  onClick={() => onBookWalkthrough(venue)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#DDD8CF] text-[#26343D] font-semibold text-xs hover:bg-[#F4F1EA] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xs"
+                >
+                  <Video className="w-3.5 h-3.5 text-[#A86445]" />
+                  <span>Schedule Live Video Tour</span>
+                </button>
+              </div>
             </div>
 
             {/* Real-Time Venue Policies & Specs */}
-            <div className="bg-[#141822] border border-[#283042] rounded-2xl p-5 space-y-4 shadow-xl">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white border-b border-[#252c3c] pb-2 flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#d4af37]" />
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D] border-b border-[#DDD8CF] pb-2 flex items-center gap-2">
+                <Info className="w-4 h-4 text-[#A86445]" />
                 Operating Specifications & Rules
               </h3>
 
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3.5 text-xs">
                 <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                  <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-gray-200 block">Curfew & Sound Limits</span>
-                    <p className="text-gray-400 text-[11px]">{venue.specs.curfew}</p>
+                    <span className="font-semibold text-[#26343D] block">Curfew & Sound Limits</span>
+                    <p className="text-[#66737A] text-[11px]">{venue.specs.curfew}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
-                  <Car className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                  <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-gray-200 block">Parking & Valet</span>
-                    <p className="text-gray-400 text-[11px]">{venue.specs.parking}</p>
+                    <span className="font-semibold text-[#26343D] block">Parking & Valet</span>
+                    <p className="text-[#66737A] text-[11px]">{venue.specs.parking}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
-                  <Utensils className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                  <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-gray-200 block">Catering Policy</span>
-                    <p className="text-gray-400 text-[11px]">{venue.specs.cateringPolicy}</p>
+                    <span className="font-semibold text-[#26343D] block">Catering Policy</span>
+                    <p className="text-[#66737A] text-[11px]">{venue.specs.cateringPolicy}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
-                  <Wine className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                  <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-gray-200 block">Bar & Alcohol Logistics</span>
-                    <p className="text-gray-400 text-[11px]">{venue.specs.alcoholPolicy}</p>
+                    <span className="font-semibold text-[#26343D] block">Bar & Alcohol Logistics</span>
+                    <p className="text-[#66737A] text-[11px]">{venue.specs.alcoholPolicy}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-[#d4af37] shrink-0 mt-0.5" />
+                  <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-semibold text-gray-200 block">Dedicated Power Supply</span>
-                    <p className="text-gray-400 text-[11px]">{venue.specs.powerSupply}</p>
+                    <span className="font-semibold text-[#26343D] block">Dedicated Power Supply</span>
+                    <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Estimated Event Investment Calculator */}
-            <div className="bg-[#141822] border border-[#283042] rounded-2xl p-5 space-y-4 shadow-xl">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white border-b border-[#252c3c] pb-2 flex items-center justify-between">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D] border-b border-[#DDD8CF] pb-2 flex items-center justify-between">
                 <span>Budget & Package Estimator</span>
-                <span className="text-[#fae29c] font-mono text-[11px]">Instant Estimate</span>
+                <span className="text-[#A86445] font-mono text-[11px] font-semibold">Instant Estimate</span>
               </h3>
 
               {/* Guest Count Slider */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-gray-300">
+                <div className="flex items-center justify-between text-xs text-[#66737A]">
                   <span>Guest Count:</span>
-                  <span className="font-bold text-[#fae29c]">{calcGuests} Guests</span>
+                  <span className="font-bold text-[#A86445]">{calcGuests} Guests</span>
                 </div>
                 <input
                   type="range"
@@ -765,45 +788,45 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   step="10"
                   value={calcGuests}
                   onChange={(e) => setCalcGuests(Number(e.target.value))}
-                  className="w-full h-1.5 bg-[#252c3c] rounded-lg appearance-none cursor-pointer accent-[#d4af37]"
+                  className="w-full h-1.5 bg-[#DDD8CF] rounded-lg appearance-none cursor-pointer accent-[#A86445]"
                 />
               </div>
 
               {/* Date Season selector */}
               <div className="space-y-1.5">
-                <label className="block text-xs text-gray-300">Target Season & Timing</label>
+                <label className="block text-xs text-[#66737A]">Target Season & Timing</label>
                 <select
                   value={calcEventType}
                   onChange={(e) => setCalcEventType(e.target.value as any)}
-                  className="w-full bg-[#181e2b] text-white text-xs p-2.5 rounded-xl border border-[#2b3547] focus:outline-none focus:border-[#d4af37]"
+                  className="w-full bg-[#F4F1EA] text-[#26343D] text-xs p-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#A86445]"
                 >
                   <option value="weekend-peak">Weekend Peak Season (Fri/Sat)</option>
-                  <option value="weekday">Weekday Corporate Rate (Mon-Thu)</option>
+                  <option value="weekday">Weekday Rate (Mon-Thu)</option>
                   <option value="off-season">Off-Peak Season Special Rate</option>
                 </select>
               </div>
 
               {/* Cost Breakdown */}
-              <div className="bg-[#181e2b] rounded-xl p-3.5 space-y-2 text-xs border border-[#263042]">
-                <div className="flex items-center justify-between text-gray-300">
+              <div className="bg-[#F4F1EA] rounded-xl p-3.5 space-y-2 text-xs border border-[#DDD8CF]">
+                <div className="flex items-center justify-between text-[#66737A]">
                   <span>Venue Rental:</span>
-                  <span>${calcPricing.venueRental.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">${calcPricing.venueRental.toLocaleString()}</span>
                 </div>
-                <div className="flex items-center justify-between text-gray-300">
+                <div className="flex items-center justify-between text-[#66737A]">
                   <span>Cleaning & Prep:</span>
-                  <span>${calcPricing.cleaningFee.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">${calcPricing.cleaningFee.toLocaleString()}</span>
                 </div>
-                <div className="flex items-center justify-between text-gray-300">
+                <div className="flex items-center justify-between text-[#66737A]">
                   <span>Est. Catering / Bar Base:</span>
-                  <span>${calcPricing.estimatedHospitality.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">${calcPricing.estimatedHospitality.toLocaleString()}</span>
                 </div>
-                <div className="pt-2 border-t border-[#263042] flex items-center justify-between font-bold text-sm text-white">
+                <div className="pt-2 border-t border-[#DDD8CF] flex items-center justify-between font-bold text-sm text-[#26343D]">
                   <span>Estimated Total:</span>
-                  <span className="text-[#fae29c]">${calcPricing.totalEstimated.toLocaleString()}</span>
+                  <span className="text-[#A86445]">${calcPricing.totalEstimated.toLocaleString()}</span>
                 </div>
               </div>
 
-              <p className="text-[10px] text-gray-500 text-center">
+              <p className="text-[10px] text-[#66737A] text-center">
                 *Official proposals are confirmed after live walkthrough consultation.
               </p>
             </div>

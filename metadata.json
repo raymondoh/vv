@@ -1,6 +1,6 @@
 {
   "name": "VenueStream",
-  "description": "Virtual video walkthrough, 3D tour, and booking platform for wedding, corporate, and luxury event venues.",
+  "description": "Virtual space discovery and remote walkthrough platform for business meetings, conferences, training workshops, weddings, private dining, and events.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

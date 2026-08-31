@@ -10,21 +10,39 @@ import { VenueCard } from './components/VenueCard';
 import { VenueDetailView } from './components/VenueDetailView';
 import { AiVenueMatcher } from './components/AiVenueMatcher';
 import { BookWalkthroughModal } from './components/BookWalkthroughModal';
-import { BookedToursDrawer } from './components/BookedToursDrawer';
 import { LiveMeetingSimulatorModal } from './components/LiveMeetingSimulatorModal';
-import { Venue, FilterState, WalkthroughBooking } from './types';
+import { VenueBookingModal } from './components/VenueBookingModal';
+import { DepositPaymentModal } from './components/DepositPaymentModal';
+import { CustomerEventPlannerModal } from './components/CustomerEventPlannerModal';
+import { MyEventsDrawer } from './components/MyEventsDrawer';
+import { VenueOwnerDashboard } from './components/VenueOwnerDashboard';
+import { PlatformAdminSettingsModal } from './components/PlatformAdminSettingsModal';
+import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig } from './types';
+import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
 import { VENUES } from './data/venues';
-import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight } from 'lucide-react';
+import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight, LayoutDashboard, Sliders } from 'lucide-react';
 
 export default function App() {
   const [venues, setVenues] = useState<Venue[]>(VENUES);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [currentView, setCurrentView] = useState<'customer_discovery' | 'venue_portal'>('customer_discovery');
+
+  // Modals & Drawers
   const [isAiMatcherOpen, setIsAiMatcherOpen] = useState(false);
   const [aiInitialPrompt, setAiInitialPrompt] = useState('');
   const [aiMatchedVenueIds, setAiMatchedVenueIds] = useState<string[]>([]);
-  const [bookingVenue, setBookingVenue] = useState<Venue | null>(null);
-  const [isBookingsDrawerOpen, setIsBookingsDrawerOpen] = useState(false);
+  const [walkthroughBookingVenue, setWalkthroughBookingVenue] = useState<Venue | null>(null);
+  const [requestBookingVenue, setRequestBookingVenue] = useState<Venue | null>(null);
+  const [isEventsHubOpen, setIsEventsHubOpen] = useState(false);
   const [activeLiveSimulatorBooking, setActiveLiveSimulatorBooking] = useState<WalkthroughBooking | null>(null);
+  const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
+
+  // Marketplace Modals
+  const [depositPaymentBooking, setDepositPaymentBooking] = useState<VenueBooking | null>(null);
+  const [plannerBooking, setPlannerBooking] = useState<VenueBooking | null>(null);
+
+  // Marketplace State
+  const [marketplaceConfig, setMarketplaceConfig] = useState<MarketplaceConfig>(DEFAULT_MARKETPLACE_CONFIG);
 
   // Favorites state with localStorage
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -37,7 +55,8 @@ export default function App() {
   });
 
   // Bookings list state with localStorage / server sync
-  const [bookings, setBookings] = useState<WalkthroughBooking[]>([]);
+  const [walkthroughBookings, setWalkthroughBookings] = useState<WalkthroughBooking[]>([]);
+  const [venueBookings, setVenueBookings] = useState<VenueBooking[]>([]);
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -52,26 +71,42 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
 
-  // Fetch initial venues and bookings from backend API
+  // Fetch initial venues, walkthroughs, venue bookings, and marketplace config from backend API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [venuesRes, bookingsRes] = await Promise.all([
+        const [venuesRes, walkthroughsRes, venueBookingsRes, configRes] = await Promise.all([
           fetch('/api/venues'),
           fetch('/api/walkthroughs'),
+          fetch('/api/venue-bookings'),
+          fetch('/api/marketplace/config'),
         ]);
 
         if (venuesRes.ok) {
-          const venuesData = await venuesRes.json();
-          if (venuesData.venues && venuesData.venues.length > 0) {
-            setVenues(venuesData.venues);
+          const data = await venuesRes.json();
+          if (data.venues && data.venues.length > 0) {
+            setVenues(data.venues);
           }
         }
 
-        if (bookingsRes.ok) {
-          const bookingsData = await bookingsRes.json();
-          if (bookingsData.bookings) {
-            setBookings(bookingsData.bookings);
+        if (walkthroughsRes.ok) {
+          const data = await walkthroughsRes.json();
+          if (data.bookings) {
+            setWalkthroughBookings(data.bookings);
+          }
+        }
+
+        if (venueBookingsRes.ok) {
+          const data = await venueBookingsRes.json();
+          if (data.bookings) {
+            setVenueBookings(data.bookings);
+          }
+        }
+
+        if (configRes.ok) {
+          const data = await configRes.json();
+          if (data.config) {
+            setMarketplaceConfig(data.config);
           }
         }
       } catch (err) {
@@ -177,32 +212,109 @@ export default function App() {
     setIsAiMatcherOpen(true);
   };
 
-  const handleBookingConfirmed = (newBooking: WalkthroughBooking) => {
-    setBookings((prev) => [newBooking, ...prev]);
+  const handleWalkthroughConfirmed = (newBooking: WalkthroughBooking) => {
+    setWalkthroughBookings((prev) => [newBooking, ...prev]);
+  };
+
+  const handleVenueBookingSubmitted = (newBooking: VenueBooking) => {
+    setVenueBookings((prev) => [newBooking, ...prev]);
+  };
+
+  const handleUpdateBookingStatus = async (bookingId: string, newStatus: VenueBooking['status']) => {
+    setVenueBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+    );
+
+    try {
+      await fetch(`/api/venue-bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (err) {
+      console.error('Failed to sync booking status with server:', err);
+    }
+  };
+
+  const handleSaveAdminConfig = async (updatedConfig: MarketplaceConfig) => {
+    setMarketplaceConfig(updatedConfig);
+    try {
+      await fetch('/api/marketplace/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedConfig),
+      });
+    } catch (err) {
+      console.error('Failed to sync marketplace config with server:', err);
+    }
+  };
+
+  const handleUpdateBookingRecord = (updatedBooking: VenueBooking) => {
+    setVenueBookings((prev) =>
+      prev.map((b) => (b.id === updatedBooking.id ? updatedBooking : b))
+    );
+    if (depositPaymentBooking?.id === updatedBooking.id) {
+      setDepositPaymentBooking(updatedBooking);
+    }
+    if (plannerBooking?.id === updatedBooking.id) {
+      setPlannerBooking(updatedBooking);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f12] text-gray-100 flex flex-col font-sans selection:bg-[#d4af37] selection:text-black">
+    <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] flex flex-col font-sans selection:bg-[#A86445] selection:text-white">
       {/* Top Navigation */}
       <Navbar
         onOpenAiMatcher={() => {
           setAiInitialPrompt('');
           setIsAiMatcherOpen(true);
         }}
-        onOpenBookings={() => setIsBookingsDrawerOpen(true)}
-        onBackToHome={() => setSelectedVenue(null)}
-        bookings={bookings}
-        activeView={selectedVenue ? 'detail' : 'landing'}
+        onOpenEventsHub={() => setIsEventsHubOpen(true)}
+        onBackToHome={() => {
+          setSelectedVenue(null);
+          setCurrentView('customer_discovery');
+        }}
+        onOpenVenuePortal={() => {
+          setSelectedVenue(null);
+          setCurrentView(currentView === 'venue_portal' ? 'customer_discovery' : 'venue_portal');
+        }}
+        walkthroughBookings={walkthroughBookings}
+        venueBookings={venueBookings}
+        savedCount={favorites.length}
+        activeView={
+          currentView === 'venue_portal'
+            ? 'venue_portal'
+            : selectedVenue
+            ? 'detail'
+            : 'landing'
+        }
       />
 
       {/* Main View Router */}
       <main className="flex-1">
-        {selectedVenue ? (
+        {currentView === 'venue_portal' ? (
+          /* Venue Owner Marketplace Portal */
+          <VenueOwnerDashboard
+            venues={venues}
+            venueBookings={venueBookings}
+            walkthroughBookings={walkthroughBookings}
+            marketplaceConfig={marketplaceConfig}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
+            onOpenLiveSimulator={(booking) => setActiveLiveSimulatorBooking(booking)}
+            onInspectVenue={(venue) => {
+              setSelectedVenue(venue);
+              setCurrentView('customer_discovery');
+            }}
+            onSwitchToCustomerView={() => setCurrentView('customer_discovery')}
+            onOpenAdminSettings={() => setIsAdminSettingsOpen(true)}
+          />
+        ) : selectedVenue ? (
           /* Dedicated Venue Detail & Video Page */
           <VenueDetailView
             venue={selectedVenue}
             onBack={() => setSelectedVenue(null)}
-            onBookWalkthrough={(venue) => setBookingVenue(venue)}
+            onBookWalkthrough={(venue) => setWalkthroughBookingVenue(venue)}
+            onRequestToBook={(venue) => setRequestBookingVenue(venue)}
             isFavorited={favorites.includes(selectedVenue.id)}
             onToggleFavorite={handleToggleFavorite}
           />
@@ -221,20 +333,20 @@ export default function App() {
             {/* Venues Grid Directory Section */}
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 space-y-6">
               {/* Directory Subheader */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#232836] pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DDD8CF] pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setActiveTab('all')}
                       className={`text-sm font-bold pb-1 transition-colors relative ${
                         activeTab === 'all'
-                          ? 'text-white'
-                          : 'text-gray-400 hover:text-gray-200'
+                          ? 'text-[#26343D]'
+                          : 'text-[#66737A] hover:text-[#26343D]'
                       }`}
                     >
                       All Venues ({filteredVenues.length})
                       {activeTab === 'all' && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#d4af37]" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A86445]" />
                       )}
                     </button>
 
@@ -242,45 +354,45 @@ export default function App() {
                       onClick={() => setActiveTab('favorites')}
                       className={`text-sm font-bold pb-1 transition-colors relative flex items-center gap-1.5 ${
                         activeTab === 'favorites'
-                          ? 'text-white'
-                          : 'text-gray-400 hover:text-gray-200'
+                          ? 'text-[#26343D]'
+                          : 'text-[#66737A] hover:text-[#26343D]'
                       }`}
                     >
-                      <Heart className="w-3.5 h-3.5 text-rose-400 fill-current" />
+                      <Heart className="w-3.5 h-3.5 text-rose-500 fill-current" />
                       <span>Saved ({favorites.length})</span>
                       {activeTab === 'favorites' && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#d4af37]" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#A86445]" />
                       )}
                     </button>
                   </div>
                 </div>
 
-                {/* AI Concierge Trigger Banner */}
+                {/* Intelligent Search Prompt Banner */}
                 <div
                   onClick={() => setIsAiMatcherOpen(true)}
-                  className="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-[#292212] via-[#1d180d] to-[#161a22] border border-[#d4af37]/40 hover:border-[#d4af37] transition-all flex items-center gap-2.5 text-xs text-[#fae29c] shadow-md shadow-[#d4af37]/10"
+                  className="cursor-pointer px-3.5 py-2 rounded-xl bg-white border border-[#DDD8CF] hover:border-[#26343D] transition-all flex items-center gap-2.5 text-xs text-[#26343D] shadow-xs"
                 >
-                  <Sparkles className="w-4 h-4 text-[#e5c064] shrink-0" />
-                  <span>Looking for specific acoustics or styling? <strong>Ask AI Matcher</strong></span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#e5c064]" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
+                  <span className="text-[#66737A]">Looking for specific floor plans or capacity? <strong className="text-[#26343D] font-semibold underline underline-offset-2">Ask Intelligent Matcher</strong></span>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#66737A]" />
                 </div>
               </div>
 
               {/* Venue Cards Grid */}
               {filteredVenues.length === 0 ? (
-                <div className="py-20 text-center space-y-4 bg-[#141822] rounded-2xl border border-[#262c3b] max-w-xl mx-auto p-8">
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-[#1c2230] border border-[#2f394c] flex items-center justify-center text-gray-400">
-                    <Filter className="w-6 h-6 text-gray-500" />
+                <div className="py-20 text-center space-y-4 bg-white rounded-2xl border border-[#DDD8CF] max-w-xl mx-auto p-8 shadow-xs">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-[#F4F1EA] border border-[#DDD8CF] flex items-center justify-center text-[#A86445]">
+                    <Filter className="w-6 h-6 text-[#A86445]" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">No Matching Venues Found</h3>
-                    <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-                      Try expanding your capacity slider, adjusting the city filter, or reset your search parameters.
+                    <h3 className="text-base font-bold text-[#26343D]">No Matching Venues Found</h3>
+                    <p className="text-xs text-[#66737A] mt-1 max-w-sm mx-auto leading-relaxed">
+                      Try expanding your capacity slider, adjusting the location filter, or reset your search parameters.
                     </p>
                   </div>
                   <button
                     onClick={handleResetFilters}
-                    className="px-4 py-2 bg-[#d4af37] text-black font-semibold text-xs rounded-xl hover:brightness-110"
+                    className="px-4 py-2 bg-[#26343D] text-white font-semibold text-xs rounded-xl hover:bg-[#1E2930] shadow-xs"
                   >
                     Reset All Filters
                   </button>
@@ -292,7 +404,7 @@ export default function App() {
                       key={venue.id}
                       venue={venue}
                       onSelectVenue={(v) => setSelectedVenue(v)}
-                      onBookWalkthrough={(v) => setBookingVenue(v)}
+                      onBookWalkthrough={(v) => setWalkthroughBookingVenue(v)}
                       isFavorited={favorites.includes(venue.id)}
                       onToggleFavorite={handleToggleFavorite}
                       isAiMatched={aiMatchedVenueIds.includes(venue.id)}
@@ -318,29 +430,86 @@ export default function App() {
       />
 
       {/* Book a Live Walkthrough Modal */}
-      {bookingVenue && (
+      {walkthroughBookingVenue && (
         <BookWalkthroughModal
-          venue={bookingVenue}
+          venue={walkthroughBookingVenue}
           isOpen={true}
-          onClose={() => setBookingVenue(null)}
-          onBookingConfirmed={handleBookingConfirmed}
+          onClose={() => setWalkthroughBookingVenue(null)}
+          onBookingConfirmed={handleWalkthroughConfirmed}
           onOpenLiveSimulator={(booking) => {
-            setBookingVenue(null);
+            setWalkthroughBookingVenue(null);
             setActiveLiveSimulatorBooking(booking);
           }}
         />
       )}
 
-      {/* Booked Tours Slide-Over Drawer */}
-      <BookedToursDrawer
-        isOpen={isBookingsDrawerOpen}
-        onClose={() => setIsBookingsDrawerOpen(false)}
-        bookings={bookings}
+      {/* Venue Marketplace Booking Modal (Request to Book) */}
+      {requestBookingVenue && (
+        <VenueBookingModal
+          venue={requestBookingVenue}
+          isOpen={true}
+          onClose={() => setRequestBookingVenue(null)}
+          onBookingSubmitted={handleVenueBookingSubmitted}
+        />
+      )}
+
+      {/* Customer Events & Walkthroughs Hub Drawer */}
+      <MyEventsDrawer
+        isOpen={isEventsHubOpen}
+        onClose={() => setIsEventsHubOpen(false)}
+        venueBookings={venueBookings}
+        walkthroughBookings={walkthroughBookings}
         onOpenLiveSimulator={(booking) => {
-          setIsBookingsDrawerOpen(false);
+          setIsEventsHubOpen(false);
           setActiveLiveSimulatorBooking(booking);
         }}
+        onOpenDepositModal={(booking) => {
+          setIsEventsHubOpen(false);
+          setDepositPaymentBooking(booking);
+        }}
+        onOpenEventPlanner={(booking) => {
+          setIsEventsHubOpen(false);
+          setPlannerBooking(booking);
+        }}
+        onExploreVenue={(venueId) => {
+          const v = venues.find((x) => x.id === venueId);
+          if (v) {
+            setSelectedVenue(v);
+            setCurrentView('customer_discovery');
+          }
+        }}
       />
+
+      {/* Simulated Deposit Payment Modal */}
+      {depositPaymentBooking && (
+        <DepositPaymentModal
+          booking={depositPaymentBooking}
+          isOpen={true}
+          onClose={() => setDepositPaymentBooking(null)}
+          onPaymentCompleted={handleUpdateBookingRecord}
+        />
+      )}
+
+      {/* Customer Event Planner Modal */}
+      {plannerBooking && (
+        <CustomerEventPlannerModal
+          booking={plannerBooking}
+          isOpen={true}
+          onClose={() => setPlannerBooking(null)}
+          onUpdateBooking={handleUpdateBookingRecord}
+          onOpenDepositModal={(booking) => {
+            setPlannerBooking(null);
+            setDepositPaymentBooking(booking);
+          }}
+          onExploreWalkthrough={(venueId) => {
+            const v = venues.find((x) => x.id === venueId);
+            if (v) {
+              setSelectedVenue(v);
+              setCurrentView('customer_discovery');
+            }
+          }}
+        />
+      )}
 
       {/* Live Video Walkthrough Call Simulator Modal */}
       {activeLiveSimulatorBooking && (
@@ -351,32 +520,63 @@ export default function App() {
         />
       )}
 
-      {/* Luxury Footer */}
-      <footer className="border-t border-[#232731] bg-[#090b0e] py-12 text-gray-400 text-xs">
+      {/* Platform Admin Commercial Settings Modal */}
+      <PlatformAdminSettingsModal
+        isOpen={isAdminSettingsOpen}
+        onClose={() => setIsAdminSettingsOpen(false)}
+        currentConfig={marketplaceConfig}
+        onSaveConfig={handleSaveAdminConfig}
+      />
+
+      {/* Editorial Footer */}
+      <footer className="border-t border-[#DDD8CF] bg-[#F4F1EA] py-12 text-[#66737A] text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="space-y-1 text-center sm:text-left">
             <div className="flex items-center justify-center sm:justify-start gap-2">
-              <span className="text-base font-bold text-white font-serif-luxury tracking-tight">
-                Venue<span className="text-[#e5c064]">Stream</span>
+              <span className="text-base font-bold text-[#26343D] tracking-tight">
+                Venue<span className="text-[#A86445]">Stream</span>
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-[#d4af37]/20 text-[#fae29c] font-semibold">
-                4K Virtual Tours
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-[#66737A] border border-[#DDD8CF] font-medium">
+                Marketplace Prototype
               </span>
             </div>
-            <p className="text-[11px] text-gray-500">
-              The premier virtual walkthrough & booking network for weddings, corporate galas & luxury events.
+            <p className="text-[11px] text-[#66737A]">
+              Two-sided virtual inspection and venue booking marketplace for business meetings, conferences, private dining, training, and events.
             </p>
           </div>
 
-          <div className="flex items-center gap-6 text-gray-400">
-            <button onClick={() => setSelectedVenue(null)} className="hover:text-white transition-colors">
-              Directory
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 text-[#66737A]">
+            <button
+              onClick={() => {
+                setSelectedVenue(null);
+                setCurrentView('customer_discovery');
+              }}
+              className="hover:text-[#26343D] transition-colors"
+            >
+              Browse Directory
             </button>
-            <button onClick={() => setIsAiMatcherOpen(true)} className="hover:text-white transition-colors">
-              AI Matcher
+            <button onClick={() => setIsAiMatcherOpen(true)} className="hover:text-[#26343D] transition-colors">
+              Smart Match
             </button>
-            <button onClick={() => setIsBookingsDrawerOpen(true)} className="hover:text-white transition-colors">
-              My Walkthroughs
+            <button onClick={() => setIsEventsHubOpen(true)} className="hover:text-[#26343D] transition-colors">
+              My Events ({venueBookings.length + walkthroughBookings.length})
+            </button>
+            <button
+              onClick={() => {
+                setSelectedVenue(null);
+                setCurrentView('venue_portal');
+              }}
+              className="font-semibold text-[#A86445] hover:text-[#8F5439] transition-colors"
+            >
+              Venue Owner Portal
+            </button>
+            <button
+              id="footer-admin-rules-btn"
+              onClick={() => setIsAdminSettingsOpen(true)}
+              className="inline-flex items-center gap-1 text-[11px] text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF] bg-white px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+            >
+              <Sliders className="w-3 h-3 text-[#A86445]" />
+              <span>Admin Rules</span>
             </button>
           </div>
         </div>
@@ -384,3 +584,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -13,8 +13,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Fulton Market / West Loop',
       zipCode: '60607',
     },
-    eventTypes: ['wedding', 'corporate', 'gala', 'party'],
-    aesthetic: 'Industrial Chic & Botanical Modern',
+    eventTypes: ['meetings-conferences', 'weddings', 'parties-celebrations', 'training-workshops', 'exhibitions-events', 'corporate'],
+    aesthetic: 'Industrial Glasshouse & Heritage Brick',
     capacity: {
       cocktail: 350,
       seatedBanquet: 240,
@@ -160,7 +160,7 @@ export const VENUES: Venue[] = [
     id: 'chateau-de-mirabelle',
     name: 'Château de Mirabelle',
     tagline: 'Neoclassical vineyard estate overlooking Napa Valley hillside estates',
-    description: 'Perched high above the valley floor in St. Helena, Château de Mirabelle blends French architectural heritage with modern California luxury. Surrounded by 45 acres of premier Cabernet vineyards, limestone colonnades, and sunset infinity terraces.',
+    description: 'Perched high above the valley floor in St. Helena, Château de Mirabelle blends French architectural heritage with modern California indoor-outdoor spaces. Surrounded by 45 acres of hillside vineyards, limestone colonnades, and sunset infinity terraces for private dinners, conferences, and celebrations.',
     location: {
       city: 'Napa Valley',
       state: 'CA',
@@ -168,8 +168,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'St. Helena Hillside',
       zipCode: '94574',
     },
-    eventTypes: ['wedding', 'gala', 'corporate'],
-    aesthetic: 'French Vineyard & Neoclassical Estate',
+    eventTypes: ['weddings', 'private-dining', 'parties-celebrations', 'meetings-conferences', 'corporate'],
+    aesthetic: 'French Vineyard & Hillside Colonnade',
     capacity: {
       cocktail: 280,
       seatedBanquet: 200,
@@ -285,7 +285,7 @@ export const VENUES: Venue[] = [
     id: 'the-penthouse-at-54th',
     name: 'The Penthouse at 54th',
     tagline: 'Manhattan skyline glass aerie with wrap-around cantilevered sky terrace',
-    description: 'Floating 54 stories above Midtown Manhattan, this ultra-luxury venue features panoramic 360-degree views of the Empire State Building, Central Park, and Hudson River. Equipped with futuristic kinetic LED ceilings, glass fireplaces, and helicopter transfer coordination.',
+    description: 'Floating 54 stories above Midtown Manhattan, this architectural glass aerie features panoramic 360-degree views of the Empire State Building, Central Park, and Hudson River. Equipped with configurable acoustic systems, executive board layouts, and wrap-around sky terrace.',
     location: {
       city: 'New York',
       state: 'NY',
@@ -293,8 +293,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Midtown / Central Park South',
       zipCode: '10019',
     },
-    eventTypes: ['corporate', 'party', 'gala', 'wedding'],
-    aesthetic: 'Ultra-Modern Skyline & High Glamour',
+    eventTypes: ['meetings-conferences', 'private-dining', 'parties-celebrations', 'exhibitions-events', 'corporate'],
+    aesthetic: 'Modern Skyline & Architectural Glass',
     capacity: {
       cocktail: 220,
       seatedBanquet: 140,
@@ -417,8 +417,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Barton Creek / South Congress Outskirts',
       zipCode: '78735',
     },
-    eventTypes: ['wedding', 'party', 'corporate', 'gala'],
-    aesthetic: 'Neo-Victorian Botanical & Hill Country Elegance',
+    eventTypes: ['weddings', 'parties-celebrations', 'meetings-conferences', 'training-workshops', 'corporate'],
+    aesthetic: 'Neo-Victorian Botanical & Open Timber',
     capacity: {
       cocktail: 400,
       seatedBanquet: 280,
@@ -515,8 +515,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Pioneer Square',
       zipCode: '98104',
     },
-    eventTypes: ['corporate', 'party', 'wedding', 'gala'],
-    aesthetic: 'Industrial Vault & Pacific Northwest Architectural',
+    eventTypes: ['exhibitions-events', 'meetings-conferences', 'training-workshops', 'parties-celebrations', 'corporate'],
+    aesthetic: 'Industrial Vault & Modern Concrete',
     capacity: {
       cocktail: 300,
       seatedBanquet: 180,
@@ -605,7 +605,7 @@ export const VENUES: Venue[] = [
     id: 'villa-bellisima-riviera',
     name: 'Villa Bellisima Riviera',
     tagline: 'Waterfront Mediterranean palazzo with private yacht dock and infinity pool terrace',
-    description: 'Situated along the private Biscayne Bay waterways in Miami, Villa Bellisima is a coastal paradise featuring Italian travertine marble, arched loggias, swaying royal palms, and a deep-water dock capable of receiving guest yachts up to 130 feet.',
+    description: 'Situated along the Biscayne Bay waterways in Miami, Villa Bellisima features Italian travertine marble, arched loggias, palm courtyards, and deep-water dock access for private corporate retreats, dinners, and events.',
     location: {
       city: 'Miami',
       state: 'FL',
@@ -613,8 +613,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Coconut Grove / Bayfront',
       zipCode: '33133',
     },
-    eventTypes: ['wedding', 'party', 'gala', 'corporate'],
-    aesthetic: 'Mediterranean Coastal Villa & Yacht Haven',
+    eventTypes: ['weddings', 'private-dining', 'parties-celebrations', 'meetings-conferences', 'corporate'],
+    aesthetic: 'Mediterranean Waterfront & Travertine Loggia',
     capacity: {
       cocktail: 350,
       seatedBanquet: 220,
@@ -711,8 +711,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Red Mountain / Alpine Vista',
       zipCode: '81611',
     },
-    eventTypes: ['wedding', 'corporate', 'gala', 'party'],
-    aesthetic: 'Alpine Luxury & Modern Timber Architecture',
+    eventTypes: ['meetings-conferences', 'training-workshops', 'weddings', 'private-dining', 'corporate'],
+    aesthetic: 'Alpine Timber & Panoramic Mountain Glass',
     capacity: {
       cocktail: 260,
       seatedBanquet: 180,
@@ -801,7 +801,7 @@ export const VENUES: Venue[] = [
     id: 'metropolitan-hall-of-arts',
     name: 'Metropolitan Hall of Arts',
     tagline: 'Soaring Beaux-Arts architectural landmark with monumental Corinthian colonnades',
-    description: 'An iconic historic landmark in San Francisco’s Civic Center. Featuring 45-foot gilded ceilings, imported Italian terrazzo marble floors, acoustic perfection, and grand rotunda balconies, this venue hosts monumental galas, tech conferences, and black-tie wedding receptions.',
+    description: 'An iconic architectural landmark in San Francisco’s Civic Center. Featuring 45-foot ceilings, imported Italian terrazzo marble floors, acoustic precision, and grand rotunda balconies, this venue accommodates tech conferences, exhibitions, symposia, and formal banquets.',
     location: {
       city: 'San Francisco',
       state: 'CA',
@@ -809,8 +809,8 @@ export const VENUES: Venue[] = [
       neighborhood: 'Civic Center / Symphony Hall District',
       zipCode: '94102',
     },
-    eventTypes: ['wedding', 'corporate', 'gala'],
-    aesthetic: 'Historic Beaux-Arts & Monumental Grandeur',
+    eventTypes: ['exhibitions-events', 'meetings-conferences', 'weddings', 'parties-celebrations', 'corporate'],
+    aesthetic: 'Monumental Beaux-Arts & Colonnade Hall',
     capacity: {
       cocktail: 550,
       seatedBanquet: 380,
