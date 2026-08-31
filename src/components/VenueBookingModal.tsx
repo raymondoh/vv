@@ -23,6 +23,7 @@ interface VenueBookingModalProps {
   onBookingSubmitted: (booking: VenueBooking) => void;
   selectedLayoutCategory?: LayoutCategory;
   marketplaceConfig?: MarketplaceConfig;
+  onViewInMyEvents?: () => void;
 }
 
 export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
@@ -32,6 +33,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   onBookingSubmitted,
   selectedLayoutCategory,
   marketplaceConfig = DEFAULT_MARKETPLACE_CONFIG,
+  onViewInMyEvents,
 }) => {
   const [step, setStep] = useState<'details' | 'contact' | 'review' | 'confirmed'>('details');
   const [loading, setLoading] = useState(false);
@@ -582,11 +584,24 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                {onViewInMyEvents && (
+                  <button
+                    id="view-booking-in-my-events-btn"
+                    onClick={() => {
+                      onClose();
+                      onViewInMyEvents();
+                    }}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>View in My Events</span>
+                  </button>
+                )}
                 <button
                   id="close-booking-success-btn"
                   onClick={onClose}
-                  className="px-6 py-2.5 bg-[#26343D] text-white font-semibold text-xs rounded-xl hover:bg-[#1E2930] shadow-xs transition-all"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-[#26343D] text-white font-semibold text-xs rounded-xl hover:bg-[#1E2930] shadow-xs transition-all"
                 >
                   Done
                 </button>

@@ -45,7 +45,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   onInspectVenue,
   onSwitchToCustomerView,
 }) => {
-  const [selectedVenueId, setSelectedVenueId] = useState<string>('the-glasshouse-luminary');
+  const [selectedVenueId, setSelectedVenueId] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'bookings' | 'walkthroughs' | 'spaces'>('bookings');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
 
@@ -78,6 +78,9 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   const allVenueBookings = selectedVenueId === 'all'
     ? venueBookings
     : venueBookings.filter((b) => b.venueId === selectedVenueId);
+
+  // Prominent global pending requests queue across all managed properties
+  const globalPendingRequests = venueBookings.filter((b) => b.status === 'requested');
 
   const activeBookings = allVenueBookings.filter(
     (b) => b.status !== 'cancelled' && b.status !== 'declined'
@@ -122,10 +125,10 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
               onChange={(e) => setSelectedVenueId(e.target.value)}
               className="w-full sm:w-auto bg-white/10 hover:bg-white/15 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#A86445] cursor-pointer"
             >
+              <option value="all" className="text-[#26343D]">All Managed Venues ({venues.length} properties)</option>
               <option value="the-glasshouse-luminary" className="text-[#26343D]">The Glasshouse Luminary (Chicago)</option>
               <option value="chateau-de-mirabelle" className="text-[#26343D]">Château de Mirabelle (Napa)</option>
               <option value="the-foundry-machine-shop" className="text-[#26343D]">The Foundry Machine Shop (Seattle)</option>
-              <option value="all" className="text-[#26343D]">All Venues Overview</option>
             </select>
           </div>
 
@@ -200,6 +203,152 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             {filteredWalkthroughs.length} scheduled live walkthroughs
           </div>
         </div>
+      </div>
+
+      {/* Prominent Host Area: New Booking Requests Queue */}
+      <div className="bg-white border-2 border-[#A86445]/40 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DDD8CF] pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#F3E7DF] border border-[#A86445]/30 flex items-center justify-center text-[#A86445]">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#26343D] flex items-center gap-2">
+                <span>New Booking Requests Queue</span>
+                {globalPendingRequests.length > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#A86445] text-white">
+                    {globalPendingRequests.length} Awaiting Host Review
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    All Caught Up
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-[#66737A]">
+                Incoming reservation requests across all properties. Review customer specs and accept to request initial deposit or decline.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {globalPendingRequests.length === 0 ? (
+          <div className="p-6 text-center bg-[#F4F1EA]/60 rounded-xl border border-[#DDD8CF] text-xs text-[#66737A] space-y-1">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto" />
+            <p className="font-semibold text-[#26343D]">No New Booking Requests Pending Review</p>
+            <p>When customers submit booking requests for any of your venues, they will instantly appear here for one-click review and acceptance.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {globalPendingRequests.map((request) => {
+              const reqCommission = Math.round((request.grossAmount * commissionRate) / 100);
+              const reqNet = request.grossAmount - reqCommission;
+
+              return (
+                <div
+                  key={request.id}
+                  id={`pending-request-card-${request.id}`}
+                  className="bg-[#F4F1EA] border border-[#A86445]/40 rounded-xl p-4 sm:p-5 space-y-4 shadow-xs"
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                    {/* Customer & Space Identification */}
+                    <div className="flex items-start gap-3.5">
+                      <img
+                        src={request.venueImage}
+                        alt={request.venueName}
+                        className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider bg-[#A86445] text-white px-2 py-0.5 rounded">
+                            New Request
+                          </span>
+                          <span className="text-xs font-mono text-[#66737A]">{request.bookingNumber}</span>
+                        </div>
+                        <h3 className="text-sm sm:text-base font-bold text-[#26343D]">
+                          {request.clientName} {request.clientCompany ? `• ${request.clientCompany}` : ''}
+                        </h3>
+                        <p className="text-xs text-[#66737A]">
+                          Requested Space: <strong className="text-[#26343D]">{request.venueName}</strong> ({request.venueLocation})
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Financial Payout Summary */}
+                    <div className="bg-white p-3 rounded-xl border border-[#DDD8CF] text-xs min-w-[240px] space-y-1">
+                      <div className="flex justify-between text-[#66737A]">
+                        <span>Space Hire (Gross):</span>
+                        <strong className="text-[#26343D]">${request.grossAmount.toLocaleString()}</strong>
+                      </div>
+                      <div className="flex justify-between text-[#A86445]">
+                        <span>Commission ({commissionRate}%):</span>
+                        <span>-${reqCommission.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-800 font-bold pt-1 border-t border-[#DDD8CF]">
+                        <span>Expected Net Payout:</span>
+                        <span>${reqNet.toLocaleString()}</span>
+                      </div>
+                      <div className="text-[10px] text-[#66737A] pt-0.5 flex justify-between">
+                        <span>Client Deposit:</span>
+                        <span className="font-semibold text-[#26343D]">${request.depositAmount.toLocaleString()} ({request.depositPercentage}%)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Event Specifics Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-white p-3 rounded-xl border border-[#DDD8CF]">
+                    <div>
+                      <span className="text-[#66737A] block">Date & Timing:</span>
+                      <strong className="text-[#26343D]">{request.eventDate} ({request.startTime} – {request.endTime})</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#66737A] block">Event Type & Attendance:</span>
+                      <strong className="text-[#26343D] capitalize">{request.eventType} ({request.guestCount} guests)</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#66737A] block">Selected Layout:</span>
+                      <strong className="text-[#26343D] truncate block">{request.selectedLayout}</strong>
+                    </div>
+                    {request.specialRequirements && (
+                      <div className="sm:col-span-3 pt-1 border-t border-[#DDD8CF]">
+                        <span className="text-[#66737A] block">Customer Requirements:</span>
+                        <span className="text-[#26343D] italic">"{request.specialRequirements}"</span>
+                      </div>
+                    )}
+                    <div className="sm:col-span-3 pt-1 border-t border-[#DDD8CF] flex flex-wrap items-center justify-between text-[11px] text-[#66737A]">
+                      <span>Customer Contact: {request.clientEmail} • {request.clientPhone}</span>
+                      <span>Submitted: {new Date(request.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+
+                  {/* Real Action Buttons for Host */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <span className="text-xs text-[#66737A]">
+                      Accepting confirms space availability and automatically prompts the customer to pay their {request.depositPercentage}% deposit.
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        id={`queue-accept-booking-btn-${request.id}`}
+                        onClick={() => onUpdateBookingStatus(request.id, 'deposit_due')}
+                        className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Accept Booking Request</span>
+                      </button>
+                      <button
+                        id={`queue-decline-booking-btn-${request.id}`}
+                        onClick={() => onUpdateBookingStatus(request.id, 'declined')}
+                        className="px-3.5 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl hover:bg-rose-50 active:scale-95 transition-all"
+                      >
+                        Decline Request
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Commercial Terms & Marketplace Policy Box */}

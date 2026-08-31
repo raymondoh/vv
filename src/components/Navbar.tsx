@@ -6,11 +6,11 @@ interface NavbarProps {
   onOpenAiMatcher: () => void;
   onOpenEventsHub: () => void;
   onBackToHome: () => void;
-  onSelectRole: (role: 'customer_discovery' | 'venue_portal' | 'platform_admin') => void;
+  onSelectRole: (role: 'customer_discovery' | 'my_events' | 'venue_portal' | 'platform_admin') => void;
   walkthroughBookings: WalkthroughBooking[];
   venueBookings: VenueBooking[];
   savedCount: number;
-  activeView: 'landing' | 'detail' | 'venue_portal' | 'platform_admin';
+  activeView: 'landing' | 'detail' | 'my_events' | 'venue_portal' | 'platform_admin';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -24,6 +24,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeView,
 }) => {
   const totalCustomerItems = venueBookings.length + walkthroughBookings.length;
+  const pendingActionsCount = venueBookings.filter(
+    (b) => b.status === 'deposit_due' || b.status === 'final_payment_due'
+  ).length;
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-[#F4F1EA]/95 border-b border-[#DDD8CF] shadow-xs">
@@ -63,17 +66,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Smart Match</span>
           </button>
 
-          {/* Customer Hub: My Events / Bookings */}
+          {/* Customer Hub: My Events / Full-Page Dashboard */}
           <button
             id="nav-my-events-btn"
             onClick={onOpenEventsHub}
-            className="relative flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-[#26343D] bg-white border border-[#DDD8CF] rounded-xl hover:bg-[#F4F1EA] hover:border-[#26343D] shadow-xs transition-all active:scale-95"
+            className={`relative flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl shadow-xs transition-all active:scale-95 border ${
+              activeView === 'my_events'
+                ? 'bg-[#26343D] text-white border-[#26343D]'
+                : 'bg-white text-[#26343D] border-[#DDD8CF] hover:bg-[#F4F1EA] hover:border-[#26343D]'
+            }`}
           >
-            <Calendar className="w-4 h-4 text-[#66737A]" />
+            <Calendar className={`w-4 h-4 ${activeView === 'my_events' ? 'text-white' : 'text-[#66737A]'}`} />
             <span className="hidden sm:inline">My Events</span>
             <span className="sm:hidden">Events</span>
             {totalCustomerItems > 0 && (
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold bg-[#A86445] text-white rounded-full min-w-[18px] shadow-xs">
+              <span
+                className={`inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold rounded-full min-w-[18px] shadow-xs ${
+                  pendingActionsCount > 0
+                    ? 'bg-amber-500 text-white animate-pulse'
+                    : activeView === 'my_events'
+                    ? 'bg-[#A86445] text-white'
+                    : 'bg-[#A86445] text-white'
+                }`}
+              >
                 {totalCustomerItems}
               </span>
             )}

@@ -14,6 +14,7 @@ import { LiveMeetingSimulatorModal } from './components/LiveMeetingSimulatorModa
 import { VenueBookingModal } from './components/VenueBookingModal';
 import { DepositPaymentModal } from './components/DepositPaymentModal';
 import { CustomerEventPlannerModal } from './components/CustomerEventPlannerModal';
+import { CustomerDashboard } from './components/CustomerDashboard';
 import { MyEventsDrawer } from './components/MyEventsDrawer';
 import { VenueOwnerDashboard } from './components/VenueOwnerDashboard';
 import { PlatformAdminDashboard } from './components/PlatformAdminDashboard';
@@ -26,7 +27,7 @@ import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, Arrow
 export default function App() {
   const [venues, setVenues] = useState<Venue[]>(VENUES);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [currentView, setCurrentView] = useState<'customer_discovery' | 'venue_portal' | 'platform_admin'>('customer_discovery');
+  const [currentView, setCurrentView] = useState<'customer_discovery' | 'my_events' | 'venue_portal' | 'platform_admin'>('customer_discovery');
 
   // Modals & Drawers
   const [isAiMatcherOpen, setIsAiMatcherOpen] = useState(false);
@@ -270,7 +271,10 @@ export default function App() {
           setAiInitialPrompt('');
           setIsAiMatcherOpen(true);
         }}
-        onOpenEventsHub={() => setIsEventsHubOpen(true)}
+        onOpenEventsHub={() => {
+          setSelectedVenue(null);
+          setCurrentView('my_events');
+        }}
         onBackToHome={() => {
           setSelectedVenue(null);
           setCurrentView('customer_discovery');
@@ -287,6 +291,8 @@ export default function App() {
             ? 'venue_portal'
             : currentView === 'platform_admin'
             ? 'platform_admin'
+            : currentView === 'my_events'
+            ? 'my_events'
             : selectedVenue
             ? 'detail'
             : 'landing'
@@ -323,6 +329,35 @@ export default function App() {
             }}
             onSwitchToCustomerView={() => setCurrentView('customer_discovery')}
             onOpenAdminSettings={() => setIsAdminSettingsOpen(true)}
+          />
+        ) : currentView === 'my_events' ? (
+          /* Dedicated Full-Page Customer Dashboard */
+          <CustomerDashboard
+            venueBookings={venueBookings}
+            walkthroughBookings={walkthroughBookings}
+            savedVenues={venues.filter((v) => favorites.includes(v.id))}
+            marketplaceConfig={marketplaceConfig}
+            onOpenDepositModal={(booking) => setDepositPaymentBooking(booking)}
+            onOpenEventPlanner={(booking) => setPlannerBooking(booking)}
+            onOpenLiveSimulator={(booking) => setActiveLiveSimulatorBooking(booking)}
+            onExploreVenue={(venueId) => {
+              const v = venues.find((x) => x.id === venueId);
+              if (v) {
+                setSelectedVenue(v);
+                setCurrentView('customer_discovery');
+              }
+            }}
+            onBrowseVenues={() => {
+              setSelectedVenue(null);
+              setCurrentView('customer_discovery');
+            }}
+            onOpenAiMatcher={() => {
+              setAiInitialPrompt('');
+              setIsAiMatcherOpen(true);
+            }}
+            onRequestToBookVenue={(venue) => setRequestBookingVenue(venue)}
+            onToggleFavorite={handleToggleFavorite}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         ) : selectedVenue ? (
           /* Dedicated Venue Detail & Video Page */
@@ -466,6 +501,10 @@ export default function App() {
           isOpen={true}
           onClose={() => setRequestBookingVenue(null)}
           onBookingSubmitted={handleVenueBookingSubmitted}
+          onViewInMyEvents={() => {
+            setSelectedVenue(null);
+            setCurrentView('my_events');
+          }}
           marketplaceConfig={marketplaceConfig}
         />
       )}
@@ -580,7 +619,14 @@ export default function App() {
             <button onClick={() => setIsAiMatcherOpen(true)} className="hover:text-[#26343D] transition-colors">
               Smart Match
             </button>
-            <button onClick={() => setIsEventsHubOpen(true)} className="hover:text-[#26343D] transition-colors">
+            <button
+              id="footer-my-events-btn"
+              onClick={() => {
+                setSelectedVenue(null);
+                setCurrentView('my_events');
+              }}
+              className={`transition-colors ${currentView === 'my_events' ? 'font-bold text-[#26343D]' : 'hover:text-[#26343D]'}`}
+            >
               My Events ({venueBookings.length + walkthroughBookings.length})
             </button>
             <button
