@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { VenueBooking, WalkthroughBooking } from '../types';
+import { getStatusDisplay } from '../utils/bookingStatus';
 
 interface MyEventsDrawerProps {
   isOpen: boolean;
@@ -126,9 +127,13 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
               ) : (
                 <div className="space-y-4">
                   {venueBookings.map((booking) => {
-                    const isDepositDue = booking.status === 'confirmed_by_venue';
-                    const isConfirmed = booking.status === 'deposit_paid';
-                    const isRequested = booking.status === 'requested';
+                    const statusInfo = getStatusDisplay(booking.status);
+                    const isDepositDue = booking.status === 'deposit_due';
+                    const isFinalPaymentDue = booking.status === 'final_payment_due';
+                    const isPaidOrConfirmed =
+                      booking.status === 'confirmed' ||
+                      booking.status === 'fully_paid' ||
+                      booking.status === 'completed';
 
                     return (
                       <div
@@ -145,19 +150,9 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <span
-                                className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                                  isConfirmed
-                                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                                    : isDepositDue
-                                    ? 'text-amber-800 bg-amber-50 border-amber-200'
-                                    : 'text-[#26343D] bg-stone-100 border-[#DDD8CF]'
-                                }`}
+                                className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${statusInfo.badgeClass}`}
                               >
-                                {isConfirmed
-                                  ? 'Deposit Paid • Confirmed'
-                                  : isDepositDue
-                                  ? 'Approved • Deposit Due'
-                                  : 'Awaiting Venue Confirmation'}
+                                {statusInfo.customerLabel}
                               </span>
                               <span className="text-[10px] font-mono text-[#66737A]">
                                 {booking.bookingNumber}
@@ -180,8 +175,8 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Deposit ({booking.depositPercentage}%):</span>
-                            <strong className={isConfirmed ? 'text-emerald-700' : 'text-[#A86445]'}>
-                              ${booking.depositAmount.toLocaleString()} {isConfirmed ? '(Paid)' : '(Due)'}
+                            <strong className={isPaidOrConfirmed ? 'text-emerald-700' : 'text-[#A86445]'}>
+                              ${booking.depositAmount.toLocaleString()} {isPaidOrConfirmed ? '(Paid)' : '(Due)'}
                             </strong>
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
@@ -192,17 +187,30 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
 
                         {/* Actions */}
                         <div className="grid grid-cols-2 gap-2 pt-1">
-                          {isDepositDue ? (
+                          {isDepositDue && (
                             <button
+                              id={`pay-deposit-btn-${booking.id}`}
                               onClick={() => onOpenDepositModal(booking)}
                               className="col-span-2 py-2.5 px-3 rounded-xl bg-[#A86445] text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-[#8F5439] active:scale-95 transition-all"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
                               <span>Pay ${booking.depositAmount.toLocaleString()} Deposit</span>
                             </button>
-                          ) : null}
+                          )}
+
+                          {isFinalPaymentDue && (
+                            <button
+                              id={`pay-balance-btn-${booking.id}`}
+                              onClick={() => onOpenEventPlanner(booking)}
+                              className="col-span-2 py-2.5 px-3 rounded-xl bg-emerald-700 text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-emerald-800 active:scale-95 transition-all"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Pay Final Balance (${booking.finalBalance?.toLocaleString()})</span>
+                            </button>
+                          )}
 
                           <button
+                            id={`open-planner-btn-${booking.id}`}
                             onClick={() => onOpenEventPlanner(booking)}
                             className="py-2 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                           >

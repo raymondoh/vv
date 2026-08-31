@@ -140,12 +140,11 @@ export interface WalkthroughBooking {
   hostName: string;
 }
 
+export type UserRole = 'customer' | 'venue_owner' | 'platform_admin';
+
 export type VenueBookingStatus =
   | 'requested'
-  | 'venue_confirmed'
-  | 'confirmed_by_venue' // alias for deposit_due
   | 'deposit_due'
-  | 'deposit_paid' // alias for confirmed
   | 'confirmed'
   | 'final_payment_due'
   | 'fully_paid'

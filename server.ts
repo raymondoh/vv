@@ -84,7 +84,7 @@ const venueBookingsStore: VenueBooking[] = [
     endTime: '05:30 PM',
     selectedLayout: 'Theater & Keynote Stage Setup',
     specialRequirements: 'High-speed 1Gbps dedicated fiber for live stream broadcast, breakout area in mezzanine, catering load-in at 7:00 AM.',
-    status: 'deposit_paid',
+    status: 'confirmed',
     grossAmount: 7200,
     depositPercentage: 25,
     depositAmount: 1800,
@@ -122,7 +122,7 @@ const venueBookingsStore: VenueBooking[] = [
     endTime: '10:30 PM',
     selectedLayout: 'Executive Dining & Lounge',
     specialRequirements: 'Sommelier-led pairing and string trio in the courtyard garden. Require valet parking attendants.',
-    status: 'confirmed_by_venue', // Deposit Due
+    status: 'deposit_due',
     grossAmount: 5400,
     depositPercentage: 25,
     depositAmount: 1350,
@@ -133,7 +133,7 @@ const venueBookingsStore: VenueBooking[] = [
     checklist: [
       { id: 'chk-10', text: 'Inspect high-resolution courtyard gallery and walkthrough', completed: true, category: 'Inspection' },
       { id: 'chk-11', text: 'Venue manager confirmed space availability', completed: true, category: 'Contract & Payment' },
-      { id: 'chk-12', text: 'Pay deposit to finalize reservation', completed: false, category: 'Contract & Payment' },
+      { id: 'chk-12', text: 'Pay deposit (25%) to finalize reservation', completed: false, category: 'Contract & Payment' },
       { id: 'chk-13', text: 'Confirm wine pairing selection with sommelier', completed: false, category: 'Catering & AV' },
     ],
     personalNotes: 'VIP guests arriving by private transportation.',
@@ -156,7 +156,7 @@ const venueBookingsStore: VenueBooking[] = [
     endTime: '08:00 PM',
     selectedLayout: 'Exhibition & Product Showcase',
     specialRequirements: 'Heavy machinery load-in via ground-level freight doors. Requires 3-phase 400A dedicated power drops.',
-    status: 'requested', // Awaiting venue confirmation
+    status: 'requested',
     grossAmount: 6800,
     depositPercentage: 25,
     depositAmount: 1700,
@@ -187,7 +187,7 @@ const venueBookingsStore: VenueBooking[] = [
     endTime: '11:00 PM',
     selectedLayout: 'Vineyard Lawn & Barrel Cellar',
     specialRequirements: 'Lawn ceremony followed by cocktail hour on sunset terrace and barrel room seated dinner.',
-    status: 'requested', // Awaiting venue confirmation
+    status: 'requested',
     grossAmount: 9500,
     depositPercentage: 25,
     depositAmount: 2375,
@@ -322,18 +322,24 @@ app.post('/api/gemini/match', async (req, res) => {
       // Event type match
       if (q.includes('wedding') && v.eventTypes.includes('wedding')) {
         score += 15;
-        reasons.push('Curated specifically for luxury wedding ceremonies and receptions');
+        reasons.push('Curated for wedding ceremonies, receptions, and celebratory banquets');
       }
-      if (q.includes('corporate') || q.includes('keynote') || q.includes('summit')) {
-        if (v.eventTypes.includes('corporate')) {
+      if (q.includes('corporate') || q.includes('keynote') || q.includes('summit') || q.includes('meeting') || q.includes('conference')) {
+        if (v.eventTypes.includes('meetings-conferences') || (v.eventTypes as any).includes('corporate')) {
           score += 15;
           reasons.push('Equipped with presentation AV, high-speed fiber, and breakout suites');
         }
       }
-      if (q.includes('party') || q.includes('birthday') || q.includes('cocktail')) {
-        if (v.eventTypes.includes('party')) {
+      if (q.includes('party') || q.includes('birthday') || q.includes('cocktail') || q.includes('celebration')) {
+        if (v.eventTypes.includes('parties-celebrations') || (v.eventTypes as any).includes('party')) {
           score += 12;
-          reasons.push('Features high-energy lounge vignettes and custom bar islands');
+          reasons.push('Features adaptable lounge layouts, ambient acoustics, and custom bar spaces');
+        }
+      }
+      if (q.includes('dining') || q.includes('dinner') || q.includes('wine')) {
+        if (v.eventTypes.includes('private-dining')) {
+          score += 15;
+          reasons.push('Tailored for chef-led private dining, tastings, and sommelier services');
         }
       }
 
@@ -342,7 +348,7 @@ app.post('/api/gemini/match', async (req, res) => {
 
     scores.sort((a, b) => b.score - a.score);
     const top = scores[0]?.venue || VENUES[0];
-    const topReasons = scores[0]?.reasons.length ? scores[0].reasons : ['Exceptional match for space, ambiance, and production quality'];
+    const topReasons = scores[0]?.reasons.length ? scores[0].reasons : ['Strong match for spatial capacity, layout flexibility, and aesthetic requirements'];
 
     const matchedIds = scores.filter((s) => s.score > 20).map((s) => s.venue.id);
     const finalIds = matchedIds.length > 0 ? matchedIds : [top.id, VENUES[1]?.id || VENUES[0].id];
@@ -352,10 +358,10 @@ app.post('/api/gemini/match', async (req, res) => {
       matchedVenueIds: finalIds,
       topPickVenueId: top.id,
       confidenceScore: Math.min(98, Math.max(82, scores[0]?.score ? 70 + scores[0].score : 88)),
-      recommendedLayout: top.walkthroughClips[0]?.title || 'Banquet & Gala Grand Setup',
-      aiExplanation: `Based on your request "${query}", ${top.name} in ${top.location.city} is the premier selection. It delivers ${top.aesthetic.toLowerCase()} styling, state-of-the-art production capabilities, and ideal capacity proportions for your guests.`,
+      recommendedLayout: top.walkthroughClips[0]?.title || 'Standard Event Layout',
+      aiExplanation: `Based on your request "${query}", ${top.name} in ${top.location.city} is the recommended space. It offers ${top.aesthetic.toLowerCase()} architecture, versatile floor plans, and ideal capacity for your group.`,
       keyMatchFactors: topReasons,
-      estimatedBudgetNote: `Starting at $${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit} with optional custom walkthrough appointments available this week.`,
+      estimatedBudgetNote: `Starting at $${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit} with interactive 4K walkthroughs and remote inspection tools.`,
     };
   };
 
@@ -389,20 +395,20 @@ app.post('/api/gemini/match', async (req, res) => {
       layouts: v.walkthroughClips.map((c) => c.title),
     }));
 
-    const prompt = `You are the AI Venue Matcher for VenueStream, a luxury event venue virtual tour platform.
+    const prompt = `You are the AI Venue Matcher for VenueStream, a broad venue discovery, remote inspection, and booking marketplace for meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and other events.
 Catalog of available venues:
 ${JSON.stringify(venueCatalogSummary, null, 2)}
 
 User request: "${query}"
 
 Analyze the user's requirements (desired location, aesthetic style, guest count, event type, budget if specified, and key features).
-Return a structured JSON object selecting the best matches from the catalog.`;
+Return a structured JSON object selecting the best matches from the catalog in straightforward, professional language.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.7-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: 'You are an elite luxury event concierge and spatial planner. Match user requirements against the venue catalog precisely and return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance.',
+        systemInstruction: 'You are an intelligent spatial planner and venue matcher for VenueStream. VenueStream is a broad venue discovery, remote inspection, and booking marketplace for business meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and other events. Match user requirements against the venue catalog precisely and return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance. Use straightforward, modern, and professional language.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -426,7 +432,7 @@ Return a structured JSON object selecting the best matches from the catalog.`;
             },
             aiExplanation: {
               type: Type.STRING,
-              description: 'Clear, elegant explanation of why this venue fits their exact vision',
+              description: 'Clear, modern explanation of why this venue fits their space and event requirements',
             },
             keyMatchFactors: {
               type: Type.ARRAY,
@@ -457,7 +463,7 @@ Return a structured JSON object selecting the best matches from the catalog.`;
       matchedVenueIds: Array.isArray(parsed.matchedVenueIds) && parsed.matchedVenueIds.length > 0 ? parsed.matchedVenueIds : [VENUES[0].id],
       topPickVenueId: parsed.topPickVenueId || VENUES[0].id,
       confidenceScore: parsed.confidenceScore || 94,
-      recommendedLayout: parsed.recommendedLayout || 'Banquet & Gala Grand Setup',
+      recommendedLayout: parsed.recommendedLayout || 'Standard Event Layout',
       aiExplanation: parsed.aiExplanation || `Based on your request "${query}", our top recommendation is ${VENUES[0].name}.`,
       keyMatchFactors: parsed.keyMatchFactors || ['Capacity match', 'Aesthetic alignment', 'Prime location'],
       estimatedBudgetNote: parsed.estimatedBudgetNote || 'Pricing accommodates custom walkthrough arrangements.',
@@ -622,8 +628,20 @@ app.post('/api/venue-bookings', (req, res) => {
 
   const calculatedGross = Number(grossAmount) || venue.pricing.startingPrice;
   const depositPercent = marketplaceConfig.depositPercentage || 25;
+  const balanceDays = marketplaceConfig.balanceDueDaysBeforeEvent || 14;
   const depositAmount = Math.round((calculatedGross * depositPercent) / 100);
   const finalBalance = calculatedGross - depositAmount;
+
+  let calculatedBalanceDueDate = '';
+  try {
+    const dateObj = new Date(eventDate);
+    if (!isNaN(dateObj.getTime())) {
+      dateObj.setDate(dateObj.getDate() - balanceDays);
+      calculatedBalanceDueDate = dateObj.toISOString().split('T')[0];
+    }
+  } catch {
+    calculatedBalanceDueDate = '';
+  }
 
   const newId = `vb-${Date.now().toString().slice(-6)}`;
   const bookingNumber = `VSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -651,16 +669,17 @@ app.post('/api/venue-bookings', (req, res) => {
     depositPercentage: depositPercent,
     depositAmount,
     finalBalance,
+    finalBalanceDueDate: calculatedBalanceDueDate,
     createdAt: new Date().toISOString(),
     hostName: venue.host.name,
     checklist: [
       { id: `chk-${Date.now()}-1`, text: 'Explore venue walkthrough & architectural floor plan', completed: true, category: 'Inspection' },
       { id: `chk-${Date.now()}-2`, text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
       { id: `chk-${Date.now()}-3`, text: 'Awaiting venue host review & date confirmation', completed: false, category: 'Contract & Payment' },
-      { id: `chk-${Date.now()}-4`, text: 'Pay initial deposit (25%) once venue accepts', completed: false, category: 'Contract & Payment' },
+      { id: `chk-${Date.now()}-4`, text: `Pay initial deposit (${depositPercent}%) once venue accepts`, completed: false, category: 'Contract & Payment' },
       { id: `chk-${Date.now()}-5`, text: 'Finalize catering, AV setup & run-of-show', completed: false, category: 'Catering & AV' },
       { id: `chk-${Date.now()}-6`, text: 'Submit vendor COI (Certificate of Insurance)', completed: false, category: 'Logistics' },
-      { id: `chk-${Date.now()}-7`, text: 'Pay remaining venue balance (due 14 days prior)', completed: false, category: 'Contract & Payment' },
+      { id: `chk-${Date.now()}-7`, text: `Pay remaining venue balance (due ${balanceDays} days prior to event)`, completed: false, category: 'Contract & Payment' },
     ],
     personalNotes: '',
   };
@@ -673,6 +692,18 @@ app.post('/api/venue-bookings', (req, res) => {
     message: `Booking request ${bookingNumber} submitted to ${venue.name}. Coordinator ${venue.host.name} has been notified.`,
   });
 });
+
+// Canonical allowed transitions map
+const CANONICAL_ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  requested: ['deposit_due', 'declined', 'cancelled'],
+  deposit_due: ['confirmed', 'declined', 'cancelled'],
+  confirmed: ['final_payment_due', 'cancelled'],
+  final_payment_due: ['fully_paid', 'cancelled'],
+  fully_paid: ['completed'],
+  completed: [],
+  cancelled: [],
+  declined: [],
+};
 
 // 11. Update venue booking status / notes / simulated deposit payment
 app.patch('/api/venue-bookings/:id', (req, res) => {
@@ -696,12 +727,15 @@ app.patch('/api/venue-bookings/:id', (req, res) => {
 
   const updated: VenueBooking = { ...current };
 
-  if (status) {
-    updated.status = status;
-  }
-
+  // Handle simulated deposit payment
   if (isSimulatedDepositPayment) {
-    updated.status = 'deposit_paid';
+    if (current.status !== 'deposit_due') {
+      return res.status(400).json({
+        success: false,
+        error: `Deposit payment cannot be processed for booking in status "${current.status}". Booking must be in "deposit_due" status.`,
+      });
+    }
+    updated.status = 'confirmed';
     updated.depositPaidAt = new Date().toISOString();
     // Update checklist item for deposit
     if (updated.checklist) {
@@ -713,9 +747,37 @@ app.patch('/api/venue-bookings/:id', (req, res) => {
     }
   }
 
+  // Handle simulated final payment
   if (isSimulatedFinalPayment) {
+    if (current.status !== 'final_payment_due' && current.status !== 'confirmed') {
+      return res.status(400).json({
+        success: false,
+        error: `Final payment cannot be processed for booking in status "${current.status}".`,
+      });
+    }
     updated.status = 'fully_paid';
     updated.finalPaidAt = new Date().toISOString();
+    if (updated.checklist) {
+      updated.checklist = updated.checklist.map((item) =>
+        item.text.toLowerCase().includes('final') || item.text.toLowerCase().includes('balance')
+          ? { ...item, completed: true }
+          : item
+      );
+    }
+  }
+
+  // Handle explicit status transition
+  if (status && !isSimulatedDepositPayment && !isSimulatedFinalPayment) {
+    if (status !== current.status) {
+      const allowed = CANONICAL_ALLOWED_TRANSITIONS[current.status] || [];
+      if (!allowed.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid status transition from "${current.status}" to "${status}". Allowed next states: [${allowed.join(', ')}]`,
+        });
+      }
+      updated.status = status;
+    }
   }
 
   if (personalNotes !== undefined) {

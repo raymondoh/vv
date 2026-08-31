@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
-import { VenueBooking, ChecklistItem } from '../types';
+import { VenueBooking, ChecklistItem, MarketplaceConfig } from '../types';
+import { getStatusDisplay } from '../utils/bookingStatus';
 
 interface CustomerEventPlannerModalProps {
   booking: VenueBooking;
@@ -27,6 +28,7 @@ interface CustomerEventPlannerModalProps {
   onUpdateBooking: (updated: VenueBooking) => void;
   onOpenDepositModal: (booking: VenueBooking) => void;
   onExploreWalkthrough: (venueId: string) => void;
+  marketplaceConfig?: MarketplaceConfig;
 }
 
 export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps> = ({
@@ -36,6 +38,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
   onUpdateBooking,
   onOpenDepositModal,
   onExploreWalkthrough,
+  marketplaceConfig,
 }) => {
   const [checklist, setChecklist] = useState<ChecklistItem[]>(booking.checklist || []);
   const [personalNotes, setPersonalNotes] = useState<string>(booking.personalNotes || '');
@@ -43,9 +46,18 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskCategory, setNewTaskCategory] = useState<'Inspection' | 'Contract & Payment' | 'Catering & AV' | 'Logistics'>('Catering & AV');
   const [isSaving, setIsSaving] = useState(false);
+  const [isPayingFinal, setIsPayingFinal] = useState(false);
   const [activeTab, setActiveTab] = useState<'checklist' | 'notes' | 'overview'>('checklist');
 
   if (!isOpen) return null;
+
+  const statusInfo = getStatusDisplay(booking.status);
+  const isDepositDue = booking.status === 'deposit_due';
+  const isFinalPaymentDue = booking.status === 'final_payment_due';
+  const isPaidOrConfirmed =
+    booking.status === 'confirmed' ||
+    booking.status === 'fully_paid' ||
+    booking.status === 'completed';
 
   const handleToggleTask = (taskId: string) => {
     const updated = checklist.map((item) =>
@@ -76,6 +88,30 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
     const updated = checklist.filter((item) => item.id !== taskId);
     setChecklist(updated);
     saveChanges(updated, personalNotes, guestCount);
+  };
+
+  const handlePayFinalBalance = async () => {
+    setIsPayingFinal(true);
+    try {
+      const response = await fetch(`/api/venue-bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isSimulatedFinalPayment: true,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.booking) {
+          onUpdateBooking(data.booking);
+        }
+      }
+    } catch (err) {
+      console.error('Error simulating final balance payment:', err);
+    } finally {
+      setIsPayingFinal(false);
+    }
   };
 
   const saveChanges = async (
@@ -200,19 +236,9 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-[#66737A]">Booking Status:</span>
                 <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded border ${
-                    booking.status === 'deposit_paid'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : booking.status === 'confirmed_by_venue'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : 'bg-stone-100 text-[#26343D] border-[#DDD8CF]'
-                  }`}
+                  className={`text-xs font-bold px-2 py-0.5 rounded border ${statusInfo.badgeClass}`}
                 >
-                  {booking.status === 'deposit_paid'
-                    ? 'Deposit Paid • Booking Confirmed'
-                    : booking.status === 'confirmed_by_venue'
-                    ? 'Venue Approved • Deposit Due'
-                    : 'Awaiting Venue Confirmation'}
+                  {statusInfo.customerLabel}
                 </span>
               </div>
               <p className="text-xs text-[#66737A]">
@@ -220,7 +246,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
               </p>
             </div>
 
-            {booking.status === 'confirmed_by_venue' && (
+            {isDepositDue && (
               <button
                 id="planner-pay-deposit-btn"
                 onClick={() => onOpenDepositModal(booking)}
@@ -228,6 +254,18 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
               >
                 <CreditCard className="w-4 h-4" />
                 <span>Pay Deposit (${booking.depositAmount.toLocaleString()})</span>
+              </button>
+            )}
+
+            {isFinalPaymentDue && (
+              <button
+                id="planner-pay-final-btn"
+                onClick={handlePayFinalBalance}
+                disabled={isPayingFinal}
+                className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 shadow-xs transition-all flex items-center gap-1.5 shrink-0"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>{isPayingFinal ? 'Processing...' : `Pay Final Balance ($${booking.finalBalance?.toLocaleString()})`}</span>
               </button>
             )}
           </div>
@@ -373,11 +411,11 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                   <div className="space-y-1 text-[#66737A]">
                     <div>Venue Booking Price: <strong className="text-[#26343D]">${booking.grossAmount.toLocaleString()}</strong></div>
                     <div>Deposit Required ({booking.depositPercentage}%): <strong className="text-[#26343D]">${booking.depositAmount.toLocaleString()}</strong></div>
-                    <div>Deposit Status: <strong className={booking.status === 'deposit_paid' ? 'text-emerald-700' : 'text-amber-700'}>
-                      {booking.status === 'deposit_paid' ? 'Paid & Receipted' : 'Due upon venue confirmation'}
+                    <div>Deposit Status: <strong className={isPaidOrConfirmed ? 'text-emerald-700' : 'text-amber-700'}>
+                      {isPaidOrConfirmed ? 'Paid & Receipted' : 'Due upon venue confirmation'}
                     </strong></div>
                     <div>Remaining Balance: <strong className="text-[#26343D]">${booking.finalBalance.toLocaleString()}</strong></div>
-                    <div>Balance Due Date: <strong className="text-[#26343D]">{booking.finalBalanceDueDate || '14 days prior to event'}</strong></div>
+                    <div>Balance Due Date: <strong className="text-[#26343D]">{booking.finalBalanceDueDate || `${marketplaceConfig?.balanceDueDaysBeforeEvent || 14} days prior to event`}</strong></div>
                   </div>
                 </div>
               </div>

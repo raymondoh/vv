@@ -10,13 +10,15 @@ import {
   ArrowRight,
   Info,
 } from 'lucide-react';
-import { VenueBooking } from '../types';
+import { VenueBooking, MarketplaceConfig } from '../types';
 
 interface DepositPaymentModalProps {
   booking: VenueBooking;
   isOpen: boolean;
   onClose: () => void;
   onPaymentCompleted: (updatedBooking: VenueBooking) => void;
+  onOpenPlanner?: (booking: VenueBooking) => void;
+  marketplaceConfig?: MarketplaceConfig;
 }
 
 export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
@@ -24,9 +26,12 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
   isOpen,
   onClose,
   onPaymentCompleted,
+  onOpenPlanner,
+  marketplaceConfig,
 }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [updatedBookingState, setUpdatedBookingState] = useState<VenueBooking>(booking);
   const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
   const [cardHolder, setCardHolder] = useState(booking.clientName || 'Sarah Jenkins');
   const [cardExpiry, setCardExpiry] = useState('08/29');
@@ -34,6 +39,8 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
   const [billingZip, setBillingZip] = useState('60607');
 
   if (!isOpen) return null;
+
+  const balanceDays = marketplaceConfig?.balanceDueDaysBeforeEvent || 14;
 
   const handleSimulatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +61,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
 
       const data = await response.json();
       if (data.success && data.booking) {
+        setUpdatedBookingState(data.booking);
         setSuccess(true);
         onPaymentCompleted(data.booking);
       } else {
@@ -63,7 +71,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
       console.error('Simulated payment error, applying local fallback:', err);
       const updated: VenueBooking = {
         ...booking,
-        status: 'deposit_paid',
+        status: 'confirmed',
         depositPaidAt: new Date().toISOString(),
         checklist: booking.checklist?.map((item) =>
           item.text.toLowerCase().includes('deposit') || item.text.toLowerCase().includes('awaiting')
@@ -71,10 +79,18 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
             : item
         ),
       };
+      setUpdatedBookingState(updated);
       setSuccess(true);
       onPaymentCompleted(updated);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenPlannerClick = () => {
+    onClose();
+    if (onOpenPlanner) {
+      onOpenPlanner(updatedBookingState);
     }
   };
 
@@ -139,7 +155,9 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-[#66737A] pt-1">
                   <span>Remaining Balance:</span>
-                  <span>${booking.finalBalance.toLocaleString()} (Due 14 days prior)</span>
+                  <span>
+                    ${booking.finalBalance.toLocaleString()} (Due {booking.finalBalanceDueDate ? booking.finalBalanceDueDate : `${balanceDays} days prior to event`})
+                  </span>
                 </div>
               </div>
 
@@ -257,10 +275,11 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
 
               <button
                 id="close-deposit-success-btn"
-                onClick={onClose}
-                className="w-full py-3 rounded-xl bg-[#26343D] text-white font-semibold text-xs hover:bg-[#1E2930] shadow-xs transition-all"
+                onClick={handleOpenPlannerClick}
+                className="w-full py-3 rounded-xl bg-[#26343D] text-white font-semibold text-xs hover:bg-[#1E2930] shadow-xs transition-all flex items-center justify-center gap-1.5"
               >
-                Open Event Planner
+                <span>Open Event Planner</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           )}

@@ -16,6 +16,7 @@ import { DepositPaymentModal } from './components/DepositPaymentModal';
 import { CustomerEventPlannerModal } from './components/CustomerEventPlannerModal';
 import { MyEventsDrawer } from './components/MyEventsDrawer';
 import { VenueOwnerDashboard } from './components/VenueOwnerDashboard';
+import { PlatformAdminDashboard } from './components/PlatformAdminDashboard';
 import { PlatformAdminSettingsModal } from './components/PlatformAdminSettingsModal';
 import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig } from './types';
 import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
@@ -25,7 +26,7 @@ import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, Arrow
 export default function App() {
   const [venues, setVenues] = useState<Venue[]>(VENUES);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
-  const [currentView, setCurrentView] = useState<'customer_discovery' | 'venue_portal'>('customer_discovery');
+  const [currentView, setCurrentView] = useState<'customer_discovery' | 'venue_portal' | 'platform_admin'>('customer_discovery');
 
   // Modals & Drawers
   const [isAiMatcherOpen, setIsAiMatcherOpen] = useState(false);
@@ -274,9 +275,9 @@ export default function App() {
           setSelectedVenue(null);
           setCurrentView('customer_discovery');
         }}
-        onOpenVenuePortal={() => {
+        onSelectRole={(role) => {
           setSelectedVenue(null);
-          setCurrentView(currentView === 'venue_portal' ? 'customer_discovery' : 'venue_portal');
+          setCurrentView(role);
         }}
         walkthroughBookings={walkthroughBookings}
         venueBookings={venueBookings}
@@ -284,6 +285,8 @@ export default function App() {
         activeView={
           currentView === 'venue_portal'
             ? 'venue_portal'
+            : currentView === 'platform_admin'
+            ? 'platform_admin'
             : selectedVenue
             ? 'detail'
             : 'landing'
@@ -292,7 +295,20 @@ export default function App() {
 
       {/* Main View Router */}
       <main className="flex-1">
-        {currentView === 'venue_portal' ? (
+        {currentView === 'platform_admin' ? (
+          /* Platform Admin Governance & Rule Controls */
+          <PlatformAdminDashboard
+            venues={venues}
+            venueBookings={venueBookings}
+            marketplaceConfig={marketplaceConfig}
+            onSaveConfig={handleSaveAdminConfig}
+            onUpdateBookingStatus={handleUpdateBookingStatus}
+            onSwitchRole={(role) => {
+              setSelectedVenue(null);
+              setCurrentView(role === 'venue_owner' ? 'venue_portal' : 'customer_discovery');
+            }}
+          />
+        ) : currentView === 'venue_portal' ? (
           /* Venue Owner Marketplace Portal */
           <VenueOwnerDashboard
             venues={venues}
@@ -372,7 +388,7 @@ export default function App() {
                   onClick={() => setIsAiMatcherOpen(true)}
                   className="cursor-pointer px-3.5 py-2 rounded-xl bg-white border border-[#DDD8CF] hover:border-[#26343D] transition-all flex items-center gap-2.5 text-xs text-[#26343D] shadow-xs"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
+                  <Sparkles className="w-3.5 h-3.5 text-[#A86445]" />
                   <span className="text-[#66737A]">Looking for specific floor plans or capacity? <strong className="text-[#26343D] font-semibold underline underline-offset-2">Ask Intelligent Matcher</strong></span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#66737A]" />
                 </div>
@@ -450,6 +466,7 @@ export default function App() {
           isOpen={true}
           onClose={() => setRequestBookingVenue(null)}
           onBookingSubmitted={handleVenueBookingSubmitted}
+          marketplaceConfig={marketplaceConfig}
         />
       )}
 
@@ -487,6 +504,10 @@ export default function App() {
           isOpen={true}
           onClose={() => setDepositPaymentBooking(null)}
           onPaymentCompleted={handleUpdateBookingRecord}
+          onOpenPlanner={(booking) => {
+            setDepositPaymentBooking(null);
+            setPlannerBooking(booking);
+          }}
         />
       )}
 
@@ -508,6 +529,7 @@ export default function App() {
               setCurrentView('customer_discovery');
             }
           }}
+          marketplaceConfig={marketplaceConfig}
         />
       )}
 
@@ -545,15 +567,15 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 text-[#66737A]">
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[#66737A]">
             <button
               onClick={() => {
                 setSelectedVenue(null);
                 setCurrentView('customer_discovery');
               }}
-              className="hover:text-[#26343D] transition-colors"
+              className={`transition-colors ${currentView === 'customer_discovery' ? 'font-bold text-[#26343D]' : 'hover:text-[#26343D]'}`}
             >
-              Browse Directory
+              Customer Directory
             </button>
             <button onClick={() => setIsAiMatcherOpen(true)} className="hover:text-[#26343D] transition-colors">
               Smart Match
@@ -566,17 +588,24 @@ export default function App() {
                 setSelectedVenue(null);
                 setCurrentView('venue_portal');
               }}
-              className="font-semibold text-[#A86445] hover:text-[#8F5439] transition-colors"
+              className={`font-semibold transition-colors ${currentView === 'venue_portal' ? 'text-[#26343D] underline underline-offset-4' : 'text-[#A86445] hover:text-[#8F5439]'}`}
             >
-              Venue Owner Portal
+              Venue Host Portal
             </button>
             <button
               id="footer-admin-rules-btn"
-              onClick={() => setIsAdminSettingsOpen(true)}
-              className="inline-flex items-center gap-1 text-[11px] text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF] bg-white px-2.5 py-1 rounded-lg transition-colors shadow-2xs"
+              onClick={() => {
+                setSelectedVenue(null);
+                setCurrentView('platform_admin');
+              }}
+              className={`inline-flex items-center gap-1 text-[11px] border px-2.5 py-1 rounded-lg transition-colors shadow-2xs ${
+                currentView === 'platform_admin'
+                  ? 'bg-[#A86445] text-white border-[#A86445]'
+                  : 'bg-white text-[#66737A] hover:text-[#26343D] border-[#DDD8CF]'
+              }`}
             >
-              <Sliders className="w-3 h-3 text-[#A86445]" />
-              <span>Admin Rules</span>
+              <Sliders className="w-3 h-3" />
+              <span>Platform Admin</span>
             </button>
           </div>
         </div>

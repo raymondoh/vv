@@ -11,7 +11,6 @@ import {
   Users,
   Video,
   Eye,
-  Sliders,
   Sparkles,
   Info,
   ArrowRight,
@@ -22,19 +21,18 @@ import {
   Layers,
   MapPin,
 } from 'lucide-react';
-import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig } from '../types';
-import { calculateBookingFinancials } from '../config/marketplaceConfig';
+import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus } from '../types';
+import { getStatusDisplay } from '../utils/bookingStatus';
 
 interface VenueOwnerDashboardProps {
   venues: Venue[];
   venueBookings: VenueBooking[];
   walkthroughBookings: WalkthroughBooking[];
   marketplaceConfig: MarketplaceConfig;
-  onUpdateBookingStatus: (bookingId: string, newStatus: VenueBooking['status']) => void;
+  onUpdateBookingStatus: (bookingId: string, newStatus: VenueBookingStatus) => void;
   onOpenLiveSimulator: (booking: WalkthroughBooking) => void;
   onInspectVenue: (venue: Venue) => void;
   onSwitchToCustomerView: () => void;
-  onOpenAdminSettings?: () => void;
 }
 
 export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
@@ -46,7 +44,6 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   onOpenLiveSimulator,
   onInspectVenue,
   onSwitchToCustomerView,
-  onOpenAdminSettings,
 }) => {
   const [selectedVenueId, setSelectedVenueId] = useState<string>('the-glasshouse-luminary');
   const [activeTab, setActiveTab] = useState<'bookings' | 'walkthroughs' | 'spaces'>('bookings');
@@ -62,11 +59,11 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
     if (statusFilter === 'pending') return b.status === 'requested';
     if (statusFilter === 'confirmed') {
       return (
-        b.status === 'deposit_paid' ||
-        b.status === 'confirmed' ||
-        b.status === 'confirmed_by_venue' ||
         b.status === 'deposit_due' ||
-        b.status === 'venue_confirmed'
+        b.status === 'confirmed' ||
+        b.status === 'final_payment_due' ||
+        b.status === 'fully_paid' ||
+        b.status === 'completed'
       );
     }
     return true;
@@ -92,7 +89,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
 
   const pendingRequestsCount = allVenueBookings.filter((b) => b.status === 'requested').length;
   const confirmedCount = allVenueBookings.filter(
-    (b) => b.status === 'deposit_paid' || b.status === 'confirmed'
+    (b) => b.status === 'confirmed' || b.status === 'deposit_due' || b.status === 'final_payment_due' || b.status === 'fully_paid'
   ).length;
 
   return (
@@ -197,7 +194,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-[#26343D]">{pendingRequestsCount}</span>
-            <span className="text-xs text-[#66737A]">pending / {confirmedCount} confirmed</span>
+            <span className="text-xs text-[#66737A]">pending / {confirmedCount} active</span>
           </div>
           <div className="text-[11px] text-[#66737A]">
             {filteredWalkthroughs.length} scheduled live walkthroughs
@@ -221,19 +218,6 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             <strong>Gross Booking (${grossBookingsTotal.toLocaleString()})</strong> − <strong>Platform Commission ({commissionRate}% = ${platformCommissionTotal.toLocaleString()})</strong> = <strong className="text-emerald-700">Venue Net (${venueNetPayoutTotal.toLocaleString()})</strong>
           </div>
         </div>
-
-        {onOpenAdminSettings && (
-          <div className="shrink-0 flex items-center">
-            <button
-              id="open-admin-settings-from-portal-btn"
-              onClick={onOpenAdminSettings}
-              className="px-3.5 py-2 bg-white text-[#26343D] text-xs font-semibold rounded-xl border border-[#DDD8CF] hover:bg-[#F4F1EA] hover:border-[#26343D] transition-all flex items-center gap-1.5 shadow-xs"
-            >
-              <Sliders className="w-3.5 h-3.5 text-[#A86445]" />
-              <span>Platform Admin Rules</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Navigation Tabs and Content */}
@@ -325,18 +309,14 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                 {filteredBookings.map((booking) => {
                   const commissionAmount = Math.round((booking.grossAmount * commissionRate) / 100);
                   const venueNetAmount = booking.grossAmount - commissionAmount;
+                  const statusInfo = getStatusDisplay(booking.status);
 
                   const isRequested = booking.status === 'requested';
-                  const isDepositDue =
-                    booking.status === 'confirmed_by_venue' ||
-                    booking.status === 'deposit_due' ||
-                    booking.status === 'venue_confirmed';
-                  const isConfirmed =
-                    booking.status === 'deposit_paid' ||
-                    booking.status === 'confirmed' ||
-                    booking.status === 'fully_paid';
-                  const isCancelled =
-                    booking.status === 'cancelled' || booking.status === 'declined';
+                  const isDepositDue = booking.status === 'deposit_due';
+                  const isConfirmed = booking.status === 'confirmed';
+                  const isFinalPaymentDue = booking.status === 'final_payment_due';
+                  const isFullyPaid = booking.status === 'fully_paid';
+                  const isCompleted = booking.status === 'completed';
 
                   return (
                     <div
@@ -349,24 +329,8 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2.5">
-                            <span
-                              className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded border ${
-                                isConfirmed
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : isDepositDue
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : isRequested
-                                  ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                  : 'bg-stone-100 text-[#66737A] border-[#DDD8CF]'
-                              }`}
-                            >
-                              {isConfirmed
-                                ? 'Deposit Paid • Booking Confirmed'
-                                : isDepositDue
-                                ? 'Venue Approved • Deposit Due from Client'
-                                : isRequested
-                                ? 'New Request • Awaiting Venue Review'
-                                : 'Cancelled / Declined'}
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded border ${statusInfo.badgeClass}`}>
+                              {statusInfo.venueLabel}
                             </span>
                             <span className="text-xs font-mono text-[#66737A]">{booking.bookingNumber}</span>
                           </div>
@@ -416,15 +380,32 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                       {/* Action Bar for Venue Host */}
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#DDD8CF]">
                         <div className="text-xs text-[#66737A]">
+                          {isCompleted && (
+                            <span className="text-stone-700 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-stone-600" />
+                              Event successfully executed and completed.
+                            </span>
+                          )}
+                          {isFullyPaid && (
+                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Fully paid by client ($0 balance remaining). Ready for event execution.
+                            </span>
+                          )}
+                          {isFinalPaymentDue && (
+                            <span className="text-amber-800 font-medium">
+                              Final balance due ($ {booking.finalBalance?.toLocaleString()} remaining). Awaiting client balance payment.
+                            </span>
+                          )}
                           {isConfirmed && (
                             <span className="text-emerald-700 font-semibold flex items-center gap-1">
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              Client paid ${booking.depositAmount.toLocaleString()} deposit. Date secured.
+                              Client paid ${booking.depositAmount.toLocaleString()} deposit ({booking.depositPercentage}%). Date secured.
                             </span>
                           )}
                           {isDepositDue && (
                             <span className="text-amber-800 font-medium">
-                              Request accepted. Awaiting client's ${booking.depositAmount.toLocaleString()} deposit payment.
+                              Space approved by venue. Awaiting client deposit payment of ${booking.depositAmount.toLocaleString()} ({booking.depositPercentage}%).
                             </span>
                           )}
                           {isRequested && (
@@ -439,7 +420,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                             <>
                               <button
                                 id={`accept-booking-btn-${booking.id}`}
-                                onClick={() => onUpdateBookingStatus(booking.id, 'confirmed_by_venue')}
+                                onClick={() => onUpdateBookingStatus(booking.id, 'deposit_due')}
                                 className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs"
                               >
                                 <Check className="w-3.5 h-3.5" />
@@ -447,7 +428,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                               </button>
                               <button
                                 id={`decline-booking-btn-${booking.id}`}
-                                onClick={() => onUpdateBookingStatus(booking.id, 'cancelled')}
+                                onClick={() => onUpdateBookingStatus(booking.id, 'declined')}
                                 className="px-3 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl hover:bg-rose-50 active:scale-95 transition-all"
                               >
                                 Decline
@@ -457,10 +438,41 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
 
                           {isDepositDue && (
                             <button
-                              onClick={() => onUpdateBookingStatus(booking.id, 'deposit_paid')}
+                              id={`simulate-deposit-btn-${booking.id}`}
+                              onClick={() => onUpdateBookingStatus(booking.id, 'confirmed')}
                               className="px-3.5 py-1.5 bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] rounded-xl transition-all shadow-xs"
                             >
                               Simulate Client Deposit Payment
+                            </button>
+                          )}
+
+                          {isConfirmed && (
+                            <button
+                              id={`trigger-final-payment-window-btn-${booking.id}`}
+                              onClick={() => onUpdateBookingStatus(booking.id, 'final_payment_due')}
+                              className="px-3.5 py-1.5 bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] rounded-xl transition-all shadow-xs"
+                            >
+                              Advance to Final Payment Window
+                            </button>
+                          )}
+
+                          {isFinalPaymentDue && (
+                            <button
+                              id={`simulate-final-payment-btn-${booking.id}`}
+                              onClick={() => onUpdateBookingStatus(booking.id, 'fully_paid')}
+                              className="px-3.5 py-1.5 bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 rounded-xl transition-all shadow-xs"
+                            >
+                              Simulate Full Balance Payment
+                            </button>
+                          )}
+
+                          {isFullyPaid && (
+                            <button
+                              id={`complete-event-btn-${booking.id}`}
+                              onClick={() => onUpdateBookingStatus(booking.id, 'completed')}
+                              className="px-3.5 py-1.5 bg-[#26343D] text-white text-xs font-semibold hover:bg-[#1E2930] rounded-xl transition-all shadow-xs"
+                            >
+                              Mark Event Completed
                             </button>
                           )}
                         </div>
@@ -595,3 +607,4 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
     </div>
   );
 };
+

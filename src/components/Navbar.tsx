@@ -1,23 +1,23 @@
 import React from 'react';
-import { Video, Sparkles, Calendar, Building2, LayoutDashboard, Bookmark } from 'lucide-react';
+import { Video, Sparkles, Calendar, Building2, LayoutDashboard, Sliders, Shield } from 'lucide-react';
 import { WalkthroughBooking, VenueBooking } from '../types';
 
 interface NavbarProps {
   onOpenAiMatcher: () => void;
   onOpenEventsHub: () => void;
   onBackToHome: () => void;
-  onOpenVenuePortal: () => void;
+  onSelectRole: (role: 'customer_discovery' | 'venue_portal' | 'platform_admin') => void;
   walkthroughBookings: WalkthroughBooking[];
   venueBookings: VenueBooking[];
   savedCount: number;
-  activeView: 'landing' | 'detail' | 'venue_portal';
+  activeView: 'landing' | 'detail' | 'venue_portal' | 'platform_admin';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAiMatcher,
   onOpenEventsHub,
   onBackToHome,
-  onOpenVenuePortal,
+  onSelectRole,
   walkthroughBookings,
   venueBookings,
   savedCount,
@@ -53,27 +53,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Discover Venues (when not in landing) */}
-          {activeView !== 'landing' && (
-            <button
-              id="nav-browse-venues-btn"
-              onClick={onBackToHome}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-[#66737A] hover:text-[#26343D] transition-colors"
-            >
-              <Building2 className="w-4 h-4" />
-              <span className="hidden md:inline">Discover Venues</span>
-            </button>
-          )}
-
           {/* AI Matcher */}
           <button
             id="nav-ai-matcher-btn"
             onClick={onOpenAiMatcher}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-[#26343D] bg-white border border-[#DDD8CF] rounded-xl hover:border-[#26343D] hover:bg-[#F4F1EA] transition-all active:scale-95 shadow-xs"
+            className="hidden md:flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-[#26343D] bg-white border border-[#DDD8CF] rounded-xl hover:border-[#26343D] hover:bg-[#F4F1EA] transition-all active:scale-95 shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#A86445]" />
-            <span className="hidden md:inline">Smart Venue Match</span>
-            <span className="md:hidden">Match</span>
+            <span>Smart Match</span>
           </button>
 
           {/* Customer Hub: My Events / Bookings */}
@@ -83,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="relative flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-medium text-[#26343D] bg-white border border-[#DDD8CF] rounded-xl hover:bg-[#F4F1EA] hover:border-[#26343D] shadow-xs transition-all active:scale-95"
           >
             <Calendar className="w-4 h-4 text-[#66737A]" />
-            <span className="hidden sm:inline">My Events & Bookings</span>
+            <span className="hidden sm:inline">My Events</span>
             <span className="sm:hidden">Events</span>
             {totalCustomerItems > 0 && (
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold bg-[#A86445] text-white rounded-full min-w-[18px] shadow-xs">
@@ -92,20 +79,49 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          {/* Venue Owner Portal Switcher */}
-          <button
-            id="nav-venue-portal-toggle-btn"
-            onClick={onOpenVenuePortal}
-            className={`flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-xs active:scale-95 ${
-              activeView === 'venue_portal'
-                ? 'bg-[#26343D] text-white ring-2 ring-[#A86445]'
-                : 'bg-[#F4F1EA] text-[#26343D] border border-[#DDD8CF] hover:bg-white hover:border-[#26343D]'
-            }`}
-          >
-            <LayoutDashboard className={`w-3.5 h-3.5 ${activeView === 'venue_portal' ? 'text-[#A86445]' : 'text-[#A86445]'}`} />
-            <span className="hidden sm:inline">Venue Owner Portal</span>
-            <span className="sm:hidden">Host</span>
-          </button>
+          {/* Role Switcher Pill Group */}
+          <div className="flex items-center bg-white border border-[#DDD8CF] p-1 rounded-xl shadow-xs">
+            <button
+              id="role-switch-customer-btn"
+              onClick={() => onSelectRole('customer_discovery')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeView === 'landing' || activeView === 'detail'
+                  ? 'bg-[#26343D] text-white shadow-xs'
+                  : 'text-[#66737A] hover:text-[#26343D]'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Customer</span>
+            </button>
+
+            <button
+              id="role-switch-venue-btn"
+              onClick={() => onSelectRole('venue_portal')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeView === 'venue_portal'
+                  ? 'bg-[#26343D] text-white shadow-xs'
+                  : 'text-[#66737A] hover:text-[#26343D]'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Venue Host</span>
+              <span className="lg:hidden">Host</span>
+            </button>
+
+            <button
+              id="role-switch-admin-btn"
+              onClick={() => onSelectRole('platform_admin')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeView === 'platform_admin'
+                  ? 'bg-[#A86445] text-white shadow-xs'
+                  : 'text-[#66737A] hover:text-[#A86445]'
+              }`}
+              title="Platform Admin: Commission & Commercial Rules"
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Admin</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

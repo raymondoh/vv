@@ -13,7 +13,8 @@ import {
   Info,
   ShieldCheck,
 } from 'lucide-react';
-import { Venue, VenueBooking, LayoutCategory } from '../types';
+import { Venue, VenueBooking, LayoutCategory, MarketplaceConfig } from '../types';
+import { DEFAULT_MARKETPLACE_CONFIG, calculateBookingFinancials } from '../config/marketplaceConfig';
 
 interface VenueBookingModalProps {
   venue: Venue;
@@ -21,6 +22,7 @@ interface VenueBookingModalProps {
   onClose: () => void;
   onBookingSubmitted: (booking: VenueBooking) => void;
   selectedLayoutCategory?: LayoutCategory;
+  marketplaceConfig?: MarketplaceConfig;
 }
 
 export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
@@ -29,6 +31,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   onClose,
   onBookingSubmitted,
   selectedLayoutCategory,
+  marketplaceConfig = DEFAULT_MARKETPLACE_CONFIG,
 }) => {
   const [step, setStep] = useState<'details' | 'contact' | 'review' | 'confirmed'>('details');
   const [loading, setLoading] = useState(false);
@@ -59,11 +62,13 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Calculation (Standard venue pricing - NO customer platform fees)
+  // Calculation based on active MarketplaceConfig (Standard venue pricing - NO customer platform fees)
   const grossAmount = venue.pricing.startingPrice;
-  const depositPercentage = 25; // 25% initial deposit
-  const depositAmount = Math.round((grossAmount * depositPercentage) / 100);
-  const remainingBalance = grossAmount - depositAmount;
+  const financials = calculateBookingFinancials(grossAmount, marketplaceConfig, eventDate);
+  const depositPercentage = financials.depositPercentage;
+  const depositAmount = financials.depositAmount;
+  const remainingBalance = financials.finalBalance;
+  const balanceDueDays = marketplaceConfig.balanceDueDaysBeforeEvent || 14;
 
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,16 +131,17 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
         specialRequirements,
         status: 'requested',
         grossAmount,
-        depositPercentage: 25,
+        depositPercentage,
         depositAmount,
         finalBalance: remainingBalance,
+        finalBalanceDueDate: financials.finalBalanceDueDate,
         createdAt: new Date().toISOString(),
         hostName: venue.host.name,
         checklist: [
           { id: 'c1', text: 'Explore venue walkthrough & architectural floor plan', completed: true, category: 'Inspection' },
           { id: 'c2', text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
           { id: 'c3', text: 'Awaiting venue host review & date confirmation', completed: false, category: 'Contract & Payment' },
-          { id: 'c4', text: 'Pay initial deposit (25%) once venue accepts', completed: false, category: 'Contract & Payment' },
+          { id: 'c4', text: `Pay initial deposit (${depositPercentage}%) once venue accepts`, completed: false, category: 'Contract & Payment' },
           { id: 'c5', text: 'Finalize catering, AV setup & run-of-show', completed: false, category: 'Catering & AV' },
         ],
       };
@@ -493,7 +499,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                   </div>
                   <div className="flex items-center justify-between text-[#66737A] text-[11px]">
                     <span>Remaining Balance:</span>
-                    <span>${remainingBalance.toLocaleString()} (Due 14 days prior to event)</span>
+                    <span>${remainingBalance.toLocaleString()} (Due {balanceDueDays} days prior to event)</span>
                   </div>
                   <p className="text-[10px] text-[#66737A] pt-1">
                     *Deposit is only requested once {venue.host.name} reviews and confirms your date.
@@ -560,7 +566,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     </div>
                     <div>
                       <strong className="text-[#26343D] block">Deposit Payment (${createdBooking.depositAmount.toLocaleString()})</strong>
-                      <span>Once approved, you will be invited to pay the 25% deposit to lock the reservation.</span>
+                      <span>Once approved, you will be invited to pay the {createdBooking.depositPercentage}% deposit to lock the reservation.</span>
                     </div>
                   </div>
 
