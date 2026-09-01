@@ -586,13 +586,13 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                           )}
 
                           {isDepositDue && (
-                            <button
-                              id={`simulate-deposit-btn-${booking.id}`}
-                              onClick={() => onUpdateBookingStatus(booking.id, 'confirmed')}
-                              className="px-3.5 py-1.5 bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] rounded-xl transition-all shadow-xs"
+                            <span
+                              id={`awaiting-deposit-status-${booking.id}`}
+                              className="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold rounded-xl flex items-center gap-1.5"
                             >
-                              Simulate Client Deposit Payment
-                            </button>
+                              <Clock className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Awaiting customer deposit</span>
+                            </span>
                           )}
 
                           {isConfirmed && (

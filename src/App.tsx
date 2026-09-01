@@ -335,8 +335,8 @@ export default function App() {
           <CustomerDashboard
             venueBookings={venueBookings}
             walkthroughBookings={walkthroughBookings}
-            savedVenues={venues.filter((v) => favorites.includes(v.id))}
-            marketplaceConfig={marketplaceConfig}
+            venues={venues}
+            favorites={favorites}
             onOpenDepositModal={(booking) => setDepositPaymentBooking(booking)}
             onOpenEventPlanner={(booking) => setPlannerBooking(booking)}
             onOpenLiveSimulator={(booking) => setActiveLiveSimulatorBooking(booking)}
@@ -357,7 +357,6 @@ export default function App() {
             }}
             onRequestToBookVenue={(venue) => setRequestBookingVenue(venue)}
             onToggleFavorite={handleToggleFavorite}
-            onUpdateBookingStatus={handleUpdateBookingStatus}
           />
         ) : selectedVenue ? (
           /* Dedicated Venue Detail & Video Page */
