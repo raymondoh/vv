@@ -475,14 +475,17 @@ app.post('/api/gemini/match', async (req, res) => {
   // Fallback intelligent matching heuristic
   const fallbackMatch = (): AiMatchResponse => {
     const q = query.toLowerCase();
-    let scores = VENUES.map((v) => {
+    const publishedVenues = venuesStore.filter((v) => !v.status || v.status === 'published');
+    const catalogToMatch = publishedVenues.length > 0 ? publishedVenues : venuesStore;
+
+    let scores = catalogToMatch.map((v) => {
       let score = 0;
       const reasons: string[] = [];
 
       // Location match
-      if (q.includes(v.location.city.toLowerCase()) || q.includes(v.location.state.toLowerCase())) {
+      if (q.includes(v.location.city.toLowerCase()) || (v.location.state && q.includes(v.location.state.toLowerCase()))) {
         score += 35;
-        reasons.push(`Located directly in ${v.location.city}, ${v.location.state}`);
+        reasons.push(`Located directly in ${v.location.city}, ${v.location.state || ''}`);
       }
 
       // Aesthetic match
@@ -519,7 +522,7 @@ app.post('/api/gemini/match', async (req, res) => {
       }
 
       // Event type match
-      if (q.includes('wedding') && v.eventTypes.includes('wedding')) {
+      if (q.includes('wedding') && v.eventTypes.includes('wedding' as any)) {
         score += 15;
         reasons.push('Curated for wedding ceremonies, receptions, and celebratory banquets');
       }
@@ -546,11 +549,11 @@ app.post('/api/gemini/match', async (req, res) => {
     });
 
     scores.sort((a, b) => b.score - a.score);
-    const top = scores[0]?.venue || VENUES[0];
+    const top = scores[0]?.venue || catalogToMatch[0];
     const topReasons = scores[0]?.reasons.length ? scores[0].reasons : ['Strong match for spatial capacity, layout flexibility, and aesthetic requirements'];
 
     const matchedIds = scores.filter((s) => s.score > 20).map((s) => s.venue.id);
-    const finalIds = matchedIds.length > 0 ? matchedIds : [top.id, VENUES[1]?.id || VENUES[0].id];
+    const finalIds = matchedIds.length > 0 ? matchedIds : [top.id, catalogToMatch[1]?.id || catalogToMatch[0]?.id].filter(Boolean);
 
     return {
       query,
@@ -580,7 +583,10 @@ app.post('/api/gemini/match', async (req, res) => {
       },
     });
 
-    const venueCatalogSummary = VENUES.map((v) => ({
+    const publishedVenues = venuesStore.filter((v) => !v.status || v.status === 'published');
+    const catalogToMatch = publishedVenues.length > 0 ? publishedVenues : venuesStore;
+
+    const venueCatalogSummary = catalogToMatch.map((v) => ({
       id: v.id,
       name: v.name,
       city: v.location.city,
@@ -659,11 +665,11 @@ Return a structured JSON object selecting the best matches from the catalog in s
     const parsed = JSON.parse(response.text || '{}');
     const finalResponse: AiMatchResponse = {
       query,
-      matchedVenueIds: Array.isArray(parsed.matchedVenueIds) && parsed.matchedVenueIds.length > 0 ? parsed.matchedVenueIds : [VENUES[0].id],
-      topPickVenueId: parsed.topPickVenueId || VENUES[0].id,
+      matchedVenueIds: Array.isArray(parsed.matchedVenueIds) && parsed.matchedVenueIds.length > 0 ? parsed.matchedVenueIds : [catalogToMatch[0].id],
+      topPickVenueId: parsed.topPickVenueId || catalogToMatch[0].id,
       confidenceScore: parsed.confidenceScore || 94,
       recommendedLayout: parsed.recommendedLayout || 'Standard Event Layout',
-      aiExplanation: parsed.aiExplanation || `Based on your request "${query}", our top recommendation is ${VENUES[0].name}.`,
+      aiExplanation: parsed.aiExplanation || `Based on your request "${query}", our top recommendation is ${catalogToMatch[0].name}.`,
       keyMatchFactors: parsed.keyMatchFactors || ['Capacity match', 'Aesthetic alignment', 'Prime location'],
       estimatedBudgetNote: parsed.estimatedBudgetNote || 'Pricing accommodates custom walkthrough arrangements.',
     };
@@ -698,7 +704,7 @@ app.post('/api/walkthroughs/book', (req, res) => {
     });
   }
 
-  const venue = VENUES.find((v) => v.id === venueId);
+  const venue = venuesStore.find((v) => v.id === venueId);
   if (!venue) {
     return res.status(404).json({ success: false, error: 'Venue not found' });
   }
@@ -820,7 +826,7 @@ app.post('/api/venue-bookings', (req, res) => {
     });
   }
 
-  const venue = VENUES.find((v) => v.id === venueId);
+  const venue = venuesStore.find((v) => v.id === venueId);
   if (!venue) {
     return res.status(404).json({ success: false, error: 'Venue not found' });
   }

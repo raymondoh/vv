@@ -21,12 +21,14 @@ interface LiveMeetingSimulatorModalProps {
   booking: WalkthroughBooking;
   isOpen: boolean;
   onClose: () => void;
+  venues?: Venue[];
 }
 
 export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps> = ({
   booking,
   isOpen,
   onClose,
+  venues = [],
 }) => {
   const [micActive, setMicActive] = useState(true);
   const [videoActive, setVideoActive] = useState(true);
@@ -42,7 +44,11 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
 
   if (!isOpen) return null;
 
-  const currentVenue = VENUES.find((v) => v.id === booking.venueId) || VENUES[0];
+  const currentVenue =
+    venues.find((v) => v.id === booking.venueId) ||
+    VENUES.find((v) => v.id === booking.venueId) ||
+    venues[0] ||
+    VENUES[0];
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();

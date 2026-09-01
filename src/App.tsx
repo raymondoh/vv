@@ -85,7 +85,7 @@ export default function App() {
     const fetchData = async () => {
       try {
         const [venuesRes, walkthroughsRes, venueBookingsRes, configRes, orgsRes] = await Promise.all([
-          fetch('/api/venues'),
+          fetch('/api/venues?includeDrafts=true'),
           fetch('/api/walkthroughs'),
           fetch('/api/venue-bookings'),
           fetch('/api/marketplace/config'),
@@ -147,9 +147,14 @@ export default function App() {
     });
   };
 
-  // Filter and sort venues
+  // Customer-facing published catalogue (drafts are strictly excluded)
+  const publishedVenues = useMemo(() => {
+    return venues.filter((v) => !v.status || v.status === 'published');
+  }, [venues]);
+
+  // Filter and sort customer published venues
   const filteredVenues = useMemo(() => {
-    let list = [...venues];
+    let list = [...publishedVenues];
 
     if (activeTab === 'favorites') {
       list = list.filter((v) => favorites.includes(v.id));
@@ -166,7 +171,9 @@ export default function App() {
       list = list.filter(
         (v) =>
           v.location.city.toLowerCase().includes(loc) ||
-          v.location.state.toLowerCase().includes(loc)
+          (v.location.state && v.location.state.toLowerCase().includes(loc)) ||
+          (v.location.region && v.location.region.toLowerCase().includes(loc)) ||
+          (v.location.country && v.location.country.toLowerCase().includes(loc))
       );
     }
 
@@ -205,7 +212,7 @@ export default function App() {
     }
 
     return list;
-  }, [venues, filters, activeTab, favorites]);
+  }, [publishedVenues, filters, activeTab, favorites]);
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -335,7 +342,7 @@ export default function App() {
   const handleToggleVenuePublishStatus = async (venueId: string, currentStatus: 'draft' | 'published') => {
     const nextStatus = currentStatus === 'draft' ? 'published' : 'draft';
     try {
-      const res = await fetch(`/api/venues/${venueId}/publish`, {
+      const res = await fetch(`/api/venues/${venueId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
@@ -563,7 +570,7 @@ export default function App() {
       <AiVenueMatcher
         isOpen={isAiMatcherOpen}
         onClose={() => setIsAiMatcherOpen(false)}
-        venues={venues}
+        venues={publishedVenues}
         initialPrompt={aiInitialPrompt}
         onSelectVenue={(venue) => {
           setSelectedVenue(venue);
@@ -669,6 +676,7 @@ export default function App() {
           booking={activeLiveSimulatorBooking}
           isOpen={true}
           onClose={() => setActiveLiveSimulatorBooking(null)}
+          venues={venues}
         />
       )}
 
