@@ -255,11 +255,7 @@ export default function App() {
     } catch (err: any) {
       const errorMsg = err?.message || 'Network error updating booking status';
       console.error('Failed to sync booking status with server:', err);
-      // Fallback local update if offline/transient
-      setVenueBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
-      );
-      return { success: true };
+      return { success: false, error: errorMsg };
     }
   };
 
