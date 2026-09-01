@@ -23,7 +23,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { VenueBooking, WalkthroughBooking, Venue, VenueBookingStatus } from '../types';
-import { getStatusDisplay } from '../utils/bookingStatus';
+import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
 
 interface CustomerDashboardProps {
   venueBookings: VenueBooking[];
@@ -492,6 +492,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             <div className="grid grid-cols-1 gap-5">
               {filteredBookings.map((booking) => {
                 const statusInfo = getStatusDisplay(booking.status);
+                const depositStatus = getDepositStatusDisplay(booking.status);
+                const finalBalanceStatus = getFinalBalanceStatusDisplay(booking.status);
                 const isRequested = booking.status === 'requested';
                 const isDepositDue = booking.status === 'deposit_due';
                 const isConfirmed = booking.status === 'confirmed';
@@ -573,14 +575,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[#66737A]">Deposit ({booking.depositPercentage}%):</span>
-                          <strong className={isPaidOrConfirmed ? 'text-emerald-700' : 'text-[#A86445]'}>
-                            ${booking.depositAmount.toLocaleString()} {isPaidOrConfirmed ? '(Paid)' : '(Due)'}
+                          <strong className={depositStatus.badgeClass}>
+                            ${booking.depositAmount.toLocaleString()} {depositStatus.label}
                           </strong>
                         </div>
                         <div className="flex justify-between text-[#66737A] pt-1 border-t border-[#DDD8CF]">
                           <span>Final Balance:</span>
-                          <span className={isFullyPaid || isCompleted ? 'text-emerald-700 font-semibold' : 'text-[#26343D]'}>
-                            ${booking.finalBalance?.toLocaleString()} {isFullyPaid || isCompleted ? '(Paid)' : ''}
+                          <span className={finalBalanceStatus.badgeClass}>
+                            ${booking.finalBalance?.toLocaleString()} {finalBalanceStatus.label}
                           </span>
                         </div>
                       </div>

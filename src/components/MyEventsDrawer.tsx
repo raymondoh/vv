@@ -16,7 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { VenueBooking, WalkthroughBooking } from '../types';
-import { getStatusDisplay } from '../utils/bookingStatus';
+import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
 
 interface MyEventsDrawerProps {
   isOpen: boolean;
@@ -128,6 +128,8 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                 <div className="space-y-4">
                   {venueBookings.map((booking) => {
                     const statusInfo = getStatusDisplay(booking.status);
+                    const depositStatus = getDepositStatusDisplay(booking.status);
+                    const finalBalanceStatus = getFinalBalanceStatusDisplay(booking.status);
                     const isDepositDue = booking.status === 'deposit_due';
                     const isFinalPaymentDue = booking.status === 'final_payment_due';
                     const isPaidOrConfirmed =
@@ -175,9 +177,15 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Deposit ({booking.depositPercentage}%):</span>
-                            <strong className={isPaidOrConfirmed ? 'text-emerald-700' : 'text-[#A86445]'}>
-                              ${booking.depositAmount.toLocaleString()} {isPaidOrConfirmed ? '(Paid)' : '(Due)'}
+                            <strong className={depositStatus.badgeClass}>
+                              ${booking.depositAmount.toLocaleString()} {depositStatus.label}
                             </strong>
+                          </div>
+                          <div className="flex items-center justify-between text-[#26343D]">
+                            <span className="text-[#66737A]">Final Balance:</span>
+                            <span className={finalBalanceStatus.badgeClass}>
+                              ${booking.finalBalance?.toLocaleString()} {finalBalanceStatus.label}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Layout Setup:</span>

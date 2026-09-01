@@ -411,8 +411,18 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                   <div className="space-y-1 text-[#66737A]">
                     <div>Venue Booking Price: <strong className="text-[#26343D]">${booking.grossAmount.toLocaleString()}</strong></div>
                     <div>Deposit Required ({booking.depositPercentage}%): <strong className="text-[#26343D]">${booking.depositAmount.toLocaleString()}</strong></div>
-                    <div>Deposit Status: <strong className={isPaidOrConfirmed ? 'text-emerald-700' : 'text-amber-700'}>
-                      {isPaidOrConfirmed ? 'Paid & Receipted' : 'Due upon venue confirmation'}
+                    <div>Deposit Status: <strong className={
+                      booking.status === 'confirmed' || booking.status === 'fully_paid' || booking.status === 'completed'
+                        ? 'text-emerald-700'
+                        : booking.status === 'deposit_due'
+                        ? 'text-amber-700'
+                        : 'text-[#66737A]'
+                    }>
+                      {booking.status === 'confirmed' || booking.status === 'fully_paid' || booking.status === 'completed'
+                        ? 'Paid & Receipted'
+                        : booking.status === 'deposit_due'
+                        ? 'Due Now'
+                        : 'Not due yet (Awaiting Host Review)'}
                     </strong></div>
                     <div>Remaining Balance: <strong className="text-[#26343D]">${booking.finalBalance.toLocaleString()}</strong></div>
                     <div>Balance Due Date: <strong className="text-[#26343D]">{booking.finalBalanceDueDate || `${marketplaceConfig?.balanceDueDaysBeforeEvent || 14} days prior to event`}</strong></div>

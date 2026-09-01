@@ -117,6 +117,101 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
 }
 
 /**
+ * Return status-aware deposit wording and styling for customer-facing views:
+ * - requested: "Not due yet" (or "If approved") — never "Due"
+ * - deposit_due: "Due"
+ * - confirmed / final_payment_due / fully_paid / completed: "Paid"
+ * - declined / cancelled: "Cancelled" / "Not applicable" (no implication of payment due)
+ */
+export function getDepositStatusDisplay(status: VenueBookingStatus): {
+  label: string;
+  badgeClass: string;
+  isActionable: boolean;
+} {
+  switch (status) {
+    case 'requested':
+      return {
+        label: '(Not due yet)',
+        badgeClass: 'text-[#66737A]',
+        isActionable: false,
+      };
+    case 'deposit_due':
+      return {
+        label: '(Due)',
+        badgeClass: 'text-[#A86445]',
+        isActionable: true,
+      };
+    case 'confirmed':
+    case 'final_payment_due':
+    case 'fully_paid':
+    case 'completed':
+      return {
+        label: '(Paid)',
+        badgeClass: 'text-emerald-700',
+        isActionable: false,
+      };
+    case 'declined':
+      return {
+        label: '(Declined)',
+        badgeClass: 'text-[#66737A]',
+        isActionable: false,
+      };
+    case 'cancelled':
+      return {
+        label: '(Cancelled)',
+        badgeClass: 'text-[#66737A]',
+        isActionable: false,
+      };
+    default:
+      return {
+        label: '',
+        badgeClass: 'text-[#26343D]',
+        isActionable: false,
+      };
+  }
+}
+
+/**
+ * Return status-aware final balance wording and styling for customer-facing views
+ */
+export function getFinalBalanceStatusDisplay(status: VenueBookingStatus): {
+  label: string;
+  badgeClass: string;
+} {
+  switch (status) {
+    case 'fully_paid':
+    case 'completed':
+      return {
+        label: '(Paid)',
+        badgeClass: 'text-emerald-700 font-semibold',
+      };
+    case 'final_payment_due':
+      return {
+        label: '(Due)',
+        badgeClass: 'text-orange-800 font-semibold',
+      };
+    case 'requested':
+    case 'deposit_due':
+    case 'confirmed':
+      return {
+        label: '',
+        badgeClass: 'text-[#26343D]',
+      };
+    case 'declined':
+    case 'cancelled':
+      return {
+        label: '(N/A)',
+        badgeClass: 'text-[#66737A]',
+      };
+    default:
+      return {
+        label: '',
+        badgeClass: 'text-[#26343D]',
+      };
+  }
+}
+
+/**
  * Dynamically generates checklist items adhering to the active MarketplaceConfig
  */
 export function generateBookingChecklist(

@@ -29,7 +29,10 @@ interface VenueOwnerDashboardProps {
   venueBookings: VenueBooking[];
   walkthroughBookings: WalkthroughBooking[];
   marketplaceConfig: MarketplaceConfig;
-  onUpdateBookingStatus: (bookingId: string, newStatus: VenueBookingStatus) => void;
+  onUpdateBookingStatus: (
+    bookingId: string,
+    newStatus: VenueBookingStatus
+  ) => Promise<{ success: boolean; error?: string; booking?: VenueBooking }> | void;
   onOpenLiveSimulator: (booking: WalkthroughBooking) => void;
   onInspectVenue: (venue: Venue) => void;
   onSwitchToCustomerView: () => void;
@@ -48,10 +51,32 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   const [selectedVenueId, setSelectedVenueId] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'bookings' | 'walkthroughs' | 'spaces'>('bookings');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
 
   const selectedVenue = venues.find((v) => v.id === selectedVenueId) || venues[0];
 
   const commissionRate = marketplaceConfig.commissionPercentage || 12;
+
+  const handleHostAction = async (bookingId: string, newStatus: VenueBookingStatus) => {
+    if (processingBookingId === bookingId) return; // Prevent duplicate submissions
+    setProcessingBookingId(bookingId);
+    setActionError(null);
+
+    try {
+      const result = await onUpdateBookingStatus(bookingId, newStatus);
+      if (result && !result.success && result.error) {
+        setActionError({ id: bookingId, message: result.error });
+      }
+    } catch (err: any) {
+      setActionError({
+        id: bookingId,
+        message: err?.message || 'Failed to update booking. Please try again.',
+      });
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
 
   // Filter bookings for the selected venue (or all)
   const filteredBookings = venueBookings.filter((b) => {
@@ -322,23 +347,49 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                   </div>
 
                   {/* Real Action Buttons for Host */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                     <span className="text-xs text-[#66737A]">
                       Accepting confirms space availability and automatically prompts the customer to pay their {request.depositPercentage}% deposit.
                     </span>
-                    <div className="flex items-center gap-2">
+
+                    {actionError && actionError.id === request.id && (
+                      <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-lg">
+                        {actionError.message}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 shrink-0">
                       <button
                         id={`queue-accept-booking-btn-${request.id}`}
-                        onClick={() => onUpdateBookingStatus(request.id, 'deposit_due')}
-                        className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs"
+                        disabled={processingBookingId === request.id}
+                        onClick={() => handleHostAction(request.id, 'deposit_due')}
+                        className={`px-4 py-2 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all ${
+                          processingBookingId === request.id
+                            ? 'bg-emerald-600 opacity-80 cursor-not-allowed'
+                            : 'bg-emerald-700 hover:bg-emerald-800 active:scale-95'
+                        }`}
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Accept Booking Request</span>
+                        {processingBookingId === request.id ? (
+                          <>
+                            <Clock className="w-3.5 h-3.5 animate-spin" />
+                            <span>Accepting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Accept Booking Request</span>
+                          </>
+                        )}
                       </button>
                       <button
                         id={`queue-decline-booking-btn-${request.id}`}
-                        onClick={() => onUpdateBookingStatus(request.id, 'declined')}
-                        className="px-3.5 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl hover:bg-rose-50 active:scale-95 transition-all"
+                        disabled={processingBookingId === request.id}
+                        onClick={() => handleHostAction(request.id, 'declined')}
+                        className={`px-3.5 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl transition-all ${
+                          processingBookingId === request.id
+                            ? 'opacity-50 cursor-not-allowed'
+                            : 'hover:bg-rose-50 active:scale-95'
+                        }`}
                       >
                         Decline Request
                       </button>
@@ -564,21 +615,46 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {actionError && actionError.id === booking.id && (
+                            <span className="text-xs text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
+                              {actionError.message}
+                            </span>
+                          )}
+
                           {isRequested && (
                             <>
                               <button
                                 id={`accept-booking-btn-${booking.id}`}
-                                onClick={() => onUpdateBookingStatus(booking.id, 'deposit_due')}
-                                className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs"
+                                disabled={processingBookingId === booking.id}
+                                onClick={() => handleHostAction(booking.id, 'deposit_due')}
+                                className={`px-4 py-2 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all ${
+                                  processingBookingId === booking.id
+                                    ? 'bg-emerald-600 opacity-80 cursor-not-allowed'
+                                    : 'bg-emerald-700 hover:bg-emerald-800 active:scale-95'
+                                }`}
                               >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Accept & Request Deposit</span>
+                                {processingBookingId === booking.id ? (
+                                  <>
+                                    <Clock className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Accepting...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Accept & Request Deposit</span>
+                                  </>
+                                )}
                               </button>
                               <button
                                 id={`decline-booking-btn-${booking.id}`}
-                                onClick={() => onUpdateBookingStatus(booking.id, 'declined')}
-                                className="px-3 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl hover:bg-rose-50 active:scale-95 transition-all"
+                                disabled={processingBookingId === booking.id}
+                                onClick={() => handleHostAction(booking.id, 'declined')}
+                                className={`px-3 py-2 bg-white border border-rose-200 text-rose-700 font-semibold text-xs rounded-xl transition-all ${
+                                  processingBookingId === booking.id
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-rose-50 active:scale-95'
+                                }`}
                               >
                                 Decline
                               </button>
@@ -598,7 +674,8 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                           {isConfirmed && (
                             <button
                               id={`trigger-final-payment-window-btn-${booking.id}`}
-                              onClick={() => onUpdateBookingStatus(booking.id, 'final_payment_due')}
+                              disabled={processingBookingId === booking.id}
+                              onClick={() => handleHostAction(booking.id, 'final_payment_due')}
                               className="px-3.5 py-1.5 bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] rounded-xl transition-all shadow-xs"
                             >
                               Advance to Final Payment Window
@@ -606,19 +683,20 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                           )}
 
                           {isFinalPaymentDue && (
-                            <button
-                              id={`simulate-final-payment-btn-${booking.id}`}
-                              onClick={() => onUpdateBookingStatus(booking.id, 'fully_paid')}
-                              className="px-3.5 py-1.5 bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 rounded-xl transition-all shadow-xs"
+                            <span
+                              id={`awaiting-final-payment-status-${booking.id}`}
+                              className="px-3 py-1.5 bg-orange-50 text-orange-800 border border-orange-200 text-xs font-semibold rounded-xl flex items-center gap-1.5"
                             >
-                              Simulate Full Balance Payment
-                            </button>
+                              <Clock className="w-3.5 h-3.5 text-orange-600" />
+                              <span>Awaiting customer final payment</span>
+                            </span>
                           )}
 
                           {isFullyPaid && (
                             <button
                               id={`complete-event-btn-${booking.id}`}
-                              onClick={() => onUpdateBookingStatus(booking.id, 'completed')}
+                              disabled={processingBookingId === booking.id}
+                              onClick={() => handleHostAction(booking.id, 'completed')}
                               className="px-3.5 py-1.5 bg-[#26343D] text-white text-xs font-semibold hover:bg-[#1E2930] rounded-xl transition-all shadow-xs"
                             >
                               Mark Event Completed

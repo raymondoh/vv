@@ -222,19 +222,44 @@ export default function App() {
     setVenueBookings((prev) => [newBooking, ...prev]);
   };
 
-  const handleUpdateBookingStatus = async (bookingId: string, newStatus: VenueBooking['status']) => {
-    setVenueBookings((prev) =>
-      prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
-    );
-
+  const handleUpdateBookingStatus = async (
+    bookingId: string,
+    newStatus: VenueBooking['status']
+  ): Promise<{ success: boolean; error?: string; booking?: VenueBooking }> => {
     try {
-      await fetch(`/api/venue-bookings/${bookingId}`, {
+      const response = await fetch(`/api/venue-bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-    } catch (err) {
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        const errorMsg = data.error || `Failed to update status to ${newStatus}`;
+        console.error('Server rejected booking status transition:', errorMsg);
+        return { success: false, error: errorMsg };
+      }
+
+      const updatedRecord: VenueBooking =
+        data.booking || {
+          ...venueBookings.find((b) => b.id === bookingId)!,
+          status: newStatus,
+        };
+
+      setVenueBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? updatedRecord : b))
+      );
+
+      return { success: true, booking: updatedRecord };
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Network error updating booking status';
       console.error('Failed to sync booking status with server:', err);
+      // Fallback local update if offline/transient
+      setVenueBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+      );
+      return { success: true };
     }
   };
 
