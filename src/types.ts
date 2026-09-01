@@ -70,6 +70,8 @@ export interface HostInfo {
   rating: number;
   totalToursConducted: number;
   bio: string;
+  phone?: string;
+  email?: string;
 }
 
 export interface AvailableDaySlot {
@@ -77,18 +79,113 @@ export interface AvailableDaySlot {
   times: { time: string; period: 'morning' | 'afternoon' | 'sunset'; available: boolean }[];
 }
 
+export type SpaceLayoutType =
+  | 'Banquet'
+  | 'Theatre'
+  | 'Boardroom'
+  | 'Classroom'
+  | 'Cocktail'
+  | 'Ceremony'
+  | 'Exhibition'
+  | 'Private Dining'
+  | 'Custom';
+
+export interface SpaceLayout {
+  id: string;
+  spaceId?: string;
+  title: string;
+  layoutType: SpaceLayoutType;
+  capacity: number;
+  description: string;
+  setupHighlights?: string[];
+  images?: string[];
+  floorPlanUrl?: string;
+  walkthroughMediaUrl?: string;
+  walkthroughDurationSec?: number;
+}
+
+export interface VenueSpace {
+  id: string;
+  venueId?: string;
+  name: string;
+  description: string;
+  floorLocation: string; // e.g., 'Ground Floor', 'Mezzanine', 'Level 2'
+  maxCapacity: number;
+  seatedCapacity?: number;
+  standingCapacity?: number;
+  theatreCapacity?: number;
+  squareMeters?: number;
+  squareFeet?: number;
+  ceilingHeightMeters?: number;
+  ceilingHeightFt?: number;
+  accessibilityDetails?: string;
+  amenities?: string[];
+  layouts: SpaceLayout[];
+}
+
+export interface MediaAsset {
+  id: string;
+  type: 'photo' | 'floor_plan' | 'walkthrough_video' | '360_tour';
+  url: string;
+  title: string;
+  description?: string;
+  spaceId?: string;
+  layoutId?: string;
+  isPrimary?: boolean;
+}
+
+export interface BusinessOrganisation {
+  id: string;
+  name: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  website?: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface VenueLocation {
+  city: string;
+  state?: string;
+  address: string;
+  neighborhood?: string;
+  zipCode?: string;
+  // International structured fields
+  country?: string; // default "United Kingdom"
+  countryCode?: string; // default "GB"
+  region?: string; // e.g. "Greater London", "West Midlands"
+  postalCode?: string; // e.g. "EC1A 1BB"
+  addressLine1?: string;
+  addressLine2?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone?: string; // IANA e.g. "Europe/London"
+}
+
+export interface VenuePricing {
+  startingPrice: number;
+  priceUnit: string;
+  hourlyRate?: number;
+  minimumSpend?: number;
+  cleaningFee: number;
+  securityDeposit: number;
+  peakSeasonMultiplier?: number;
+  currency?: string; // e.g. "GBP", "USD", "EUR"
+  currencySymbol?: string; // e.g. "£", "$", "€"
+}
+
 export interface Venue {
   id: string;
+  organisationId?: string;
+  businessName?: string;
+  status?: 'draft' | 'published';
+  listingCompleteness?: number; // 0 - 100%
+  qualityTier?: 'basic' | 'enhanced' | 'advanced';
   name: string;
   tagline: string;
   description: string;
-  location: {
-    city: string;
-    state: string;
-    address: string;
-    neighborhood: string;
-    zipCode: string;
-  };
+  location: VenueLocation;
   eventTypes: EventType[];
   aesthetic: string;
   capacity: {
@@ -96,14 +193,7 @@ export interface Venue {
     seatedBanquet: number;
     theater: number;
   };
-  pricing: {
-    startingPrice: number;
-    priceUnit: string;
-    hourlyRate?: number;
-    cleaningFee: number;
-    securityDeposit: number;
-    peakSeasonMultiplier?: number;
-  };
+  pricing: VenuePricing;
   rating: number;
   reviewCount: number;
   featured: boolean;
@@ -111,6 +201,8 @@ export interface Venue {
   galleryImages: string[];
   instantTourBadge: boolean;
   walkthroughClips: WalkthroughClip[];
+  spaces?: VenueSpace[];
+  mediaAssets?: MediaAsset[];
   amenities: Amenity[];
   specs: VenueSpecs;
   host: HostInfo;

@@ -3,13 +3,18 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { VENUES } from './src/data/venues.ts';
-import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig } from './src/types.ts';
+import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
+import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// In-memory store for organisations and venues
+let organisationsStore: BusinessOrganisation[] = [...INITIAL_ORGANISATIONS];
+let venuesStore: Venue[] = [...VENUES];
 
 // Marketplace centralized configuration (managed via admin prototype settings)
 let marketplaceConfig: MarketplaceConfig = {
@@ -208,15 +213,70 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'VenueStream API', timestamp: new Date().toISOString() });
 });
 
+// Organisations endpoints
+app.get('/api/organisations', (req, res) => {
+  res.json({ success: true, count: organisationsStore.length, organisations: organisationsStore });
+});
+
+app.get('/api/organisations/:id', (req, res) => {
+  const org = organisationsStore.find((o) => o.id === req.params.id);
+  if (!org) {
+    return res.status(404).json({ success: false, error: 'Organisation not found' });
+  }
+  const orgVenues = venuesStore.filter((v) => v.organisationId === org.id);
+  res.json({ success: true, organisation: org, venues: orgVenues });
+});
+
+app.post('/api/organisations', (req, res) => {
+  const { name, contactName, email, phone, website, description } = req.body;
+  if (!name || !contactName || !email) {
+    return res.status(400).json({ success: false, error: 'Missing required organisation fields (name, contactName, email)' });
+  }
+
+  const existing = organisationsStore.find((o) => o.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    // update existing
+    existing.name = name;
+    existing.contactName = contactName;
+    existing.phone = phone || existing.phone;
+    existing.website = website || existing.website;
+    existing.description = description || existing.description;
+    return res.json({ success: true, organisation: existing, isNew: false });
+  }
+
+  const newOrg: BusinessOrganisation = {
+    id: `org-${Date.now().toString().slice(-6)}`,
+    name,
+    contactName,
+    email,
+    phone: phone || '',
+    website: website || '',
+    description: description || '',
+    createdAt: new Date().toISOString(),
+  };
+
+  organisationsStore.unshift(newOrg);
+  res.status(201).json({ success: true, organisation: newOrg, isNew: true });
+});
+
 // 2. Venues list endpoint
 app.get('/api/venues', (req, res) => {
-  const { eventType, location, minCapacity, maxBudget, search } = req.query;
+  const { eventType, location, minCapacity, maxBudget, search, organisationId, includeDrafts } = req.query;
 
-  let results = [...VENUES];
+  let results = [...venuesStore];
+
+  if (organisationId && organisationId !== 'all') {
+    results = results.filter((v) => v.organisationId === organisationId);
+  }
+
+  if (includeDrafts !== 'true') {
+    // Default public view only returns published venues
+    results = results.filter((v) => !v.status || v.status === 'published');
+  }
 
   if (eventType && eventType !== 'all') {
     results = results.filter((v) =>
-      v.eventTypes.includes(eventType as 'wedding' | 'corporate' | 'party' | 'gala')
+      v.eventTypes.includes(eventType as any)
     );
   }
 
@@ -225,7 +285,9 @@ app.get('/api/venues', (req, res) => {
     results = results.filter(
       (v) =>
         v.location.city.toLowerCase().includes(locLower) ||
-        v.location.state.toLowerCase().includes(locLower)
+        (v.location.state && v.location.state.toLowerCase().includes(locLower)) ||
+        (v.location.region && v.location.region.toLowerCase().includes(locLower)) ||
+        (v.location.country && v.location.country.toLowerCase().includes(locLower))
     );
   }
 
@@ -259,11 +321,148 @@ app.get('/api/venues', (req, res) => {
 
 // 3. Single venue endpoint
 app.get('/api/venues/:id', (req, res) => {
-  const venue = VENUES.find((v) => v.id === req.params.id);
+  const venue = venuesStore.find((v) => v.id === req.params.id);
   if (!venue) {
     return res.status(404).json({ success: false, error: 'Venue not found' });
   }
   res.json({ success: true, venue });
+});
+
+// Create new venue / draft
+app.post('/api/venues', (req, res) => {
+  const venueData = req.body;
+  if (!venueData.name || !venueData.location?.city) {
+    return res.status(400).json({ success: false, error: 'Venue name and city are required' });
+  }
+
+  const newId = venueData.id || `venue-${venueData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString().slice(-4)}`;
+
+  const createdVenue: Venue = {
+    id: newId,
+    organisationId: venueData.organisationId || 'org-mayfair-hospitality',
+    businessName: venueData.businessName || 'Mayfair Heritage Hospitality Ltd',
+    status: venueData.status || 'draft',
+    listingCompleteness: venueData.listingCompleteness || 60,
+    qualityTier: venueData.qualityTier || 'basic',
+    name: venueData.name,
+    tagline: venueData.tagline || 'Bespoke event venue and spaces',
+    description: venueData.description || 'Spacious event venue with adaptable layout configurations and viewing capabilities.',
+    location: {
+      city: venueData.location?.city || 'London',
+      state: venueData.location?.state || venueData.location?.region || 'Greater London',
+      region: venueData.location?.region || 'Greater London',
+      country: venueData.location?.country || 'United Kingdom',
+      countryCode: venueData.location?.countryCode || 'GB',
+      address: venueData.location?.address || venueData.location?.addressLine1 || '24 Farringdon Road',
+      addressLine1: venueData.location?.addressLine1 || venueData.location?.address || '24 Farringdon Road',
+      addressLine2: venueData.location?.addressLine2 || '',
+      neighborhood: venueData.location?.neighborhood || '',
+      postalCode: venueData.location?.postalCode || venueData.location?.zipCode || 'EC1A 1BB',
+      zipCode: venueData.location?.zipCode || venueData.location?.postalCode || 'EC1A 1BB',
+      timezone: venueData.location?.timezone || 'Europe/London',
+    },
+    eventTypes: venueData.eventTypes || ['meetings-conferences', 'parties-celebrations'],
+    aesthetic: venueData.aesthetic || 'Contemporary & Architectural',
+    capacity: venueData.capacity || {
+      cocktail: 200,
+      seatedBanquet: 120,
+      theater: 150,
+    },
+    pricing: venueData.pricing || {
+      startingPrice: 3500,
+      priceUnit: 'per day',
+      hourlyRate: 500,
+      cleaningFee: 300,
+      securityDeposit: 1000,
+      currency: 'GBP',
+      currencySymbol: '£',
+    },
+    rating: 5.0,
+    reviewCount: 0,
+    featured: false,
+    heroImage: venueData.heroImage || 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=85',
+    galleryImages: venueData.galleryImages || [
+      'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1200&q=80',
+    ],
+    instantTourBadge: true,
+    spaces: venueData.spaces || [],
+    walkthroughClips: venueData.walkthroughClips || [],
+    mediaAssets: venueData.mediaAssets || [],
+    amenities: venueData.amenities || [
+      { name: 'High-speed Fiber WiFi', category: 'Audio/Visual', icon: 'Wifi' },
+      { name: 'Step-Free Access', category: 'Access & Logistics', icon: 'Accessibility' },
+    ],
+    specs: venueData.specs || {
+      curfew: '1:00 AM',
+      parking: 'Adjacent parking garage',
+      cateringPolicy: 'Flexible open catering',
+      alcoholPolicy: 'Licensed bar or client BYO',
+      squareFootage: 6000,
+      ceilingHeightFt: 24,
+      restroomCount: 6,
+      bridalSuite: false,
+      greenRoom: true,
+      adaCompliant: true,
+      loadingDock: true,
+      powerSupply: '200A dedicated show power',
+    },
+    host: venueData.host || {
+      name: venueData.hostName || 'Charlotte Sterling',
+      title: 'Events Lead',
+      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
+      responseTime: 'Under 15 minutes',
+      languages: ['English'],
+      rating: 5.0,
+      totalToursConducted: 12,
+      bio: 'Dedicated coordinator helping planners orchestrate exceptional events.',
+    },
+    availableSlots: venueData.availableSlots || [
+      {
+        date: '2026-09-01',
+        times: [
+          { time: '10:00 AM', period: 'morning', available: true },
+          { time: '2:00 PM', period: 'afternoon', available: true },
+        ],
+      },
+    ],
+  };
+
+  venuesStore.unshift(createdVenue);
+  res.status(201).json({ success: true, venue: createdVenue, message: 'Venue listing saved successfully' });
+});
+
+// Update venue / publish
+app.put('/api/venues/:id', (req, res) => {
+  const { id } = req.params;
+  const index = venuesStore.findIndex((v) => v.id === id);
+  if (index === -1) {
+    return res.status(404).json({ success: false, error: 'Venue not found' });
+  }
+
+  const updatedVenue: Venue = {
+    ...venuesStore[index],
+    ...req.body,
+    id, // preserve ID
+  };
+
+  venuesStore[index] = updatedVenue;
+  res.json({ success: true, venue: updatedVenue, message: 'Venue updated successfully' });
+});
+
+// Toggle publish/draft
+app.patch('/api/venues/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const venue = venuesStore.find((v) => v.id === id);
+  if (!venue) {
+    return res.status(404).json({ success: false, error: 'Venue not found' });
+  }
+  if (status !== 'draft' && status !== 'published') {
+    return res.status(400).json({ success: false, error: 'Invalid status. Must be "draft" or "published"' });
+  }
+  venue.status = status;
+  res.json({ success: true, venue, message: `Venue status set to ${status}` });
 });
 
 // 4. Gemini AI Venue Matcher endpoint

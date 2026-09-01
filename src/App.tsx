@@ -19,13 +19,15 @@ import { MyEventsDrawer } from './components/MyEventsDrawer';
 import { VenueOwnerDashboard } from './components/VenueOwnerDashboard';
 import { PlatformAdminDashboard } from './components/PlatformAdminDashboard';
 import { PlatformAdminSettingsModal } from './components/PlatformAdminSettingsModal';
-import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig } from './types';
+import { VenueOnboardingModal } from './components/onboarding/VenueOnboardingModal';
+import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig, BusinessOrganisation } from './types';
 import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
 import { VENUES } from './data/venues';
 import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight, LayoutDashboard, Sliders } from 'lucide-react';
 
 export default function App() {
   const [venues, setVenues] = useState<Venue[]>(VENUES);
+  const [organisations, setOrganisations] = useState<BusinessOrganisation[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [currentView, setCurrentView] = useState<'customer_discovery' | 'my_events' | 'venue_portal' | 'platform_admin'>('customer_discovery');
 
@@ -38,6 +40,11 @@ export default function App() {
   const [isEventsHubOpen, setIsEventsHubOpen] = useState(false);
   const [activeLiveSimulatorBooking, setActiveLiveSimulatorBooking] = useState<WalkthroughBooking | null>(null);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
+
+  // Supply-side Onboarding Modal State
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
+  const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
+  const [editingOrganisationId, setEditingOrganisationId] = useState<string | undefined>(undefined);
 
   // Marketplace Modals
   const [depositPaymentBooking, setDepositPaymentBooking] = useState<VenueBooking | null>(null);
@@ -73,15 +80,16 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'all' | 'favorites'>('all');
 
-  // Fetch initial venues, walkthroughs, venue bookings, and marketplace config from backend API
+  // Fetch initial venues, walkthroughs, venue bookings, organisations, and marketplace config from backend API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [venuesRes, walkthroughsRes, venueBookingsRes, configRes] = await Promise.all([
+        const [venuesRes, walkthroughsRes, venueBookingsRes, configRes, orgsRes] = await Promise.all([
           fetch('/api/venues'),
           fetch('/api/walkthroughs'),
           fetch('/api/venue-bookings'),
           fetch('/api/marketplace/config'),
+          fetch('/api/organisations'),
         ]);
 
         if (venuesRes.ok) {
@@ -109,6 +117,13 @@ export default function App() {
           const data = await configRes.json();
           if (data.config) {
             setMarketplaceConfig(data.config);
+          }
+        }
+
+        if (orgsRes.ok) {
+          const data = await orgsRes.json();
+          if (data.organisations) {
+            setOrganisations(data.organisations);
           }
         }
       } catch (err) {
@@ -284,6 +299,58 @@ export default function App() {
     }
   };
 
+  const handleOpenOnboardingModal = (venueToEdit?: Venue | null, orgId?: string) => {
+    setEditingVenue(venueToEdit || null);
+    setEditingOrganisationId(orgId);
+    setIsOnboardingModalOpen(true);
+  };
+
+  const handleVenueCreatedOrUpdated = (venue: Venue, org: BusinessOrganisation) => {
+    // Update local venues state
+    setVenues((prev) => {
+      const idx = prev.findIndex((v) => v.id === venue.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = venue;
+        return next;
+      }
+      return [venue, ...prev];
+    });
+
+    // Update local organisations state
+    setOrganisations((prev) => {
+      const idx = prev.findIndex((o) => o.id === org.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = org;
+        return next;
+      }
+      return [org, ...prev];
+    });
+
+    // Switch to venue portal to view the newly added/updated venue
+    setCurrentView('venue_portal');
+  };
+
+  const handleToggleVenuePublishStatus = async (venueId: string, currentStatus: 'draft' | 'published') => {
+    const nextStatus = currentStatus === 'draft' ? 'published' : 'draft';
+    try {
+      const res = await fetch(`/api/venues/${venueId}/publish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.venue) {
+          setVenues((prev) => prev.map((v) => (v.id === venueId ? data.venue : v)));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle publish status on server:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] flex flex-col font-sans selection:bg-[#A86445] selection:text-white">
       {/* Top Navigation */}
@@ -304,6 +371,7 @@ export default function App() {
           setSelectedVenue(null);
           setCurrentView(role);
         }}
+        onOpenOnboardingModal={() => handleOpenOnboardingModal()}
         walkthroughBookings={walkthroughBookings}
         venueBookings={venueBookings}
         savedCount={favorites.length}
@@ -339,6 +407,7 @@ export default function App() {
           /* Venue Owner Marketplace Portal */
           <VenueOwnerDashboard
             venues={venues}
+            organisations={organisations}
             venueBookings={venueBookings}
             walkthroughBookings={walkthroughBookings}
             marketplaceConfig={marketplaceConfig}
@@ -350,6 +419,8 @@ export default function App() {
             }}
             onSwitchToCustomerView={() => setCurrentView('customer_discovery')}
             onOpenAdminSettings={() => setIsAdminSettingsOpen(true)}
+            onOpenOnboardingModal={handleOpenOnboardingModal}
+            onToggleVenuePublishStatus={handleToggleVenuePublishStatus}
           />
         ) : currentView === 'my_events' ? (
           /* Dedicated Full-Page Customer Dashboard */
@@ -607,6 +678,20 @@ export default function App() {
         onClose={() => setIsAdminSettingsOpen(false)}
         currentConfig={marketplaceConfig}
         onSaveConfig={handleSaveAdminConfig}
+      />
+
+      {/* Venue Host Onboarding & Inventory Modal */}
+      <VenueOnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => {
+          setIsOnboardingModalOpen(false);
+          setEditingVenue(null);
+          setEditingOrganisationId(undefined);
+        }}
+        onVenueCreatedOrUpdated={handleVenueCreatedOrUpdated}
+        existingOrganisations={organisations}
+        initialVenue={editingVenue}
+        initialOrganisationId={editingOrganisationId}
       />
 
       {/* Editorial Footer */}

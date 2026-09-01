@@ -7,6 +7,7 @@ interface NavbarProps {
   onOpenEventsHub: () => void;
   onBackToHome: () => void;
   onSelectRole: (role: 'customer_discovery' | 'my_events' | 'venue_portal' | 'platform_admin') => void;
+  onOpenOnboardingModal?: () => void;
   walkthroughBookings: WalkthroughBooking[];
   venueBookings: VenueBooking[];
   savedCount: number;
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEventsHub,
   onBackToHome,
   onSelectRole,
+  onOpenOnboardingModal,
   walkthroughBookings,
   venueBookings,
   savedCount,
@@ -65,6 +67,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-[#A86445]" />
             <span>Smart Match</span>
           </button>
+
+          {/* List Your Space / Host Onboarding */}
+          {onOpenOnboardingModal && (
+            <button
+              id="nav-list-space-btn"
+              onClick={onOpenOnboardingModal}
+              className="hidden lg:flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold text-[#A86445] bg-[#F3E7DF]/80 hover:bg-[#F3E7DF] border border-[#A86445]/30 rounded-xl transition-all active:scale-95 shadow-xs"
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#A86445]" />
+              <span>List Your Venue</span>
+            </button>
+          )}
 
           {/* Customer Hub: My Events / Full-Page Dashboard */}
           <button

@@ -20,15 +20,28 @@ import {
   Filter,
   Layers,
   MapPin,
+  Plus,
+  Edit3,
+  Sliders,
+  Maximize2,
+  Grid,
+  FileText,
+  Lock,
+  Globe,
 } from 'lucide-react';
-import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus } from '../types';
+import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus, BusinessOrganisation, VenueSpace } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
+import { calculateCompleteness, getQualityTierBadge } from '../utils/completeness';
+import { formatCurrency, formatLocation } from '../utils/formatters';
 
 interface VenueOwnerDashboardProps {
   venues: Venue[];
   venueBookings: VenueBooking[];
   walkthroughBookings: WalkthroughBooking[];
   marketplaceConfig: MarketplaceConfig;
+  organisations?: BusinessOrganisation[];
+  onOpenOnboardingModal?: (venueToEdit?: Venue | null, organisationId?: string) => void;
+  onToggleVenuePublishStatus?: (venueId: string, currentStatus: 'draft' | 'published') => Promise<void> | void;
   onUpdateBookingStatus: (
     bookingId: string,
     newStatus: VenueBookingStatus
@@ -36,6 +49,7 @@ interface VenueOwnerDashboardProps {
   onOpenLiveSimulator: (booking: WalkthroughBooking) => void;
   onInspectVenue: (venue: Venue) => void;
   onSwitchToCustomerView: () => void;
+  onOpenAdminSettings?: () => void;
 }
 
 export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
@@ -43,13 +57,17 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   venueBookings,
   walkthroughBookings,
   marketplaceConfig,
+  organisations = [],
+  onOpenOnboardingModal,
+  onToggleVenuePublishStatus,
   onUpdateBookingStatus,
   onOpenLiveSimulator,
   onInspectVenue,
   onSwitchToCustomerView,
+  onOpenAdminSettings,
 }) => {
   const [selectedVenueId, setSelectedVenueId] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'bookings' | 'walkthroughs' | 'spaces'>('bookings');
+  const [activeTab, setActiveTab] = useState<'venues' | 'bookings' | 'walkthroughs' | 'spaces'>('venues');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
@@ -134,26 +152,39 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {selectedVenueId === 'all' ? 'All Managed Venues' : selectedVenue.name}
+            {selectedVenueId === 'all' ? 'All Managed Properties' : selectedVenue.name}
           </h1>
           <p className="text-xs sm:text-sm text-stone-300 max-w-2xl leading-relaxed">
-            Review incoming space booking requests, host live virtual walkthroughs, inspect floor plan setups, and track gross booking volume and net venue payouts.
+            Review incoming space booking requests, host live virtual walkthroughs, inspect floor plan setups, and manage your property portfolio.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {onOpenOnboardingModal && (
+            <button
+              id="host-onboard-new-venue-btn"
+              onClick={() => onOpenOnboardingModal(null)}
+              className="px-4 py-2.5 rounded-xl bg-[#A86445] hover:bg-[#8F5236] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>List New Venue</span>
+            </button>
+          )}
+
           {/* Venue Switcher */}
           <div className="relative">
             <select
               id="venue-portal-select"
               value={selectedVenueId}
               onChange={(e) => setSelectedVenueId(e.target.value)}
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/15 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/20 focus:outline-none focus:ring-2 focus:ring-[#A86445] cursor-pointer"
+              className="w-full sm:w-auto bg-white/10 hover:bg-white/15 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/20 focus:outline-hidden focus:ring-2 focus:ring-[#A86445] cursor-pointer"
             >
-              <option value="all" className="text-[#26343D]">All Managed Venues ({venues.length} properties)</option>
-              <option value="the-glasshouse-luminary" className="text-[#26343D]">The Glasshouse Luminary (Chicago)</option>
-              <option value="chateau-de-mirabelle" className="text-[#26343D]">Château de Mirabelle (Napa)</option>
-              <option value="the-foundry-machine-shop" className="text-[#26343D]">The Foundry Machine Shop (Seattle)</option>
+              <option value="all" className="text-[#26343D]">All Managed Properties ({venues.length} listed)</option>
+              {venues.map((v) => (
+                <option key={v.id} value={v.id} className="text-[#26343D]">
+                  {v.name} ({v.location.city} · {v.status === 'draft' ? 'Draft' : 'Live'})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -424,41 +455,57 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
       <div className="space-y-6">
         {/* Navigation Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#DDD8CF] pb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              id="venue-tab-venues-btn"
+              onClick={() => setActiveTab('venues')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'venues'
+                  ? 'bg-[#26343D] text-white shadow-xs'
+                  : 'bg-white text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>My Venues & Spaces ({venues.length})</span>
+            </button>
+
             <button
               id="venue-tab-bookings-btn"
               onClick={() => setActiveTab('bookings')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === 'bookings'
                   ? 'bg-[#26343D] text-white shadow-xs'
                   : 'bg-white text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
               }`}
             >
-              Booking Requests & Pipeline ({allVenueBookings.length})
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Booking Pipeline ({allVenueBookings.length})</span>
             </button>
 
             <button
               id="venue-tab-walkthroughs-btn"
               onClick={() => setActiveTab('walkthroughs')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === 'walkthroughs'
                   ? 'bg-[#26343D] text-white shadow-xs'
                   : 'bg-white text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
               }`}
             >
-              Scheduled Walkthroughs ({filteredWalkthroughs.length})
+              <Video className="w-3.5 h-3.5" />
+              <span>Scheduled Walkthroughs ({filteredWalkthroughs.length})</span>
             </button>
 
             <button
               id="venue-tab-spaces-btn"
               onClick={() => setActiveTab('spaces')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === 'spaces'
                   ? 'bg-[#26343D] text-white shadow-xs'
                   : 'bg-white text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
               }`}
             >
-              Space & Layout Blueprints
+              <Layers className="w-3.5 h-3.5" />
+              <span>Space & Layout Blueprints</span>
             </button>
           </div>
 
@@ -492,6 +539,159 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             </div>
           )}
         </div>
+
+        {/* TAB 0: MY VENUES & SPACES PORTFOLIO */}
+        {activeTab === 'venues' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#F4F1EA] p-5 rounded-2xl border border-[#DDD8CF]">
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#26343D] flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-[#A86445]" />
+                  <span>Business Organisation & Venue Portfolio</span>
+                </h3>
+                <p className="text-xs text-[#66737A]">
+                  Manage multiple properties, room inventories, layout blueprints, and listing quality tiers under your company account.
+                </p>
+              </div>
+
+              {onOpenOnboardingModal && (
+                <button
+                  type="button"
+                  onClick={() => onOpenOnboardingModal(null)}
+                  className="px-4 py-2.5 rounded-xl bg-[#26343D] hover:bg-[#1E2930] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Onboard New Venue</span>
+                </button>
+              )}
+            </div>
+
+            {/* Venue Cards List */}
+            <div className="grid grid-cols-1 gap-5">
+              {venues.map((venue) => {
+                const comp = calculateCompleteness(venue);
+                const tier = getQualityTierBadge(comp.tier);
+                const isDraft = venue.status === 'draft';
+                const spacesCount = venue.spaces?.length || 1;
+                const layoutsTotal = venue.spaces?.reduce((acc, s) => acc + (s.layouts?.length || 1), 0) || venue.walkthroughClips.length;
+
+                return (
+                  <div
+                    key={venue.id}
+                    className="bg-white rounded-2xl border border-[#DDD8CF] p-5 space-y-4 shadow-xs hover:border-[#26343D]/30 transition-all"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <img
+                          src={venue.heroImage}
+                          alt={venue.name}
+                          className="w-24 h-24 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                        />
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-bold text-[#26343D]">{venue.name}</h4>
+                            <span
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                isDraft
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}
+                            >
+                              {isDraft ? 'Draft (Unpublished)' : 'Live on Marketplace'}
+                            </span>
+                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${tier.bg} ${tier.color} ${tier.border}`}>
+                              {tier.label} ({comp.score}%)
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-[#66737A] flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#A86445]" />
+                            <span>{formatLocation(venue.location)}</span>
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-[#66737A] pt-1">
+                            <span className="font-semibold text-[#26343D]">
+                              {spacesCount} Spaces / Rooms
+                            </span>
+                            <span>•</span>
+                            <span>{layoutsTotal} Configured Layouts</span>
+                            <span>•</span>
+                            <span>Max {venue.capacity.cocktail} Guests</span>
+                            <span>•</span>
+                            <span className="font-bold text-[#A86445]">
+                              {formatCurrency(venue.pricing.startingPrice, venue.pricing.currency)} {venue.pricing.priceUnit}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {onToggleVenuePublishStatus && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleVenuePublishStatus(venue.id, isDraft ? 'draft' : 'published')}
+                            className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                              isDraft
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                                : 'bg-white text-[#66737A] border-[#DDD8CF] hover:text-[#26343D]'
+                            }`}
+                          >
+                            {isDraft ? 'Publish Venue' : 'Unpublish'}
+                          </button>
+                        )}
+
+                        {onOpenOnboardingModal && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenOnboardingModal(venue, venue.organisationId)}
+                            className="px-3.5 py-2 bg-white text-[#26343D] hover:bg-[#F4F1EA] border border-[#DDD8CF] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-[#A86445]" />
+                            <span>Edit Spaces & Details</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => onInspectVenue(venue)}
+                          className="px-3.5 py-2 bg-[#26343D] text-white hover:bg-[#1E2930] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Public Page</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Spaces & Layouts Chips within the card */}
+                    {venue.spaces && venue.spaces.length > 0 && (
+                      <div className="pt-3 border-t border-[#DDD8CF]/60 bg-[#FDFCF7] p-3 rounded-xl space-y-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#66737A] block">
+                          Configured Rooms & Spaces:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {venue.spaces.map((sp) => (
+                            <div key={sp.id} className="bg-white p-2.5 rounded-lg border border-[#DDD8CF] space-y-1">
+                              <div className="flex items-center justify-between text-xs font-bold text-[#26343D]">
+                                <span className="truncate">{sp.name}</span>
+                                <span className="text-[10px] text-[#A86445] bg-[#F3E7DF] px-1.5 py-0.5 rounded">
+                                  Max {sp.maxCapacity}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-[#66737A] truncate">
+                                {sp.layouts?.length || 0} Layouts · {sp.floorLocation || 'Ground Floor'}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: BOOKING REQUESTS MANAGEMENT */}
         {activeTab === 'bookings' && (
@@ -777,56 +977,125 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
         {/* TAB 3: SPACES & LAYOUT SPECIFICATIONS */}
         {activeTab === 'spaces' && (
           <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-6 shadow-xs">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DDD8CF] pb-4">
               <div>
                 <h3 className="text-base font-bold text-[#26343D]">
                   {selectedVenue.name} — Space Directory & Walkthroughs
                 </h3>
                 <p className="text-xs text-[#66737A]">
-                  Configured room setups, capacities, and high-definition video walkthrough assets.
+                  Configured room setups, capacities, dimensions, floor plan blueprints, and high-definition video walkthrough assets.
                 </p>
               </div>
-              <button
-                onClick={() => onInspectVenue(selectedVenue)}
-                className="px-4 py-2 bg-[#F4F1EA] text-[#26343D] text-xs font-semibold rounded-xl border border-[#DDD8CF] hover:bg-white flex items-center gap-1.5 shadow-xs"
-              >
-                <Eye className="w-3.5 h-3.5 text-[#A86445]" />
-                <span>View Public Page</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {onOpenOnboardingModal && (
+                  <button
+                    onClick={() => onOpenOnboardingModal(selectedVenue, selectedVenue.organisationId)}
+                    className="px-3.5 py-2 bg-white text-[#26343D] hover:bg-[#F4F1EA] text-xs font-bold rounded-xl border border-[#DDD8CF] flex items-center gap-1.5 shadow-xs transition-all"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#A86445]" />
+                    <span>Edit Spaces & Layouts</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => onInspectVenue(selectedVenue)}
+                  className="px-4 py-2 bg-[#26343D] text-white text-xs font-bold rounded-xl hover:bg-[#1E2930] flex items-center gap-1.5 shadow-xs transition-all"
+                >
+                  <Eye className="w-3.5 h-3.5 text-white" />
+                  <span>View Public Page</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedVenue.walkthroughClips.map((clip) => (
-                <div
-                  key={clip.id}
-                  className="bg-[#F4F1EA] rounded-xl border border-[#DDD8CF] overflow-hidden p-4 space-y-3"
-                >
-                  <img
-                    src={clip.thumbnail}
-                    alt={clip.title}
-                    className="w-full h-32 rounded-lg object-cover border border-[#DDD8CF]"
-                  />
-                  <div>
-                    <h4 className="text-xs font-bold text-[#26343D] truncate">{clip.title}</h4>
-                    <span className="text-[11px] text-[#66737A] block">
-                      Max Capacity: <strong>{clip.maxCapacityForLayout} guests</strong>
-                    </span>
-                    <span className="text-[11px] text-[#66737A] block">
-                      Duration: {Math.floor(clip.durationSec / 60)}m {clip.durationSec % 60}s • 4K Recorded
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {clip.cameraAngles.map((angle, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[10px] bg-white border border-[#DDD8CF] px-2 py-0.5 rounded text-[#26343D]"
-                      >
-                        {angle}
-                      </span>
-                    ))}
-                  </div>
+            {/* If venue has spaces defined, list them */}
+            {selectedVenue.spaces && selectedVenue.spaces.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#26343D]">
+                  Configured Rooms & Functional Areas ({selectedVenue.spaces.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedVenue.spaces.map((sp) => (
+                    <div
+                      key={sp.id}
+                      className="bg-[#FDFCF7] border border-[#DDD8CF] rounded-xl p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-[#26343D]">{sp.name}</span>
+                            <span className="text-[10px] bg-[#F3E7DF] text-[#A86445] font-bold px-2 py-0.5 rounded">
+                              {sp.floorLocation || 'Main Floor'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#66737A] mt-0.5">{sp.description}</p>
+                        </div>
+                        <span className="text-xs font-bold text-[#26343D] bg-white border border-[#DDD8CF] px-2.5 py-1 rounded-lg shrink-0">
+                          Max {sp.maxCapacity}
+                        </span>
+                      </div>
+
+                      {/* Layouts for this space */}
+                      {sp.layouts && sp.layouts.length > 0 && (
+                        <div className="pt-2 border-t border-[#DDD8CF]/60 space-y-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A]">
+                            Layout Formats:
+                          </span>
+                          <div className="grid grid-cols-2 gap-2">
+                            {sp.layouts.map((ly) => (
+                              <div key={ly.id} className="bg-white p-2 rounded-lg border border-[#DDD8CF] text-xs">
+                                <div className="flex items-center justify-between text-[11px] font-semibold text-[#26343D]">
+                                  <span className="truncate">{ly.title}</span>
+                                  <span className="text-[#A86445] font-bold">{ly.capacity}</span>
+                                </div>
+                                <span className="text-[10px] text-[#66737A] uppercase">{ly.layoutType}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+
+            {/* Video Walkthrough Clips */}
+            <div className="space-y-3 pt-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#26343D]">
+                Virtual Walkthrough Video Clips ({selectedVenue.walkthroughClips.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedVenue.walkthroughClips.map((clip) => (
+                  <div
+                    key={clip.id}
+                    className="bg-[#F4F1EA] rounded-xl border border-[#DDD8CF] overflow-hidden p-4 space-y-3"
+                  >
+                    <img
+                      src={clip.thumbnail}
+                      alt={clip.title}
+                      className="w-full h-32 rounded-lg object-cover border border-[#DDD8CF]"
+                    />
+                    <div>
+                      <h4 className="text-xs font-bold text-[#26343D] truncate">{clip.title}</h4>
+                      <span className="text-[11px] text-[#66737A] block">
+                        Max Capacity: <strong>{clip.maxCapacityForLayout} guests</strong>
+                      </span>
+                      <span className="text-[11px] text-[#66737A] block">
+                        Duration: {Math.floor(clip.durationSec / 60)}m {clip.durationSec % 60}s • 4K Recorded
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {clip.cameraAngles.map((angle, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[10px] bg-white border border-[#DDD8CF] px-2 py-0.5 rounded text-[#26343D]"
+                        >
+                          {angle}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
