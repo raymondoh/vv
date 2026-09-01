@@ -5,9 +5,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  Maximize2,
-  Minimize2,
-  RotateCcw,
   Sparkles,
   Users,
   MapPin,
@@ -20,7 +17,6 @@ import {
   CheckCircle2,
   Compass,
   Layers,
-  PhoneCall,
   Star,
   Music,
   Share2,
@@ -29,8 +25,11 @@ import {
   Info,
   Maximize,
   Video,
+  ImageIcon,
+  Maximize2,
 } from 'lucide-react';
-import { Venue, WalkthroughClip, LayoutCategory } from '../types';
+import { Venue, WalkthroughClip } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
 interface VenueDetailViewProps {
   venue: Venue;
@@ -49,39 +48,47 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   isFavorited,
   onToggleFavorite,
 }) => {
+  const hasRecordedWalkthrough = Boolean(
+    Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0
+  );
+
   const [selectedClipId, setSelectedClipId] = useState<string>(
-    venue.walkthroughClips[0]?.id || ''
+    hasRecordedWalkthrough ? venue.walkthroughClips[0]?.id : ''
   );
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [ambientAudioOn, setAmbientAudioOn] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<'video' | 'floorplan' | '360'>('video');
+  const [viewMode, setViewMode] = useState<'video' | 'floorplan' | '360' | 'gallery'>(
+    hasRecordedWalkthrough ? 'video' : 'gallery'
+  );
   const [selectedCameraAngle, setSelectedCameraAngle] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string>(
+    venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || ''
+  );
 
   // Pricing calculator state
   const [calcGuests, setCalcGuests] = useState<number>(120);
   const [calcEventType, setCalcEventType] = useState<'weekend-peak' | 'weekday' | 'off-season'>('weekend-peak');
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const activeClip: WalkthroughClip =
-    venue.walkthroughClips.find((c) => c.id === selectedClipId) ||
-    venue.walkthroughClips[0];
+  const activeClip: WalkthroughClip | undefined = hasRecordedWalkthrough
+    ? venue.walkthroughClips.find((c) => c.id === selectedClipId) || venue.walkthroughClips[0]
+    : undefined;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (activeClip && activeClip.cameraAngles.length > 0) {
+    if (activeClip && activeClip.cameraAngles && activeClip.cameraAngles.length > 0) {
       setSelectedCameraAngle(activeClip.cameraAngles[0]);
     }
   }, [venue.id]);
 
   useEffect(() => {
     if (activeClip) {
-      setSelectedCameraAngle(activeClip.cameraAngles[0] || '');
+      setSelectedCameraAngle(activeClip.cameraAngles?.[0] || '');
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
         videoRef.current.play().catch(() => {});
@@ -92,14 +99,14 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
   // Sync video timeline
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
+    if (videoRef.current && activeClip) {
       setCurrentTime(videoRef.current.currentTime);
       setDuration(videoRef.current.duration || activeClip.durationSec);
     }
   };
 
   const handleSeek = (newTimeSec: number) => {
-    if (videoRef.current) {
+    if (videoRef.current && activeClip) {
       videoRef.current.currentTime = newTimeSec;
       setCurrentTime(newTimeSec);
     }
@@ -130,6 +137,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  const currency = venue.pricing.currency || 'GBP';
+
   // Pricing calculation
   const getCalculatedPrice = () => {
     let base = venue.pricing.startingPrice;
@@ -138,7 +147,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     } else if (calcEventType === 'off-season') {
       base = Math.round(base * 0.85);
     }
-    const cleaning = venue.pricing.cleaningFee;
+    const cleaning = venue.pricing.cleaningFee || 0;
     const estFoodDrink = calcGuests * 95;
     return {
       venueRental: base,
@@ -155,6 +164,11 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
+  const galleryImages = [
+    ...(venue.heroImage ? [venue.heroImage] : []),
+    ...(venue.galleryImages || []),
+  ].filter((img, idx, self) => self.indexOf(img) === idx);
 
   return (
     <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] pb-20">
@@ -229,14 +243,20 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-[#F3E7DF] text-[#A86445] border border-[#A86445]/25 rounded-full">
               {venue.aesthetic}
             </span>
-            <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Walkthroughs Available
+            {hasRecordedWalkthrough && (
+              <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Recorded Walkthrough Available
+              </span>
+            )}
+            <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+              <Video className="w-3 h-3 text-blue-600" />
+              Live Host Tours Available
             </span>
             <div className="flex items-center gap-1 text-xs text-[#26343D] font-semibold px-2.5 py-1 bg-white border border-[#DDD8CF] rounded-full shadow-xs">
               <Star className="w-3.5 h-3.5 fill-current text-amber-400" />
-              <span>{venue.rating.toFixed(2)}</span>
-              <span className="text-[#66737A]">({venue.reviewCount} verified reviews)</span>
+              <span>{(venue.rating || 5.0).toFixed(2)}</span>
+              <span className="text-[#66737A]">({venue.reviewCount || 0} reviews)</span>
             </div>
           </div>
 
@@ -247,7 +267,11 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               </h1>
               <p className="text-sm text-[#66737A] flex items-center gap-1.5 mt-1">
                 <MapPin className="w-4 h-4 text-[#A86445] shrink-0" />
-                <span>{venue.location.address}, {venue.location.neighborhood}, {venue.location.city}, {venue.location.state} {venue.location.zipCode}</span>
+                <span>
+                  {venue.location.address ? `${venue.location.address}, ` : ''}
+                  {venue.location.neighborhood ? `${venue.location.neighborhood}, ` : ''}
+                  {venue.location.city}, {venue.location.state || venue.location.country} {venue.location.zipCode}
+                </span>
               </p>
             </div>
 
@@ -255,8 +279,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div className="text-right">
                 <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Starting Rate</span>
                 <div className="text-xl font-bold text-[#26343D]">
-                  ${venue.pricing.startingPrice.toLocaleString()}
-                  <span className="text-xs font-normal text-[#66737A]"> /day</span>
+                  {formatCurrency(venue.pricing.startingPrice, currency)}
+                  <span className="text-xs font-normal text-[#66737A]"> /{venue.pricing.priceUnit?.replace('per ', '') || 'day'}</span>
                 </div>
               </div>
               <div className="h-8 w-[1px] bg-[#DDD8CF]" />
@@ -270,92 +294,120 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
           </div>
         </div>
 
-        {/* Main Grid: Left Video Player Area / Right Specs & Booking Sidebar */}
+        {/* Main Grid: Left Media & Details / Right Specs & Booking Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Video Walkthrough Studio */}
+          {/* Left Column */}
           <div className="lg:col-span-8 space-y-6">
-            {/* View Mode & Layout Switcher Bar */}
-            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-1.5 px-1">
-                  <Layers className="w-3.5 h-3.5 text-[#A86445]" />
-                  Select Layout Setup:
-                </span>
+            {/* View Mode & Layout Switcher Bar (Only if walkthrough exists) */}
+            {hasRecordedWalkthrough && activeClip ? (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-1.5 px-1">
+                    <Layers className="w-3.5 h-3.5 text-[#A86445]" />
+                    Select Layout Setup:
+                  </span>
 
-                {/* View Mode Toggle (Video vs Blueprint Floorplan) */}
-                <div className="flex items-center bg-[#F4F1EA] p-1 rounded-xl border border-[#DDD8CF]">
-                  <button
-                    onClick={() => setViewMode('video')}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                      viewMode === 'video'
-                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                        : 'text-[#66737A] hover:text-[#26343D]'
-                    }`}
-                  >
-                    4K Video Tour
-                  </button>
-                  <button
-                    onClick={() => setViewMode('floorplan')}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                      viewMode === 'floorplan'
-                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                        : 'text-[#66737A] hover:text-[#26343D]'
-                    }`}
-                  >
-                    Floor Plan
-                  </button>
-                  <button
-                    onClick={() => setViewMode('360')}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                      viewMode === '360'
-                        ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                        : 'text-[#66737A] hover:text-[#26343D]'
-                    }`}
-                  >
-                    360° Panorama
-                  </button>
-                </div>
-              </div>
-
-              {/* Layout Category Tabs */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {venue.walkthroughClips.map((clip) => {
-                  const isSelected = clip.id === selectedClipId;
-                  return (
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-[#F4F1EA] p-1 rounded-xl border border-[#DDD8CF]">
                     <button
-                      key={clip.id}
-                      id={`clip-tab-${clip.id}`}
-                      onClick={() => {
-                        setSelectedClipId(clip.id);
-                        setViewMode('video');
-                      }}
-                      className={`relative p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
-                        isSelected
-                          ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445]'
-                          : 'bg-[#F4F1EA] border-[#DDD8CF] hover:border-[#A86445]/60'
+                      onClick={() => setViewMode('video')}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                        viewMode === 'video'
+                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                          : 'text-[#66737A] hover:text-[#26343D]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#26343D] truncate">
-                          {clip.title}
-                        </span>
-                        {isSelected && (
-                          <span className="w-2 h-2 rounded-full bg-[#A86445] animate-ping" />
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#66737A]">
-                        <span>Max {clip.maxCapacityForLayout} guests</span>
-                        <span className="text-[#A86445] font-semibold">{formatTime(clip.durationSec)}</span>
-                      </div>
+                      4K Video Tour
                     </button>
-                  );
-                })}
-              </div>
-            </div>
+                    <button
+                      onClick={() => setViewMode('floorplan')}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                        viewMode === 'floorplan'
+                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                          : 'text-[#66737A] hover:text-[#26343D]'
+                      }`}
+                    >
+                      Floor Plan
+                    </button>
+                    <button
+                      onClick={() => setViewMode('360')}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                        viewMode === '360'
+                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                          : 'text-[#66737A] hover:text-[#26343D]'
+                      }`}
+                    >
+                      360° Panorama
+                    </button>
+                  </div>
+                </div>
 
-            {/* Video Player Display Container */}
+                {/* Layout Category Tabs */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {venue.walkthroughClips.map((clip) => {
+                    const isSelected = clip.id === selectedClipId;
+                    return (
+                      <button
+                        key={clip.id}
+                        id={`clip-tab-${clip.id}`}
+                        onClick={() => {
+                          setSelectedClipId(clip.id);
+                          setViewMode('video');
+                        }}
+                        className={`relative p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445]'
+                            : 'bg-[#F4F1EA] border-[#DDD8CF] hover:border-[#A86445]/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#26343D] truncate">
+                            {clip.title}
+                          </span>
+                          {isSelected && (
+                            <span className="w-2 h-2 rounded-full bg-[#A86445] animate-ping" />
+                          )}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-[11px] text-[#66737A]">
+                          <span>Max {clip.maxCapacityForLayout} guests</span>
+                          <span className="text-[#A86445] font-semibold">{formatTime(clip.durationSec)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Informational Banner for Zero Walkthroughs */
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-4 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-[#F3E7DF] text-[#A86445] shrink-0 mt-0.5">
+                    <Info className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-[#26343D]">
+                      Recorded walkthrough not added yet
+                    </h3>
+                    <p className="text-xs text-[#66737A] mt-0.5 leading-relaxed">
+                      Host {venue.host?.name || 'the coordinator'} hasn't uploaded a pre-recorded 4K walkthrough video for this listing yet. You can explore high-resolution space photography below, or schedule a 1-on-1 live video walkthrough.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  id="zero-walkthrough-live-btn"
+                  onClick={() => onBookWalkthrough(venue)}
+                  className="shrink-0 px-3.5 py-2 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Video className="w-3.5 h-3.5 text-stone-300" />
+                  <span>Book Live Tour</span>
+                </button>
+              </div>
+            )}
+
+            {/* Main Visual Media Display Container */}
             <div className="relative rounded-2xl overflow-hidden bg-black border border-[#DDD8CF] shadow-xl group">
-              {viewMode === 'video' && (
+              {hasRecordedWalkthrough && activeClip && viewMode === 'video' ? (
                 <>
                   <video
                     ref={videoRef}
@@ -370,7 +422,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   />
 
                   {/* Video Overlays */}
-                  {/* Top Bar inside video */}
                   <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between pointer-events-none">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-md bg-[#A86445] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
@@ -383,20 +434,22 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </div>
 
                     {/* Camera Angle Selector */}
-                    <div className="pointer-events-auto flex items-center gap-1 bg-black/70 backdrop-blur-md p-1 rounded-lg border border-white/10 text-xs">
-                      <Compass className="w-3.5 h-3.5 text-[#A86445] ml-1.5" />
-                      <select
-                        value={selectedCameraAngle}
-                        onChange={(e) => setSelectedCameraAngle(e.target.value)}
-                        className="bg-transparent text-white text-xs px-2 py-0.5 rounded focus:outline-none cursor-pointer"
-                      >
-                        {activeClip.cameraAngles.map((angle) => (
-                          <option key={angle} value={angle} className="bg-stone-900 text-white">
-                            Angle: {angle}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {activeClip.cameraAngles && activeClip.cameraAngles.length > 0 && (
+                      <div className="pointer-events-auto flex items-center gap-1 bg-black/70 backdrop-blur-md p-1 rounded-lg border border-white/10 text-xs">
+                        <Compass className="w-3.5 h-3.5 text-[#A86445] ml-1.5" />
+                        <select
+                          value={selectedCameraAngle}
+                          onChange={(e) => setSelectedCameraAngle(e.target.value)}
+                          className="bg-transparent text-white text-xs px-2 py-0.5 rounded focus:outline-none cursor-pointer"
+                        >
+                          {activeClip.cameraAngles.map((angle) => (
+                            <option key={angle} value={angle} className="bg-stone-900 text-white">
+                              Angle: {angle}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   {/* Big Center Play/Pause button when paused */}
@@ -432,7 +485,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       </div>
 
                       {/* Milestone Dots */}
-                      {activeClip.milestones.map((m) => {
+                      {activeClip.milestones?.map((m) => {
                         const pct = (m.timeSec / (activeClip.durationSec || 80)) * 100;
                         return (
                           <button
@@ -471,7 +524,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Ambient Sound Synthesizer toggle */}
                         <button
                           id="ambient-audio-toggle-btn"
                           onClick={() => setAmbientAudioOn(!ambientAudioOn)}
@@ -489,10 +541,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </div>
                   </div>
                 </>
-              )}
-
-              {/* Floor Plan Blueprint View */}
-              {viewMode === 'floorplan' && (
+              ) : hasRecordedWalkthrough && activeClip && viewMode === 'floorplan' ? (
+                /* Floor Plan Blueprint View */
                 <div className="w-full aspect-[16/9] bg-[#1F2B33] p-6 flex flex-col justify-between relative overflow-hidden border border-[#2B3942]">
                   <div className="flex items-center justify-between border-b border-[#2B3942] pb-3">
                     <div>
@@ -506,7 +556,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </span>
                   </div>
 
-                  {/* Simulated Blueprint Graphic */}
                   <div className="my-auto py-6 grid grid-cols-3 gap-4 text-center font-mono">
                     <div className="p-4 rounded-lg bg-[#27353F] border border-dashed border-[#3D505D] space-y-1">
                       <span className="text-xs text-amber-200 block font-bold">ZONE A: RECEPTION</span>
@@ -533,19 +582,17 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     <span>Emergency Exits: 4 Calibrated</span>
                   </div>
                 </div>
-              )}
-
-              {/* 360 Panorama Interactive Simulation View */}
-              {viewMode === '360' && (
+              ) : hasRecordedWalkthrough && activeClip && viewMode === '360' ? (
+                /* 360 Panorama Interactive Simulation View */
                 <div className="w-full aspect-[16/9] relative bg-black flex items-center justify-center overflow-hidden">
                   <img
                     src={venue.heroImage}
                     alt="360 Tour"
-                    className="w-full h-full object-cover scale-125 animate-pulse-glow filter brightness-90"
+                    className="w-full h-full object-cover scale-125 filter brightness-90"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-[#A86445]/30 border border-[#A86445] flex items-center justify-center text-white animate-bounce">
+                    <div className="w-16 h-16 rounded-full bg-[#A86445]/30 border border-[#A86445] flex items-center justify-center text-white">
                       <Compass className="w-8 h-8" />
                     </div>
                     <h4 className="text-lg font-bold text-white tracking-tight">Interactive 360° Spatial Mode</h4>
@@ -560,67 +607,146 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </button>
                   </div>
                 </div>
+              ) : (
+                /* Hero Gallery Media View for Zero-Walkthrough or Standard Gallery View */
+                <div className="relative w-full aspect-[16/9] bg-stone-900 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={selectedGalleryImage || venue.heroImage}
+                    alt={venue.name}
+                    className="w-full h-full object-cover transition-all duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
+                    <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                      {venue.name} • {venue.aesthetic} Space
+                    </span>
+                    <button
+                      onClick={() => onBookWalkthrough(venue)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      <span>Live Tour with Host</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Layout Milestones & Setup Highlights */}
-            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#A86445]" />
-                  Walkthrough Key Checkpoints & Layout Highlights
-                </h3>
-                <span className="text-xs text-[#66737A] font-medium">Click checkpoint to jump in video</span>
-              </div>
+            {/* Layout Milestones & Setup Highlights (Only if walkthrough exists) */}
+            {hasRecordedWalkthrough && activeClip && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#A86445]" />
+                    Walkthrough Key Checkpoints & Layout Highlights
+                  </h3>
+                  <span className="text-xs text-[#66737A] font-medium">Click checkpoint to jump in video</span>
+                </div>
 
-              {/* Milestones grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {activeClip.milestones.map((milestone) => (
-                  <button
-                    key={milestone.timeSec}
-                    onClick={() => {
-                      setViewMode('video');
-                      handleSeek(milestone.timeSec);
-                    }}
-                    className="p-3.5 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-left hover:border-[#A86445] hover:bg-white transition-all group shadow-xs"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-[#A86445] group-hover:text-[#26343D] transition-colors">
-                        {milestone.label}
+                {/* Milestones grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {activeClip.milestones?.map((milestone) => (
+                    <button
+                      key={milestone.timeSec}
+                      onClick={() => {
+                        setViewMode('video');
+                        handleSeek(milestone.timeSec);
+                      }}
+                      className="p-3.5 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-left hover:border-[#A86445] hover:bg-white transition-all group shadow-xs"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-[#A86445] group-hover:text-[#26343D] transition-colors">
+                          {milestone.label}
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#DDD8CF] text-[#66737A]">
+                          {formatTime(milestone.timeSec)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#66737A] leading-relaxed">{milestone.description}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Setup Highlights Chips */}
+                {activeClip.setupHighlights && activeClip.setupHighlights.length > 0 && (
+                  <div className="pt-2 border-t border-[#DDD8CF] flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-[#66737A] font-semibold">Included in this setup:</span>
+                    {activeClip.setupHighlights.map((hl, i) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-1 rounded-md bg-[#F4F1EA] text-[#66737A] border border-[#DDD8CF]"
+                      >
+                        ✓ {hl}
                       </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#DDD8CF] text-[#66737A]">
-                        {formatTime(milestone.timeSec)}
-                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Configured Spaces Breakdown (If venue has configured spaces) */}
+            {venue.spaces && venue.spaces.length > 0 && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#A86445]" />
+                    Configured Spaces & Layout Areas ({venue.spaces.length})
+                  </h3>
+                  <span className="text-xs text-[#66737A]">Available for hire</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {venue.spaces.map((space) => (
+                    <div
+                      key={space.id}
+                      className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-[#26343D]">{space.name}</h4>
+                        {space.squareFootage && (
+                          <span className="text-[10px] font-semibold text-[#66737A] px-2 py-0.5 bg-white rounded border border-[#DDD8CF]">
+                            {space.squareFootage.toLocaleString()} sq ft
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#66737A] leading-relaxed line-clamp-2">
+                        {space.description}
+                      </p>
+                      <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center justify-between text-[11px] text-[#66737A]">
+                        <span>Capacity: <strong>{space.capacity?.cocktail || venue.capacity.cocktail}</strong> cocktail</span>
+                        <span><strong>{space.capacity?.seatedBanquet || venue.capacity.seatedBanquet}</strong> seated</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-[#66737A] leading-relaxed">{milestone.description}</p>
-                  </button>
-                ))}
+                  ))}
+                </div>
               </div>
-
-              {/* Setup Highlights Chips */}
-              <div className="pt-2 border-t border-[#DDD8CF] flex items-center gap-2 flex-wrap text-xs">
-                <span className="text-[#66737A] font-semibold">Included in this setup:</span>
-                {activeClip.setupHighlights.map((hl, i) => (
-                  <span
-                    key={i}
-                    className="px-2.5 py-1 rounded-md bg-[#F4F1EA] text-[#66737A] border border-[#DDD8CF]"
-                  >
-                    ✓ {hl}
-                  </span>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Photo Gallery Grid */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D]">
-                High-Resolution Gallery ({venue.galleryImages.length} Perspectives)
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-[#A86445]" />
+                  High-Resolution Gallery ({galleryImages.length} Perspectives)
+                </h3>
+                <span className="text-xs text-[#66737A]">Click to inspect photo</span>
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {venue.galleryImages.map((img, idx) => (
+                {galleryImages.map((img, idx) => (
                   <div
                     key={idx}
-                    className="aspect-[4/3] rounded-xl overflow-hidden border border-[#DDD8CF] bg-stone-900 group relative cursor-pointer shadow-xs"
+                    onClick={() => {
+                      setSelectedGalleryImage(img);
+                      if (!hasRecordedWalkthrough) {
+                        window.scrollTo({ top: 180, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`aspect-[4/3] rounded-xl overflow-hidden border bg-stone-900 group relative cursor-pointer shadow-xs transition-all ${
+                      selectedGalleryImage === img
+                        ? 'ring-2 ring-[#A86445] border-[#A86445]'
+                        : 'border-[#DDD8CF] hover:border-[#A86445]/60'
+                    }`}
                   >
                     <img
                       src={img}
@@ -641,7 +767,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 Venue Amenities & Facilities Included
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {venue.amenities.map((amenity, idx) => (
+                {venue.amenities?.map((amenity, idx) => (
                   <div
                     key={idx}
                     className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF]"
@@ -657,13 +783,13 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Real-Time Specs, Dynamic Pricing Calculator & Booking Widget */}
+          {/* Right Column: Host Info, Specs, Dynamic Pricing Calculator & Booking Widget */}
           <div className="lg:col-span-4 space-y-6">
             {/* Host Card */}
             <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <img
-                  src={venue.host.avatar}
+                  src={venue.host.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
                   alt={venue.host.name}
                   className="w-13 h-13 rounded-full object-cover border-2 border-[#A86445] shadow-xs"
                 />
@@ -675,24 +801,26 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   <p className="text-xs text-[#66737A]">{venue.host.title}</p>
                   <div className="flex items-center gap-1 text-[11px] text-[#26343D] font-semibold mt-0.5">
                     <Star className="w-3 h-3 fill-current text-amber-400" />
-                    <span>{venue.host.rating.toFixed(2)} Rating</span>
-                    <span className="text-[#66737A]">• {venue.host.totalToursConducted} Tours Led</span>
+                    <span>{(venue.host.rating || 5.0).toFixed(2)} Rating</span>
+                    <span className="text-[#66737A]">• {venue.host.totalToursConducted || 0} Tours Led</span>
                   </div>
                 </div>
               </div>
 
-              <p className="text-xs text-[#66737A] italic bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] leading-relaxed">
-                "{venue.host.bio}"
-              </p>
+              {venue.host.bio && (
+                <p className="text-xs text-[#66737A] italic bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] leading-relaxed">
+                  "{venue.host.bio}"
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-[11px] text-[#66737A] pt-1">
                 <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
                   <span className="text-[#66737A] block text-[10px]">Response Time</span>
-                  <span className="font-semibold text-emerald-600">{venue.host.responseTime}</span>
+                  <span className="font-semibold text-emerald-600">{venue.host.responseTime || '< 2 hours'}</span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
                   <span className="text-[#66737A] block text-[10px]">Languages</span>
-                  <span className="font-semibold text-[#26343D]">{venue.host.languages.join(', ')}</span>
+                  <span className="font-semibold text-[#26343D]">{venue.host.languages?.join(', ') || 'English'}</span>
                 </div>
               </div>
 
@@ -726,45 +854,55 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               </h3>
 
               <div className="space-y-3.5 text-xs">
-                <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-[#26343D] block">Curfew & Sound Limits</span>
-                    <p className="text-[#66737A] text-[11px]">{venue.specs.curfew}</p>
+                {venue.specs.curfew && (
+                  <div className="flex items-start gap-2.5">
+                    <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#26343D] block">Curfew & Sound Limits</span>
+                      <p className="text-[#66737A] text-[11px]">{venue.specs.curfew}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-2.5">
-                  <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-[#26343D] block">Parking & Valet</span>
-                    <p className="text-[#66737A] text-[11px]">{venue.specs.parking}</p>
+                {venue.specs.parking && (
+                  <div className="flex items-start gap-2.5">
+                    <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#26343D] block">Parking & Valet</span>
+                      <p className="text-[#66737A] text-[11px]">{venue.specs.parking}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-2.5">
-                  <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-[#26343D] block">Catering Policy</span>
-                    <p className="text-[#66737A] text-[11px]">{venue.specs.cateringPolicy}</p>
+                {venue.specs.cateringPolicy && (
+                  <div className="flex items-start gap-2.5">
+                    <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#26343D] block">Catering Policy</span>
+                      <p className="text-[#66737A] text-[11px]">{venue.specs.cateringPolicy}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-2.5">
-                  <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-[#26343D] block">Bar & Alcohol Logistics</span>
-                    <p className="text-[#66737A] text-[11px]">{venue.specs.alcoholPolicy}</p>
+                {venue.specs.alcoholPolicy && (
+                  <div className="flex items-start gap-2.5">
+                    <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#26343D] block">Bar & Alcohol Logistics</span>
+                      <p className="text-[#66737A] text-[11px]">{venue.specs.alcoholPolicy}</p>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-2.5">
-                  <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-[#26343D] block">Dedicated Power Supply</span>
-                    <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
+                {venue.specs.powerSupply && (
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#26343D] block">Dedicated Power Supply</span>
+                      <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -784,7 +922,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 <input
                   type="range"
                   min="20"
-                  max={venue.capacity.cocktail}
+                  max={Math.max(venue.capacity.cocktail, 100)}
                   step="10"
                   value={calcGuests}
                   onChange={(e) => setCalcGuests(Number(e.target.value))}
@@ -810,19 +948,19 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div className="bg-[#F4F1EA] rounded-xl p-3.5 space-y-2 text-xs border border-[#DDD8CF]">
                 <div className="flex items-center justify-between text-[#66737A]">
                   <span>Venue Rental:</span>
-                  <span className="font-medium text-[#26343D]">${calcPricing.venueRental.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.venueRental, currency)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[#66737A]">
                   <span>Cleaning & Prep:</span>
-                  <span className="font-medium text-[#26343D]">${calcPricing.cleaningFee.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.cleaningFee, currency)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[#66737A]">
                   <span>Est. Catering / Bar Base:</span>
-                  <span className="font-medium text-[#26343D]">${calcPricing.estimatedHospitality.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.estimatedHospitality, currency)}</span>
                 </div>
                 <div className="pt-2 border-t border-[#DDD8CF] flex items-center justify-between font-bold text-sm text-[#26343D]">
                   <span>Estimated Total:</span>
-                  <span className="text-[#A86445]">${calcPricing.totalEstimated.toLocaleString()}</span>
+                  <span className="text-[#A86445]">{formatCurrency(calcPricing.totalEstimated, currency)}</span>
                 </div>
               </div>
 

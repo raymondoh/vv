@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Venue, VenueBooking, LayoutCategory, MarketplaceConfig } from '../types';
 import { DEFAULT_MARKETPLACE_CONFIG, calculateBookingFinancials } from '../config/marketplaceConfig';
+import { formatCurrency } from '../utils/formatters';
 
 interface VenueBookingModalProps {
   venue: Venue;
@@ -50,7 +51,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   const [selectedLayout, setSelectedLayout] = useState<string>(
     selectedLayoutCategory
       ? `${selectedLayoutCategory.charAt(0).toUpperCase() + selectedLayoutCategory.slice(1)} Setup`
-      : venue.walkthroughClips[0]?.title || 'Standard Setup'
+      : venue.walkthroughClips?.[0]?.title || venue.spaces?.[0]?.name || 'Standard Setup'
   );
   const [specialRequirements, setSpecialRequirements] = useState<string>('');
 
@@ -337,11 +338,17 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                   onChange={(e) => setSelectedLayout(e.target.value)}
                   className="w-full bg-[#F4F1EA] text-[#26343D] text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#26343D]"
                 >
-                  {venue.walkthroughClips.map((clip) => (
+                  {venue.walkthroughClips?.map((clip) => (
                     <option key={clip.id} value={clip.title}>
                       {clip.title} (Cap: {clip.maxCapacityForLayout} guests)
                     </option>
                   ))}
+                  {venue.spaces?.map((space) => (
+                    <option key={space.id} value={space.name}>
+                      {space.name} (Cap: {space.capacity?.cocktail || venue.capacity.cocktail} guests)
+                    </option>
+                  ))}
+                  <option value="Main Hall - Standard Setup">Main Hall - Standard Setup</option>
                   <option value="Custom Modular Configuration">Custom Modular Configuration</option>
                 </select>
               </div>
@@ -486,22 +493,22 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between text-[#66737A]">
                     <span>Venue Daily Hire Rate:</span>
-                    <span className="font-medium text-[#26343D]">${grossAmount.toLocaleString()}</span>
+                    <span className="font-medium text-[#26343D]">{formatCurrency(grossAmount, venue.pricing.currency || 'GBP')}</span>
                   </div>
                   <div className="flex items-center justify-between text-[#26343D] font-medium pt-1 border-t border-[#DDD8CF]">
                     <span>Total Venue Price:</span>
-                    <span className="text-sm font-bold text-[#26343D]">${grossAmount.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-[#26343D]">{formatCurrency(grossAmount, venue.pricing.currency || 'GBP')}</span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-[#F3E7DF] border border-[#A86445]/20 rounded-xl space-y-1.5 text-xs">
                   <div className="flex items-center justify-between font-semibold text-[#26343D]">
                     <span>Initial Deposit Required ({depositPercentage}%):</span>
-                    <span className="text-sm font-bold text-[#A86445]">${depositAmount.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-[#A86445]">{formatCurrency(depositAmount, venue.pricing.currency || 'GBP')}</span>
                   </div>
                   <div className="flex items-center justify-between text-[#66737A] text-[11px]">
                     <span>Remaining Balance:</span>
-                    <span>${remainingBalance.toLocaleString()} (Due {balanceDueDays} days prior to event)</span>
+                    <span>{formatCurrency(remainingBalance, venue.pricing.currency || 'GBP')} (Due {balanceDueDays} days prior to event)</span>
                   </div>
                   <p className="text-[10px] text-[#66737A] pt-1">
                     *Deposit is only requested once {venue.host.name} reviews and confirms your date.

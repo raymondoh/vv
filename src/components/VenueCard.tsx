@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Video, Users, MapPin, DollarSign, Star, Calendar, Heart, Eye } from 'lucide-react';
 import { Venue } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
 interface VenueCardProps {
   venue: Venue;
@@ -20,6 +21,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   isAiMatched = false,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const hasRecordedWalkthrough = Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0;
 
   return (
     <div
@@ -60,15 +62,22 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {venue.instantTourBadge && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-white bg-[#A86445] rounded-full shadow-xs">
-                <Video className="w-3 h-3 text-white" />
-                4K Walkthrough
+            {hasRecordedWalkthrough && (
+              <>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-white bg-[#A86445] rounded-full shadow-xs">
+                  <Video className="w-3 h-3 text-white" />
+                  4K Walkthrough
+                </span>
+                <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
+                  {venue.walkthroughClips.length} Layout Views
+                </span>
+              </>
+            )}
+            {!hasRecordedWalkthrough && venue.spaces && venue.spaces.length > 0 && (
+              <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
+                {venue.spaces.length} {venue.spaces.length === 1 ? 'Space' : 'Spaces'}
               </span>
             )}
-            <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
-              {venue.walkthroughClips.length} Layout Views
-            </span>
           </div>
 
           <button
@@ -127,7 +136,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
             </div>
             <p className="text-xs text-[#66737A] flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
-              <span>{venue.location.neighborhood}, {venue.location.city}, {venue.location.state}</span>
+              <span>{venue.location.neighborhood ? `${venue.location.neighborhood}, ` : ''}{venue.location.city}, {venue.location.state || venue.location.country}</span>
             </p>
           </div>
 
@@ -135,17 +144,31 @@ export const VenueCard: React.FC<VenueCardProps> = ({
             {venue.tagline}
           </p>
 
-          {/* Key Layout Configurations */}
-          <div className="mt-3.5 flex items-center gap-1.5 flex-wrap">
-            {venue.walkthroughClips.map((clip) => (
-              <span
-                key={clip.id}
-                className="text-[10px] px-2 py-0.5 rounded-md bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A] capitalize"
-              >
-                {clip.layoutCategory} setup
-              </span>
-            ))}
-          </div>
+          {/* Key Layout Configurations or Spaces */}
+          {hasRecordedWalkthrough && (
+            <div className="mt-3.5 flex items-center gap-1.5 flex-wrap">
+              {venue.walkthroughClips.map((clip) => (
+                <span
+                  key={clip.id}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A] capitalize"
+                >
+                  {clip.layoutCategory} setup
+                </span>
+              ))}
+            </div>
+          )}
+          {!hasRecordedWalkthrough && venue.spaces && venue.spaces.length > 0 && (
+            <div className="mt-3.5 flex items-center gap-1.5 flex-wrap">
+              {venue.spaces.slice(0, 3).map((space) => (
+                <span
+                  key={space.id}
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A]"
+                >
+                  {space.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Specs Grid */}
@@ -161,8 +184,8 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           <div className="space-y-0.5 text-right">
             <span className="text-[10px] uppercase font-semibold text-[#66737A]">Starting Rate</span>
             <div className="text-sm font-bold text-[#26343D]">
-              ${venue.pricing.startingPrice.toLocaleString()}
-              <span className="text-[10px] font-normal text-[#66737A]"> /day</span>
+              {formatCurrency(venue.pricing.startingPrice, venue.pricing.currency || 'GBP')}
+              <span className="text-[10px] font-normal text-[#66737A]"> /{venue.pricing.priceUnit?.replace('per ', '') || 'day'}</span>
             </div>
           </div>
         </div>

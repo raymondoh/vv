@@ -385,7 +385,7 @@ app.post('/api/venues', (req, res) => {
       'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1200&q=80',
     ],
-    instantTourBadge: true,
+    instantTourBadge: Array.isArray(venueData.walkthroughClips) && venueData.walkthroughClips.length > 0,
     spaces: venueData.spaces || [],
     walkthroughClips: venueData.walkthroughClips || [],
     mediaAssets: venueData.mediaAssets || [],
@@ -472,15 +472,32 @@ app.post('/api/gemini/match', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Query string is required' });
   }
 
+  const publishedVenues = venuesStore.filter((v) => !v.status || v.status === 'published');
+  if (publishedVenues.length === 0) {
+    return res.json({
+      success: true,
+      match: {
+        query,
+        matchedVenueIds: [],
+        topPickVenueId: '',
+        confidenceScore: 0,
+        recommendedLayout: 'No published venues available',
+        aiExplanation: 'There are currently no published venues in the marketplace catalog. Please publish venue listings to enable intelligent matching.',
+        keyMatchFactors: ['Catalog currently empty of published venues'],
+        estimatedBudgetNote: 'N/A',
+      },
+    });
+  }
+
   // Fallback intelligent matching heuristic
   const fallbackMatch = (): AiMatchResponse => {
     const q = query.toLowerCase();
-    const publishedVenues = venuesStore.filter((v) => !v.status || v.status === 'published');
-    const catalogToMatch = publishedVenues.length > 0 ? publishedVenues : venuesStore;
+    const catalogToMatch = publishedVenues;
 
     let scores = catalogToMatch.map((v) => {
       let score = 0;
       const reasons: string[] = [];
+      const currSymbol = v.pricing.currencySymbol || (v.pricing.currency === 'GBP' ? '£' : v.pricing.currency === 'EUR' ? '€' : '$');
 
       // Location match
       if (q.includes(v.location.city.toLowerCase()) || (v.location.state && q.includes(v.location.state.toLowerCase()))) {
@@ -511,13 +528,13 @@ app.post('/api/gemini/match', async (req, res) => {
       }
 
       // Budget extraction
-      const budgetMatch = q.match(/\$?(\d+[\d,]*)\s*(budget|max|under|\$|k)?/);
+      const budgetMatch = q.match(/[\$£€]?(\d+[\d,]*)\s*(budget|max|under|[\$£€]|k)?/);
       if (budgetMatch) {
         let budget = parseInt(budgetMatch[1].replace(/,/g, ''), 10);
         if (budget < 100 && q.includes('k')) budget *= 1000;
         if (v.pricing.startingPrice <= budget) {
           score += 20;
-          reasons.push(`Starting rate ($${v.pricing.startingPrice.toLocaleString()}) fits within your budget`);
+          reasons.push(`Starting rate (${currSymbol}${v.pricing.startingPrice.toLocaleString()}) fits within your budget`);
         }
       }
 
@@ -551,6 +568,7 @@ app.post('/api/gemini/match', async (req, res) => {
     scores.sort((a, b) => b.score - a.score);
     const top = scores[0]?.venue || catalogToMatch[0];
     const topReasons = scores[0]?.reasons.length ? scores[0].reasons : ['Strong match for spatial capacity, layout flexibility, and aesthetic requirements'];
+    const topCurrSymbol = top.pricing.currencySymbol || (top.pricing.currency === 'GBP' ? '£' : top.pricing.currency === 'EUR' ? '€' : '$');
 
     const matchedIds = scores.filter((s) => s.score > 20).map((s) => s.venue.id);
     const finalIds = matchedIds.length > 0 ? matchedIds : [top.id, catalogToMatch[1]?.id || catalogToMatch[0]?.id].filter(Boolean);
@@ -560,10 +578,10 @@ app.post('/api/gemini/match', async (req, res) => {
       matchedVenueIds: finalIds,
       topPickVenueId: top.id,
       confidenceScore: Math.min(98, Math.max(82, scores[0]?.score ? 70 + scores[0].score : 88)),
-      recommendedLayout: top.walkthroughClips[0]?.title || 'Standard Event Layout',
+      recommendedLayout: top.walkthroughClips[0]?.title || (top.spaces && top.spaces[0]?.layouts[0]?.title) || 'Standard Event Layout',
       aiExplanation: `Based on your request "${query}", ${top.name} in ${top.location.city} is the recommended space. It offers ${top.aesthetic.toLowerCase()} architecture, versatile floor plans, and ideal capacity for your group.`,
       keyMatchFactors: topReasons,
-      estimatedBudgetNote: `Starting at $${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit} with interactive 4K walkthroughs and remote inspection tools.`,
+      estimatedBudgetNote: `Starting at ${topCurrSymbol}${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit} with verified specifications and remote inspection capabilities.`,
     };
   };
 
@@ -583,8 +601,7 @@ app.post('/api/gemini/match', async (req, res) => {
       },
     });
 
-    const publishedVenues = venuesStore.filter((v) => !v.status || v.status === 'published');
-    const catalogToMatch = publishedVenues.length > 0 ? publishedVenues : venuesStore;
+    const catalogToMatch = publishedVenues;
 
     const venueCatalogSummary = catalogToMatch.map((v) => ({
       id: v.id,
@@ -596,8 +613,10 @@ app.post('/api/gemini/match', async (req, res) => {
       seatedCapacity: v.capacity.seatedBanquet,
       cocktailCapacity: v.capacity.cocktail,
       startingPrice: v.pricing.startingPrice,
+      currency: v.pricing.currency || 'GBP',
       amenityHighlights: v.amenities.slice(0, 4).map((a) => a.name),
       layouts: v.walkthroughClips.map((c) => c.title),
+      spaces: (v.spaces || []).map((s) => s.name),
     }));
 
     const prompt = `You are the AI Venue Matcher for VenueStream, a broad venue discovery, remote inspection, and booking marketplace for meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and other events.
@@ -707,6 +726,10 @@ app.post('/api/walkthroughs/book', (req, res) => {
   const venue = venuesStore.find((v) => v.id === venueId);
   if (!venue) {
     return res.status(404).json({ success: false, error: 'Venue not found' });
+  }
+
+  if (venue.status === 'draft') {
+    return res.status(400).json({ success: false, error: 'Draft venues cannot receive walkthrough bookings until published' });
   }
 
   const bookingId = `vtour-${Date.now().toString().slice(-6)}`;
@@ -829,6 +852,10 @@ app.post('/api/venue-bookings', (req, res) => {
   const venue = venuesStore.find((v) => v.id === venueId);
   if (!venue) {
     return res.status(404).json({ success: false, error: 'Venue not found' });
+  }
+
+  if (venue.status === 'draft') {
+    return res.status(400).json({ success: false, error: 'Draft venues cannot be booked until published' });
   }
 
   const calculatedGross = Number(grossAmount) || venue.pricing.startingPrice;
