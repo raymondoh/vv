@@ -9,8 +9,10 @@ import {
   ShieldCheck,
   ArrowRight,
   Info,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { VenueBooking, MarketplaceConfig } from '../types';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface DepositPaymentModalProps {
   booking: VenueBooking;
@@ -41,6 +43,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
   if (!isOpen) return null;
 
   const balanceDays = marketplaceConfig?.balanceDueDaysBeforeEvent || 14;
+  const bookingCurrency = booking.currency || 'GBP';
 
   const handleSimulatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,15 +130,22 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
             <form onSubmit={handleSimulatePayment} className="space-y-5">
               {/* Event & Space Summary Box */}
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF]">
-                <img
-                  src={booking.venueImage}
-                  alt={booking.venueName}
-                  className="w-14 h-14 rounded-lg object-cover border border-[#DDD8CF]"
-                />
+                {booking.venueImage ? (
+                  <img
+                    src={booking.venueImage}
+                    alt={booking.venueName}
+                    className="w-14 h-14 rounded-lg object-cover border border-[#DDD8CF]"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-[#EAE5DC] border border-[#DDD8CF] flex flex-col items-center justify-center p-1 text-center shrink-0">
+                    <ImageIcon className="w-4 h-4 text-[#A86445] mb-0.5" />
+                    <span className="text-[7px] text-[#66737A]">No photo</span>
+                  </div>
+                )}
                 <div className="flex-1 min-w-0 text-xs">
                   <span className="font-bold text-[#26343D] block truncate">{booking.venueName}</span>
                   <span className="text-[#66737A] block">
-                    Event Date: <strong>{booking.eventDate}</strong> ({booking.guestCount} guests)
+                    Event Date: <strong>{formatDateDisplay(booking.eventDate, 'readable')}</strong> ({booking.guestCount} guests)
                   </span>
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5 font-semibold">
                     Venue Approved Request
@@ -147,16 +157,16 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
               <div className="space-y-2 border border-[#DDD8CF] rounded-xl p-4 bg-white">
                 <div className="flex items-center justify-between text-xs text-[#66737A]">
                   <span>Total Venue Price:</span>
-                  <span className="font-medium text-[#26343D]">${booking.grossAmount.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">{formatCurrency(booking.grossAmount, bookingCurrency)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-[#26343D] font-bold pt-1 border-t border-[#DDD8CF]">
                   <span>Initial Deposit Required ({booking.depositPercentage}%):</span>
-                  <span className="text-[#A86445] text-base font-bold">${booking.depositAmount.toLocaleString()}</span>
+                  <span className="text-[#A86445] text-base font-bold">{formatCurrency(booking.depositAmount, bookingCurrency)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-[#66737A] pt-1">
                   <span>Remaining Balance:</span>
                   <span>
-                    ${booking.finalBalance.toLocaleString()} (Due {booking.finalBalanceDueDate ? booking.finalBalanceDueDate : `${balanceDays} days prior to event`})
+                    {formatCurrency(booking.finalBalance, bookingCurrency)} (Due {booking.finalBalanceDueDate ? formatDateDisplay(booking.finalBalanceDueDate, 'readable') : `${balanceDays} days prior to event`})
                   </span>
                 </div>
               </div>
@@ -232,7 +242,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
                   <span>
                     {loading
                       ? 'Processing Simulated Authorization...'
-                      : `Pay $${booking.depositAmount.toLocaleString()} Deposit (Simulated)`}
+                      : `Pay ${formatCurrency(booking.depositAmount, bookingCurrency)} Deposit (Simulated)`}
                   </span>
                 </button>
                 <p className="text-[10px] text-[#66737A] text-center mt-2 flex items-center justify-center gap-1">
@@ -252,7 +262,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
                   Deposit Paid & Booking Confirmed!
                 </h3>
                 <p className="text-xs text-[#66737A] max-w-sm mx-auto">
-                  Your deposit of <strong>${booking.depositAmount.toLocaleString()}</strong> has been credited. The space is now secured for <strong>{booking.eventDate}</strong>.
+                  Your deposit of <strong>{formatCurrency(booking.depositAmount, bookingCurrency)}</strong> has been credited. The space is now secured for <strong>{formatDateDisplay(booking.eventDate, 'readable')}</strong>.
                 </p>
               </div>
 
@@ -269,7 +279,7 @@ export const DepositPaymentModal: React.FC<DepositPaymentModalProps> = ({
                 </div>
                 <div className="flex items-center justify-between text-[#66737A]">
                   <span>Remaining Balance:</span>
-                  <span className="font-medium text-[#26343D]">${booking.finalBalance.toLocaleString()}</span>
+                  <span className="font-medium text-[#26343D]">{formatCurrency(booking.finalBalance, bookingCurrency)}</span>
                 </div>
               </div>
 

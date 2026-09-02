@@ -78,6 +78,7 @@ const venueBookingsStore: VenueBooking[] = [
     venueName: 'The Glasshouse Luminary',
     venueLocation: 'Chicago, IL',
     venueImage: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80',
+    currency: 'USD',
     clientName: 'Sarah Jenkins',
     clientEmail: 's.jenkins@apexlead.io',
     clientPhone: '+1 (312) 555-0144',
@@ -116,6 +117,7 @@ const venueBookingsStore: VenueBooking[] = [
     venueName: 'The Glasshouse Luminary',
     venueLocation: 'Chicago, IL',
     venueImage: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=600&q=80',
+    currency: 'USD',
     clientName: 'Marcus Sterling',
     clientEmail: 'marcus.sterling@meridiancorp.com',
     clientPhone: '+1 (312) 555-8911',
@@ -150,6 +152,7 @@ const venueBookingsStore: VenueBooking[] = [
     venueName: 'The Foundry Machine Shop',
     venueLocation: 'Seattle, WA',
     venueImage: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80',
+    currency: 'USD',
     clientName: 'Liam Vance',
     clientEmail: 'lvance@vancerobotics.com',
     clientPhone: '+1 (206) 555-7721',
@@ -182,6 +185,7 @@ const venueBookingsStore: VenueBooking[] = [
     venueName: 'Château de Mirabelle',
     venueLocation: 'Napa Valley, CA',
     venueImage: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80',
+    currency: 'USD',
     clientName: 'Evelyn Taylor & Mark Henderson',
     clientEmail: 'evelyn.taylor@designworks.com',
     clientPhone: '+1 (415) 555-9082',
@@ -864,13 +868,35 @@ app.post('/api/venue-bookings', (req, res) => {
   const newId = `vb-${Date.now().toString().slice(-6)}`;
   const bookingNumber = `VSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+  // Determine media capabilities truthfully
+  const hasWalkthrough = Boolean(
+    (venue.walkthroughClips && venue.walkthroughClips.length > 0) ||
+    venue.mediaAssets?.some((m) => m.type === 'walkthrough_video' || m.type === '360_tour') ||
+    venue.spaces?.some((s) => s.layouts?.some((l) => l.walkthroughMediaUrl))
+  );
+
+  const hasFloorPlan = Boolean(
+    venue.spaces?.some((s) => s.layouts?.some((l) => l.floorPlanUrl)) ||
+    venue.mediaAssets?.some((m) => m.type === 'floor_plan')
+  );
+
+  let initialInspectionText = 'Review venue specifications & layout requirements';
+  if (hasWalkthrough && hasFloorPlan) {
+    initialInspectionText = 'Explore venue walkthrough & architectural floor plan';
+  } else if (hasWalkthrough) {
+    initialInspectionText = 'Explore high-resolution venue walkthrough';
+  } else if (hasFloorPlan) {
+    initialInspectionText = 'Review architectural floor plan & spatial layout';
+  }
+
   const newVenueBooking: VenueBooking = {
     id: newId,
     bookingNumber,
     venueId: venue.id,
     venueName: venue.name,
-    venueLocation: `${venue.location.city}, ${venue.location.state}`,
+    venueLocation: `${venue.location.city}, ${venue.location.state || venue.location.region || ''}`.replace(/,\s*$/, ''),
     venueImage: venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '',
+    currency: venue.pricing?.currency || 'GBP',
     clientName,
     clientEmail,
     clientPhone: clientPhone || '',
@@ -891,7 +917,7 @@ app.post('/api/venue-bookings', (req, res) => {
     createdAt: new Date().toISOString(),
     hostName: venue.host?.name || venue.businessName || 'Venue team',
     checklist: [
-      { id: `chk-${Date.now()}-1`, text: 'Explore venue walkthrough & architectural floor plan', completed: true, category: 'Inspection' },
+      { id: `chk-${Date.now()}-1`, text: initialInspectionText, completed: true, category: 'Inspection' },
       { id: `chk-${Date.now()}-2`, text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
       { id: `chk-${Date.now()}-3`, text: 'Awaiting venue host review & date confirmation', completed: false, category: 'Contract & Payment' },
       { id: `chk-${Date.now()}-4`, text: `Pay initial deposit (${depositPercent}%) once venue accepts`, completed: false, category: 'Contract & Payment' },

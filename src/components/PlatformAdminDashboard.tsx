@@ -21,6 +21,7 @@ import {
 import { Venue, VenueBooking, MarketplaceConfig, VenueBookingStatus } from '../types';
 import { DEFAULT_MARKETPLACE_CONFIG } from '../config/marketplaceConfig';
 import { getStatusDisplay, ALLOWED_STATUS_TRANSITIONS } from '../utils/bookingStatus';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface PlatformAdminDashboardProps {
   venues: Venue[];
@@ -87,6 +88,7 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
   const activeBookings = venueBookings.filter(
     (b) => b.status !== 'cancelled' && b.status !== 'declined'
   );
+  const platformCurrency = activeBookings[0]?.currency || 'GBP';
   const totalGrossVolume = activeBookings.reduce((sum, b) => sum + b.grossAmount, 0);
   const totalPlatformCommission = Math.round((totalGrossVolume * (marketplaceConfig.commissionPercentage || 12)) / 100);
   const totalVenuePayouts = totalGrossVolume - totalPlatformCommission;
@@ -145,7 +147,7 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
             <DollarSign className="w-4 h-4 text-[#26343D]" />
           </div>
           <div className="text-2xl font-bold text-[#26343D]">
-            ${totalGrossVolume.toLocaleString()}
+            {formatCurrency(totalGrossVolume, platformCurrency)}
           </div>
           <div className="text-[11px] text-[#66737A]">
             {activeBookings.length} active customer bookings
@@ -160,7 +162,7 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
             </span>
           </div>
           <div className="text-2xl font-bold text-[#A86445]">
-            ${totalPlatformCommission.toLocaleString()}
+            {formatCurrency(totalPlatformCommission, platformCurrency)}
           </div>
           <div className="text-[11px] text-[#66737A]">
             Platform net revenue from host fees
@@ -173,7 +175,7 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
             <TrendingUp className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="text-2xl font-bold text-emerald-800">
-            ${totalVenuePayouts.toLocaleString()}
+            {formatCurrency(totalVenuePayouts, platformCurrency)}
           </div>
           <div className="text-[11px] text-emerald-700/80">
             Disbursed post-event execution
@@ -415,17 +417,17 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
                     </td>
                     <td className="py-3.5 px-3">
                       <strong className="text-[#26343D] block">{b.venueName}</strong>
-                      <span className="text-[#66737A] text-[11px]">{b.eventDate} ({b.guestCount} guests)</span>
+                      <span className="text-[#66737A] text-[11px]">{formatDateDisplay(b.eventDate, 'readable')} ({b.guestCount} guests)</span>
                     </td>
                     <td className="py-3.5 px-3">
                       <span className="font-semibold text-[#26343D] block">{b.clientName}</span>
                       <span className="text-[#66737A] text-[11px]">{b.clientEmail}</span>
                     </td>
                     <td className="py-3.5 px-3 font-semibold text-[#26343D]">
-                      ${b.grossAmount.toLocaleString()}
+                      {formatCurrency(b.grossAmount, b.currency || 'GBP')}
                     </td>
                     <td className="py-3.5 px-3 text-[#66737A]">
-                      ${b.depositAmount.toLocaleString()} ({b.depositPercentage}%)
+                      {formatCurrency(b.depositAmount, b.currency || 'GBP')} ({b.depositPercentage}%)
                     </td>
                     <td className="py-3.5 px-3">
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded border inline-block ${statusInfo.badgeClass}`}>

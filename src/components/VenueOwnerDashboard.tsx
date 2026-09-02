@@ -33,7 +33,7 @@ import {
 import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus, BusinessOrganisation, VenueSpace } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
 import { calculateCompleteness, getQualityTierBadge } from '../utils/completeness';
-import { formatCurrency, formatLocation } from '../utils/formatters';
+import { formatCurrency, formatLocation, formatDateDisplay } from '../utils/formatters';
 
 interface VenueOwnerDashboardProps {
   venues: Venue[];
@@ -130,6 +130,9 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
     (b) => b.status !== 'cancelled' && b.status !== 'declined'
   );
 
+  const selectedVenueObj = venues.find((v) => v.id === selectedVenueId);
+  const hostCurrency = selectedVenueObj?.pricing?.currency || activeBookings[0]?.currency || 'GBP';
+
   const grossBookingsTotal = activeBookings.reduce((sum, b) => sum + b.grossAmount, 0);
   const platformCommissionTotal = Math.round((grossBookingsTotal * commissionRate) / 100);
   const venueNetPayoutTotal = grossBookingsTotal - platformCommissionTotal;
@@ -209,7 +212,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             <DollarSign className="w-4 h-4 text-[#A86445]" />
           </div>
           <div className="text-2xl font-bold text-[#26343D]">
-            ${grossBookingsTotal.toLocaleString()}
+            {formatCurrency(grossBookingsTotal, hostCurrency)}
           </div>
           <div className="text-[11px] text-[#66737A]">
             Total customer space hire value
@@ -225,7 +228,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             </span>
           </div>
           <div className="text-2xl font-bold text-[#A86445]">
-            -${platformCommissionTotal.toLocaleString()}
+            -{formatCurrency(platformCommissionTotal, hostCurrency)}
           </div>
           <div className="text-[11px] text-[#66737A]">
             Contract commission rate on bookings
@@ -239,7 +242,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             <TrendingUp className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="text-2xl font-bold text-emerald-800">
-            ${venueNetPayoutTotal.toLocaleString()}
+            {formatCurrency(venueNetPayoutTotal, hostCurrency)}
           </div>
           <div className="text-[11px] text-emerald-700/80">
             Net revenue disbursed to venue
@@ -342,31 +345,36 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                     </div>
 
                     {/* Financial Payout Summary */}
-                    <div className="bg-white p-3 rounded-xl border border-[#DDD8CF] text-xs min-w-[240px] space-y-1">
-                      <div className="flex justify-between text-[#66737A]">
-                        <span>Space Hire (Gross):</span>
-                        <strong className="text-[#26343D]">${request.grossAmount.toLocaleString()}</strong>
-                      </div>
-                      <div className="flex justify-between text-[#A86445]">
-                        <span>Commission ({commissionRate}%):</span>
-                        <span>-${reqCommission.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-emerald-800 font-bold pt-1 border-t border-[#DDD8CF]">
-                        <span>Expected Net Payout:</span>
-                        <span>${reqNet.toLocaleString()}</span>
-                      </div>
-                      <div className="text-[10px] text-[#66737A] pt-0.5 flex justify-between">
-                        <span>Client Deposit:</span>
-                        <span className="font-semibold text-[#26343D]">${request.depositAmount.toLocaleString()} ({request.depositPercentage}%)</span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const reqCurrency = request.currency || 'GBP';
+                      return (
+                        <div className="bg-white p-3 rounded-xl border border-[#DDD8CF] text-xs min-w-[240px] space-y-1">
+                          <div className="flex justify-between text-[#66737A]">
+                            <span>Space Hire (Gross):</span>
+                            <strong className="text-[#26343D]">{formatCurrency(request.grossAmount, reqCurrency)}</strong>
+                          </div>
+                          <div className="flex justify-between text-[#A86445]">
+                            <span>Commission ({commissionRate}%):</span>
+                            <span>-{formatCurrency(reqCommission, reqCurrency)}</span>
+                          </div>
+                          <div className="flex justify-between text-emerald-800 font-bold pt-1 border-t border-[#DDD8CF]">
+                            <span>Expected Net Payout:</span>
+                            <span>{formatCurrency(reqNet, reqCurrency)}</span>
+                          </div>
+                          <div className="text-[10px] text-[#66737A] pt-0.5 flex justify-between">
+                            <span>Client Deposit:</span>
+                            <span className="font-semibold text-[#26343D]">{formatCurrency(request.depositAmount, reqCurrency)} ({request.depositPercentage}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Event Specifics Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-white p-3 rounded-xl border border-[#DDD8CF]">
                     <div>
                       <span className="text-[#66737A] block">Date & Timing:</span>
-                      <strong className="text-[#26343D]">{request.eventDate} ({request.startTime} – {request.endTime})</strong>
+                      <strong className="text-[#26343D]">{formatDateDisplay(request.eventDate, 'readable')} ({request.startTime} – {request.endTime})</strong>
                     </div>
                     <div>
                       <span className="text-[#66737A] block">Event Type & Attendance:</span>
@@ -384,7 +392,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                     )}
                     <div className="sm:col-span-3 pt-1 border-t border-[#DDD8CF] flex flex-wrap items-center justify-between text-[11px] text-[#66737A]">
                       <span>Customer Contact: {request.clientEmail} • {request.clientPhone}</span>
-                      <span>Submitted: {new Date(request.createdAt).toLocaleDateString()}</span>
+                      <span>Submitted: {formatDateDisplay(request.createdAt, 'compact')}</span>
                     </div>
                   </div>
 
@@ -457,7 +465,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             Customers pay the standard venue hire fee with zero surcharge. VenueStream retains an agreed <strong>{commissionRate}% platform commission</strong> upon confirmed space booking, with net payouts disbursed post-event.
           </p>
           <div className="p-2.5 rounded-xl bg-white border border-[#DDD8CF] text-xs font-mono text-[#26343D] inline-block">
-            <strong>Gross Booking (${grossBookingsTotal.toLocaleString()})</strong> − <strong>Platform Commission ({commissionRate}% = ${platformCommissionTotal.toLocaleString()})</strong> = <strong className="text-emerald-700">Venue Net (${venueNetPayoutTotal.toLocaleString()})</strong>
+            <strong>Gross Booking ({formatCurrency(grossBookingsTotal, hostCurrency)})</strong> − <strong>Platform Commission ({commissionRate}% = {formatCurrency(platformCommissionTotal, hostCurrency)})</strong> = <strong className="text-emerald-700">Venue Net ({formatCurrency(venueNetPayoutTotal, hostCurrency)})</strong>
           </div>
         </div>
       </div>
@@ -775,25 +783,30 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                             {booking.clientName} {booking.clientCompany ? `(${booking.clientCompany})` : ''}
                           </h4>
                           <p className="text-xs text-[#66737A]">
-                            Event Date: <strong className="text-[#26343D]">{booking.eventDate}</strong> ({booking.startTime} – {booking.endTime}) • <strong className="text-[#26343D]">{booking.guestCount} Guests</strong> • Venue: {booking.venueName}
+                            Event Date: <strong className="text-[#26343D]">{formatDateDisplay(booking.eventDate, 'readable')}</strong> ({booking.startTime} – {booking.endTime}) • <strong className="text-[#26343D]">{booking.guestCount} Guests</strong> • Venue: {booking.venueName}
                           </p>
                         </div>
 
                         {/* Financial calculation breakdown for this specific booking */}
-                        <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] text-xs text-right min-w-[220px]">
-                          <div className="flex justify-between text-[#66737A]">
-                            <span>Gross Booking:</span>
-                            <span className="font-bold text-[#26343D]">${booking.grossAmount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-[#A86445]">
-                            <span>Commission ({commissionRate}%):</span>
-                            <span>-${commissionAmount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between font-bold text-emerald-800 pt-1 border-t border-[#DDD8CF]">
-                            <span>Expected Net:</span>
-                            <span>${venueNetAmount.toLocaleString()}</span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const bookingCurrency = booking.currency || 'GBP';
+                          return (
+                            <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] text-xs text-right min-w-[220px]">
+                              <div className="flex justify-between text-[#66737A]">
+                                <span>Gross Booking:</span>
+                                <span className="font-bold text-[#26343D]">{formatCurrency(booking.grossAmount, bookingCurrency)}</span>
+                              </div>
+                              <div className="flex justify-between text-[#A86445]">
+                                <span>Commission ({commissionRate}%):</span>
+                                <span>-{formatCurrency(commissionAmount, bookingCurrency)}</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-emerald-800 pt-1 border-t border-[#DDD8CF]">
+                                <span>Expected Net:</span>
+                                <span>{formatCurrency(venueNetAmount, bookingCurrency)}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Event Details & Requirements */}
@@ -817,39 +830,55 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                       {/* Action Bar for Venue Host */}
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#DDD8CF]">
                         <div className="text-xs text-[#66737A]">
-                          {isCompleted && (
-                            <span className="text-stone-700 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-stone-600" />
-                              Event successfully executed and completed.
-                            </span>
-                          )}
-                          {isFullyPaid && (
-                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Fully paid by client ($0 balance remaining). Ready for event execution.
-                            </span>
-                          )}
-                          {isFinalPaymentDue && (
-                            <span className="text-amber-800 font-medium">
-                              Final balance due ($ {booking.finalBalance?.toLocaleString()} remaining). Awaiting client balance payment.
-                            </span>
-                          )}
-                          {isConfirmed && (
-                            <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Client paid ${booking.depositAmount.toLocaleString()} deposit ({booking.depositPercentage}%). Date secured.
-                            </span>
-                          )}
-                          {isDepositDue && (
-                            <span className="text-amber-800 font-medium">
-                              Space approved by venue. Awaiting client deposit payment of ${booking.depositAmount.toLocaleString()} ({booking.depositPercentage}%).
-                            </span>
-                          )}
-                          {isRequested && (
-                            <span className="text-[#A86445] font-medium">
-                              Action required: Verify space availability and accept or decline this request.
-                            </span>
-                          )}
+                          {(() => {
+                            const bCurr = booking.currency || 'GBP';
+                            if (isCompleted) {
+                              return (
+                                <span className="text-stone-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-stone-600" />
+                                  Event successfully executed and completed.
+                                </span>
+                              );
+                            }
+                            if (isFullyPaid) {
+                              return (
+                                <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Fully paid by client ({formatCurrency(0, bCurr)} balance remaining). Ready for event execution.
+                                </span>
+                              );
+                            }
+                            if (isFinalPaymentDue) {
+                              return (
+                                <span className="text-amber-800 font-medium">
+                                  Final balance due ({formatCurrency(booking.finalBalance || 0, bCurr)} remaining). Awaiting client balance payment.
+                                </span>
+                              );
+                            }
+                            if (isConfirmed) {
+                              return (
+                                <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Client paid {formatCurrency(booking.depositAmount, bCurr)} deposit ({booking.depositPercentage}%). Date secured.
+                                </span>
+                              );
+                            }
+                            if (isDepositDue) {
+                              return (
+                                <span className="text-amber-800 font-medium">
+                                  Space approved by venue. Awaiting client deposit payment of {formatCurrency(booking.depositAmount, bCurr)} ({booking.depositPercentage}%).
+                                </span>
+                              );
+                            }
+                            if (isRequested) {
+                              return (
+                                <span className="text-[#A86445] font-medium">
+                                  Action required: Verify space availability and accept or decline this request.
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
@@ -981,7 +1010,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                     <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] space-y-1 text-xs">
                       <div className="flex items-center justify-between text-[#26343D]">
                         <span className="text-[#66737A]">Tour Date:</span>
-                        <strong>{tour.scheduledDate} • {tour.scheduledTime}</strong>
+                        <strong>{formatDateDisplay(tour.scheduledDate, 'readable')} • {tour.scheduledTime}</strong>
                       </div>
                       <div className="flex items-center justify-between text-[#26343D]">
                         <span className="text-[#66737A]">Event Type & Guests:</span>

@@ -21,9 +21,11 @@ import {
   Check,
   HelpCircle,
   XCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { VenueBooking, WalkthroughBooking, Venue, VenueBookingStatus } from '../types';
 import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface CustomerDashboardProps {
   venueBookings: VenueBooking[];
@@ -333,11 +335,21 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[#26343D] transition-all"
                 >
                   <div className="flex items-start gap-3.5">
-                    <img
-                      src={tour.venueImage}
-                      alt={tour.venueName}
-                      className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                    />
+                    {tour.venueImage ? (
+                      <img
+                        src={tour.venueImage}
+                        alt={tour.venueName}
+                        className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-1 text-center">
+                        <ImageIcon className="w-4 h-4 text-[#A86445] mb-0.5" />
+                        <span className="text-[9px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                          {tour.venueName ? tour.venueName.slice(0, 8) : 'Venue'}
+                        </span>
+                        <span className="text-[8px] text-[#66737A]">No photo</span>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -359,7 +371,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     <div className="flex items-center justify-between text-[#26343D]">
                       <span className="text-[#66737A]">Scheduled Appointment:</span>
                       <strong className="text-[#26343D] font-semibold">
-                        {tour.scheduledDate} • {tour.scheduledTime}
+                        {formatDateDisplay(tour.scheduledDate, 'readable')} • {tour.scheduledTime}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[#26343D]">
@@ -504,6 +516,9 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 const isCancelled = booking.status === 'cancelled';
 
                 const isPaidOrConfirmed = isConfirmed || isFullyPaid || isCompleted;
+                const venueObj = venues.find((v) => v.id === booking.venueId);
+                const hasWalkthrough = Boolean(venueObj && venueObj.walkthroughClips && venueObj.walkthroughClips.length > 0);
+                const bookingCurrency = booking.currency || venueObj?.pricing?.currency || 'GBP';
 
                 return (
                   <div
@@ -519,11 +534,21 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     {/* Header Row: Venue & Booking Identity */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="flex items-start gap-4">
-                        <img
-                          src={booking.venueImage}
-                          alt={booking.venueName}
-                          className="w-20 h-20 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                        />
+                        {booking.venueImage ? (
+                          <img
+                            src={booking.venueImage}
+                            alt={booking.venueName}
+                            className="w-20 h-20 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                          />
+                        ) : (
+                          <div className="w-20 h-20 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-1.5 text-center">
+                            <ImageIcon className="w-5 h-5 text-[#A86445] mb-1" />
+                            <span className="text-[10px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                              {booking.venueName ? booking.venueName.slice(0, 10) : 'Venue'}
+                            </span>
+                            <span className="text-[9px] text-[#66737A]">No photo</span>
+                          </div>
+                        )}
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span
@@ -541,7 +566,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </h3>
 
                           <p className="text-xs text-[#66737A] flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-[#26343D]">{booking.eventDate}</span>
+                            <span className="font-semibold text-[#26343D]">{formatDateDisplay(booking.eventDate, 'readable')}</span>
                             {booking.startTime && (
                               <span>• {booking.startTime} – {booking.endTime}</span>
                             )}
@@ -571,18 +596,18 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                         </span>
                         <div className="flex justify-between text-[#26343D]">
                           <span>Venue Total:</span>
-                          <strong className="font-semibold">${booking.grossAmount.toLocaleString()}</strong>
+                          <strong className="font-semibold">{formatCurrency(booking.grossAmount, bookingCurrency)}</strong>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[#66737A]">Deposit ({booking.depositPercentage}%):</span>
                           <strong className={depositStatus.badgeClass}>
-                            ${booking.depositAmount.toLocaleString()} {depositStatus.label}
+                            {formatCurrency(booking.depositAmount, bookingCurrency)} {depositStatus.label}
                           </strong>
                         </div>
                         <div className="flex justify-between text-[#66737A] pt-1 border-t border-[#DDD8CF]">
                           <span>Final Balance:</span>
                           <span className={finalBalanceStatus.badgeClass}>
-                            ${booking.finalBalance?.toLocaleString()} {finalBalanceStatus.label}
+                            {formatCurrency(booking.finalBalance || 0, bookingCurrency)} {finalBalanceStatus.label}
                           </span>
                         </div>
                       </div>
@@ -674,7 +699,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             className="px-4 py-2.5 rounded-xl bg-[#A86445] text-xs font-semibold text-white flex items-center gap-1.5 shadow-xs hover:bg-[#8F5439] active:scale-95 transition-all"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
-                            <span>Pay Deposit (Simulated) — ${booking.depositAmount.toLocaleString()}</span>
+                            <span>Pay Deposit (Simulated) — {formatCurrency(booking.depositAmount, bookingCurrency)}</span>
                           </button>
                         )}
 
@@ -686,7 +711,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             className="px-4 py-2.5 rounded-xl bg-emerald-700 text-xs font-semibold text-white flex items-center gap-1.5 shadow-xs hover:bg-emerald-800 active:scale-95 transition-all"
                           >
                             <CreditCard className="w-3.5 h-3.5" />
-                            <span>Pay Final Balance (Simulated) — ${booking.finalBalance?.toLocaleString()}</span>
+                            <span>Pay Final Balance (Simulated) — {formatCurrency(booking.finalBalance || 0, bookingCurrency)}</span>
                           </button>
                         )}
 
@@ -717,13 +742,22 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </button>
                         )}
 
-                        {/* Inspect 4K Tour Link */}
+                        {/* Gated Inspect 4K Tour / View Venue Details */}
                         <button
                           onClick={() => onExploreVenue(booking.venueId)}
                           className="px-3 py-2 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center gap-1.5 transition-colors shadow-xs"
                         >
-                          <Video className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Inspect 4K Tour</span>
+                          {hasWalkthrough ? (
+                            <>
+                              <Video className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Inspect 4K Tour</span>
+                            </>
+                          ) : (
+                            <>
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">View Venue Details</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

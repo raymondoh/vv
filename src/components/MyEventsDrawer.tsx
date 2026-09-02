@@ -14,9 +14,11 @@ import {
   AlertCircle,
   ArrowRight,
   ShieldCheck,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { VenueBooking, WalkthroughBooking } from '../types';
+import { VenueBooking, WalkthroughBooking, Venue } from '../types';
 import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface MyEventsDrawerProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ interface MyEventsDrawerProps {
   onOpenDepositModal: (booking: VenueBooking) => void;
   onOpenEventPlanner: (booking: VenueBooking) => void;
   onExploreVenue: (venueId: string) => void;
+  venues?: Venue[];
 }
 
 export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
@@ -38,6 +41,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
   onOpenDepositModal,
   onOpenEventPlanner,
   onExploreVenue,
+  venues = [],
 }) => {
   const [activeTab, setActiveTab] = useState<'bookings' | 'walkthroughs'>('bookings');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -136,6 +140,9 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                       booking.status === 'confirmed' ||
                       booking.status === 'fully_paid' ||
                       booking.status === 'completed';
+                    const venueObj = venues.find((v) => v.id === booking.venueId);
+                    const hasWalkthrough = Boolean(venueObj && venueObj.walkthroughClips && venueObj.walkthroughClips.length > 0);
+                    const bookingCurrency = booking.currency || venueObj?.pricing?.currency || 'GBP';
 
                     return (
                       <div
@@ -144,11 +151,21 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                       >
                         {/* Top Info */}
                         <div className="flex items-start gap-3">
-                          <img
-                            src={booking.venueImage}
-                            alt={booking.venueName}
-                            className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                          />
+                          {booking.venueImage ? (
+                            <img
+                              src={booking.venueImage}
+                              alt={booking.venueName}
+                              className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-1 text-center">
+                              <ImageIcon className="w-4 h-4 text-[#A86445] mb-0.5" />
+                              <span className="text-[9px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                                {booking.venueName ? booking.venueName.slice(0, 8) : 'Venue'}
+                              </span>
+                              <span className="text-[8px] text-[#66737A]">No photo</span>
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <span
@@ -164,7 +181,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                               {booking.venueName}
                             </h4>
                             <p className="text-xs text-[#66737A]">
-                              {booking.eventDate} • {booking.guestCount} Guests
+                              {formatDateDisplay(booking.eventDate, 'readable')} • {booking.guestCount} Guests
                             </p>
                           </div>
                         </div>
@@ -173,18 +190,18 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                         <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] space-y-1.5 text-xs">
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Venue Total:</span>
-                            <span className="font-semibold">${booking.grossAmount.toLocaleString()}</span>
+                            <span className="font-semibold">{formatCurrency(booking.grossAmount, bookingCurrency)}</span>
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Deposit ({booking.depositPercentage}%):</span>
                             <strong className={depositStatus.badgeClass}>
-                              ${booking.depositAmount.toLocaleString()} {depositStatus.label}
+                              {formatCurrency(booking.depositAmount, bookingCurrency)} {depositStatus.label}
                             </strong>
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
                             <span className="text-[#66737A]">Final Balance:</span>
                             <span className={finalBalanceStatus.badgeClass}>
-                              ${booking.finalBalance?.toLocaleString()} {finalBalanceStatus.label}
+                              {formatCurrency(booking.finalBalance || 0, bookingCurrency)} {finalBalanceStatus.label}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-[#26343D]">
@@ -202,7 +219,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                               className="col-span-2 py-2.5 px-3 rounded-xl bg-[#A86445] text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-[#8F5439] active:scale-95 transition-all"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
-                              <span>Pay ${booking.depositAmount.toLocaleString()} Deposit</span>
+                              <span>Pay {formatCurrency(booking.depositAmount, bookingCurrency)} Deposit</span>
                             </button>
                           )}
 
@@ -213,7 +230,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                               className="col-span-2 py-2.5 px-3 rounded-xl bg-emerald-700 text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-emerald-800 active:scale-95 transition-all"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
-                              <span>Pay Final Balance (${booking.finalBalance?.toLocaleString()})</span>
+                              <span>Pay Final Balance ({formatCurrency(booking.finalBalance || 0, bookingCurrency)})</span>
                             </button>
                           )}
 
@@ -226,16 +243,29 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                             <span>Event Planner</span>
                           </button>
 
-                          <button
-                            onClick={() => {
-                              onClose();
-                              onExploreVenue(booking.venueId);
-                            }}
-                            className="py-2 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                          >
-                            <Video className="w-3.5 h-3.5" />
-                            <span>Inspect 4K Tour</span>
-                          </button>
+                          {hasWalkthrough ? (
+                            <button
+                              onClick={() => {
+                                onClose();
+                                onExploreVenue(booking.venueId);
+                              }}
+                              className="py-2 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Inspect 4K Tour</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                onClose();
+                                onExploreVenue(booking.venueId);
+                              }}
+                              className="py-2 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                            >
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span>View Details</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -262,11 +292,21 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                       className="bg-white border border-[#DDD8CF] rounded-2xl overflow-hidden hover:border-[#26343D] transition-all p-4 space-y-3.5 shadow-xs"
                     >
                       <div className="flex items-start gap-3">
-                        <img
-                          src={booking.venueImage}
-                          alt={booking.venueName}
-                          className="w-14 h-14 rounded-xl object-cover border border-[#DDD8CF]"
-                        />
+                        {booking.venueImage ? (
+                          <img
+                            src={booking.venueImage}
+                            alt={booking.venueName}
+                            className="w-14 h-14 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-1 text-center">
+                            <ImageIcon className="w-3.5 h-3.5 text-[#A86445] mb-0.5" />
+                            <span className="text-[8px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                              {booking.venueName ? booking.venueName.slice(0, 6) : 'Venue'}
+                            </span>
+                            <span className="text-[7px] text-[#66737A]">No photo</span>
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -284,7 +324,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                       <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] space-y-1 text-xs">
                         <div className="flex items-center justify-between text-[#26343D]">
                           <span className="text-[#66737A]">Date & Time:</span>
-                          <strong className="text-[#26343D] font-semibold">{booking.scheduledDate} • {booking.scheduledTime}</strong>
+                          <strong className="text-[#26343D] font-semibold">{formatDateDisplay(booking.scheduledDate, 'readable')} • {booking.scheduledTime}</strong>
                         </div>
                         <div className="flex items-center justify-between text-[#26343D]">
                           <span className="text-[#66737A]">Coordinator:</span>

@@ -259,6 +259,7 @@ export interface VenueBooking {
   venueName: string;
   venueLocation: string;
   venueImage: string;
+  currency?: string; // Canonical currency of venue at booking time (e.g., 'GBP', 'USD')
   clientName: string;
   clientEmail: string;
   clientPhone: string;

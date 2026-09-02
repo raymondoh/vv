@@ -632,6 +632,7 @@ export default function App() {
             setCurrentView('customer_discovery');
           }
         }}
+        venues={venues}
       />
 
       {/* Simulated Deposit Payment Modal */}

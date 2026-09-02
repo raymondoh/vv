@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Venue, VenueBooking, LayoutCategory, MarketplaceConfig } from '../types';
 import { DEFAULT_MARKETPLACE_CONFIG, calculateBookingFinancials } from '../config/marketplaceConfig';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface VenueBookingModalProps {
   venue: Venue;
@@ -431,7 +431,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
               <div className="bg-[#F4F1EA] border border-[#DDD8CF] rounded-xl p-4 space-y-2.5 text-xs">
                 <div className="flex items-center justify-between border-b border-[#DDD8CF] pb-2">
                   <span className="font-semibold text-[#26343D]">Space & Date:</span>
-                  <span className="text-[#26343D] font-bold">{venue.name} • {eventDate}</span>
+                  <span className="text-[#26343D] font-bold">{venue.name} • {formatDateDisplay(eventDate, 'readable')}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[#66737A]">
                   <div>
@@ -529,7 +529,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     </div>
                     <div>
                       <strong className="text-[#26343D] block">Venue Reviews Calendar</strong>
-                      <span>{createdBooking.hostName || 'Venue team'} verifies floor plan setup and date hold ({createdBooking.eventDate}).</span>
+                      <span>{createdBooking.hostName || 'Venue team'} verifies floor plan setup and date hold ({formatDateDisplay(createdBooking.eventDate, 'readable')}).</span>
                     </div>
                   </div>
 
@@ -538,7 +538,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                       2
                     </div>
                     <div>
-                      <strong className="text-[#26343D] block">Deposit Payment (${createdBooking.depositAmount.toLocaleString()})</strong>
+                      <strong className="text-[#26343D] block">Deposit Payment ({formatCurrency(createdBooking.depositAmount, createdBooking.currency || venue.pricing?.currency || 'GBP')})</strong>
                       <span>Once approved, you will be invited to pay the {createdBooking.depositPercentage}% deposit to lock the reservation.</span>
                     </div>
                   </div>
