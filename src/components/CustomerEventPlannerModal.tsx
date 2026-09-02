@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { VenueBooking, ChecklistItem, MarketplaceConfig } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
+import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
 interface CustomerEventPlannerModalProps {
   booking: VenueBooking;
@@ -242,7 +243,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                 </span>
               </div>
               <p className="text-xs text-[#66737A]">
-                Venue Rate: <strong>${booking.grossAmount.toLocaleString()}</strong> • Deposit ({booking.depositPercentage}%): <strong>${booking.depositAmount.toLocaleString()}</strong>
+                Venue Rate: <strong>{formatCurrency(booking.grossAmount, booking.currency || 'GBP')}</strong> • Deposit ({booking.depositPercentage}%): <strong>{formatCurrency(booking.depositAmount, booking.currency || 'GBP')}</strong>
               </p>
             </div>
 
@@ -253,7 +254,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                 className="px-4 py-2 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-xs transition-all flex items-center gap-1.5 shrink-0"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Pay Deposit (${booking.depositAmount.toLocaleString()})</span>
+                <span>Pay Deposit ({formatCurrency(booking.depositAmount, booking.currency || 'GBP')})</span>
               </button>
             )}
 
@@ -265,7 +266,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                 className="px-4 py-2 bg-emerald-700 text-white font-semibold text-xs rounded-xl hover:bg-emerald-800 shadow-xs transition-all flex items-center gap-1.5 shrink-0"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>{isPayingFinal ? 'Processing...' : `Pay Final Balance ($${booking.finalBalance?.toLocaleString()})`}</span>
+                <span>{isPayingFinal ? 'Processing...' : `Pay Final Balance (${formatCurrency(booking.finalBalance || 0, booking.currency || 'GBP')})`}</span>
               </button>
             )}
           </div>
@@ -409,8 +410,8 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                 <div className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-2">
                   <span className="font-bold text-[#26343D] block">Financial Summary</span>
                   <div className="space-y-1 text-[#66737A]">
-                    <div>Venue Booking Price: <strong className="text-[#26343D]">${booking.grossAmount.toLocaleString()}</strong></div>
-                    <div>Deposit Required ({booking.depositPercentage}%): <strong className="text-[#26343D]">${booking.depositAmount.toLocaleString()}</strong></div>
+                    <div>Venue Booking Price: <strong className="text-[#26343D]">{formatCurrency(booking.grossAmount, booking.currency || 'GBP')}</strong></div>
+                    <div>Deposit Required ({booking.depositPercentage}%): <strong className="text-[#26343D]">{formatCurrency(booking.depositAmount, booking.currency || 'GBP')}</strong></div>
                     <div>Deposit Status: <strong className={
                       booking.status === 'confirmed' || booking.status === 'fully_paid' || booking.status === 'completed'
                         ? 'text-emerald-700'
@@ -424,8 +425,8 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                         ? 'Due Now'
                         : 'Not due yet (Awaiting Host Review)'}
                     </strong></div>
-                    <div>Remaining Balance: <strong className="text-[#26343D]">${booking.finalBalance.toLocaleString()}</strong></div>
-                    <div>Balance Due Date: <strong className="text-[#26343D]">{booking.finalBalanceDueDate || `${marketplaceConfig?.balanceDueDaysBeforeEvent || 14} days prior to event`}</strong></div>
+                    <div>Remaining Balance: <strong className="text-[#26343D]">{formatCurrency(booking.finalBalance, booking.currency || 'GBP')}</strong></div>
+                    <div>Balance Due Date: <strong className="text-[#26343D]">{booking.finalBalanceDueDate ? formatDateDisplay(booking.finalBalanceDueDate, 'readable') : `${marketplaceConfig?.balanceDueDaysBeforeEvent ?? 14} days prior to event`}</strong></div>
                   </div>
                 </div>
               </div>

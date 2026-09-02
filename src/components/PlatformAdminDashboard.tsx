@@ -41,26 +41,26 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
   onSwitchRole,
 }) => {
   const [commissionRate, setCommissionRate] = useState<number>(
-    marketplaceConfig.commissionPercentage || DEFAULT_MARKETPLACE_CONFIG.commissionPercentage
+    marketplaceConfig.commissionPercentage ?? DEFAULT_MARKETPLACE_CONFIG.commissionPercentage
   );
   const [depositPercent, setDepositPercent] = useState<number>(
-    marketplaceConfig.depositPercentage || DEFAULT_MARKETPLACE_CONFIG.depositPercentage
+    marketplaceConfig.depositPercentage ?? DEFAULT_MARKETPLACE_CONFIG.depositPercentage
   );
   const [balanceDays, setBalanceDays] = useState<number>(
-    marketplaceConfig.balanceDueDaysBeforeEvent || DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent || 14
+    marketplaceConfig.balanceDueDaysBeforeEvent ?? DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent ?? 14
   );
   const [cancellationHours, setCancellationHours] = useState<number>(
-    marketplaceConfig.freeCancellationHours || DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours || 48
+    marketplaceConfig.freeCancellationHours ?? DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours ?? 48
   );
   const [isSaved, setIsSaved] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | VenueBookingStatus>('all');
 
   // Keep local form in sync if external config changes
   React.useEffect(() => {
-    setCommissionRate(marketplaceConfig.commissionPercentage || 12);
-    setDepositPercent(marketplaceConfig.depositPercentage || 25);
-    setBalanceDays(marketplaceConfig.balanceDueDaysBeforeEvent || 14);
-    setCancellationHours(marketplaceConfig.freeCancellationHours || 48);
+    setCommissionRate(marketplaceConfig.commissionPercentage ?? 12);
+    setDepositPercent(marketplaceConfig.depositPercentage ?? 25);
+    setBalanceDays(marketplaceConfig.balanceDueDaysBeforeEvent ?? 14);
+    setCancellationHours(marketplaceConfig.freeCancellationHours ?? 48);
   }, [marketplaceConfig]);
 
   const handleSave = (e: React.FormEvent) => {
@@ -80,18 +80,55 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
   const handleResetDefaults = () => {
     setCommissionRate(DEFAULT_MARKETPLACE_CONFIG.commissionPercentage);
     setDepositPercent(DEFAULT_MARKETPLACE_CONFIG.depositPercentage);
-    setBalanceDays(DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent || 14);
-    setCancellationHours(DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours || 48);
+    setBalanceDays(DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent ?? 14);
+    setCancellationHours(DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours ?? 48);
   };
 
-  // Marketplace financial calculations across all non-cancelled bookings
+  // Marketplace financial calculations across all non-cancelled bookings grouped by currency
   const activeBookings = venueBookings.filter(
     (b) => b.status !== 'cancelled' && b.status !== 'declined'
   );
-  const platformCurrency = activeBookings[0]?.currency || 'GBP';
-  const totalGrossVolume = activeBookings.reduce((sum, b) => sum + b.grossAmount, 0);
-  const totalPlatformCommission = Math.round((totalGrossVolume * (marketplaceConfig.commissionPercentage || 12)) / 100);
-  const totalVenuePayouts = totalGrossVolume - totalPlatformCommission;
+  const commissionRateEffective = marketplaceConfig.commissionPercentage ?? 12;
+
+  interface CurrencyAggregate {
+    currency: string;
+    grossVolume: number;
+    commissionAmount: number;
+    venueNetPayable: number;
+    bookingCount: number;
+  }
+
+  const currencyMap: Record<string, CurrencyAggregate> = {};
+
+  for (const b of activeBookings) {
+    const curr = b.currency || 'GBP';
+    if (!currencyMap[curr]) {
+      currencyMap[curr] = {
+        currency: curr,
+        grossVolume: 0,
+        commissionAmount: 0,
+        venueNetPayable: 0,
+        bookingCount: 0,
+      };
+    }
+    currencyMap[curr].grossVolume += b.grossAmount;
+    currencyMap[curr].bookingCount += 1;
+  }
+
+  const currencyAggregates = Object.values(currencyMap);
+  for (const agg of currencyAggregates) {
+    agg.commissionAmount = Math.round((agg.grossVolume * commissionRateEffective) / 100);
+    agg.venueNetPayable = agg.grossVolume - agg.commissionAmount;
+  }
+
+  const isMultiCurrency = currencyAggregates.length > 1;
+  const singleCurrencyAggregate = currencyAggregates[0] || {
+    currency: 'GBP',
+    grossVolume: 0,
+    commissionAmount: 0,
+    venueNetPayable: 0,
+    bookingCount: 0,
+  };
 
   const filteredBookings = venueBookings.filter((b) => {
     if (activeFilter === 'all') return true;
@@ -139,62 +176,140 @@ export const PlatformAdminDashboard: React.FC<PlatformAdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* Platform Macro Performance Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#66737A]">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Gross Platform GMV</span>
-            <DollarSign className="w-4 h-4 text-[#26343D]" />
+      {/* Platform Macro Performance Stats (Single Currency Presentation) */}
+      {!isMultiCurrency && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-[#66737A]">
+              <span className="font-semibold uppercase tracking-wider text-[11px]">Gross Platform GMV</span>
+              <DollarSign className="w-4 h-4 text-[#26343D]" />
+            </div>
+            <div className="text-2xl font-bold text-[#26343D]">
+              {formatCurrency(singleCurrencyAggregate.grossVolume, singleCurrencyAggregate.currency)}
+            </div>
+            <div className="text-[11px] text-[#66737A]">
+              {activeBookings.length} active customer bookings
+            </div>
           </div>
-          <div className="text-2xl font-bold text-[#26343D]">
-            {formatCurrency(totalGrossVolume, platformCurrency)}
-          </div>
-          <div className="text-[11px] text-[#66737A]">
-            {activeBookings.length} active customer bookings
-          </div>
-        </div>
 
-        <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#66737A]">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Platform Commission Retained</span>
-            <span className="text-xs font-bold text-[#A86445] font-mono bg-[#F3E7DF] px-2 py-0.5 rounded border border-[#A86445]/20">
-              {marketplaceConfig.commissionPercentage}%
-            </span>
+          <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-[#66737A]">
+              <span className="font-semibold uppercase tracking-wider text-[11px]">Platform Commission Retained</span>
+              <span className="text-xs font-bold text-[#A86445] font-mono bg-[#F3E7DF] px-2 py-0.5 rounded border border-[#A86445]/20">
+                {commissionRateEffective}%
+              </span>
+            </div>
+            <div className="text-2xl font-bold text-[#A86445]">
+              {formatCurrency(singleCurrencyAggregate.commissionAmount, singleCurrencyAggregate.currency)}
+            </div>
+            <div className="text-[11px] text-[#66737A]">
+              Platform net revenue from host fees
+            </div>
           </div>
-          <div className="text-2xl font-bold text-[#A86445]">
-            {formatCurrency(totalPlatformCommission, platformCurrency)}
-          </div>
-          <div className="text-[11px] text-[#66737A]">
-            Platform net revenue from host fees
-          </div>
-        </div>
 
-        <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs bg-emerald-50/30">
-          <div className="flex items-center justify-between text-xs text-[#66737A]">
-            <span className="font-semibold uppercase tracking-wider text-[11px] text-emerald-800">Venue Net Disbursed</span>
-            <TrendingUp className="w-4 h-4 text-emerald-700" />
+          <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs bg-emerald-50/30">
+            <div className="flex items-center justify-between text-xs text-[#66737A]">
+              <span className="font-semibold uppercase tracking-wider text-[11px] text-emerald-800">Venue Net Payable</span>
+              <TrendingUp className="w-4 h-4 text-emerald-700" />
+            </div>
+            <div className="text-2xl font-bold text-emerald-800">
+              {formatCurrency(singleCurrencyAggregate.venueNetPayable, singleCurrencyAggregate.currency)}
+            </div>
+            <div className="text-[11px] text-emerald-700/80">
+              Payable post-event execution
+            </div>
           </div>
-          <div className="text-2xl font-bold text-emerald-800">
-            {formatCurrency(totalVenuePayouts, platformCurrency)}
-          </div>
-          <div className="text-[11px] text-emerald-700/80">
-            Disbursed post-event execution
-          </div>
-        </div>
 
-        <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
-          <div className="flex items-center justify-between text-xs text-[#66737A]">
-            <span className="font-semibold uppercase tracking-wider text-[11px]">Venues in Marketplace</span>
-            <Building2 className="w-4 h-4 text-[#26343D]" />
-          </div>
-          <div className="text-2xl font-bold text-[#26343D]">
-            {venues.length} Spaces
-          </div>
-          <div className="text-[11px] text-[#66737A]">
-            Across {new Set(venues.map((v) => v.location.city)).size} major metropolitan markets
+          <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-2 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-[#66737A]">
+              <span className="font-semibold uppercase tracking-wider text-[11px]">Venues in Marketplace</span>
+              <Building2 className="w-4 h-4 text-[#26343D]" />
+            </div>
+            <div className="text-2xl font-bold text-[#26343D]">
+              {venues.length} Spaces
+            </div>
+            <div className="text-[11px] text-[#66737A]">
+              Across {new Set(venues.map((v) => v.location.city)).size} major metropolitan markets
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Platform Macro Performance Stats (Multi-Currency Grouped Presentation) */}
+      {isMultiCurrency && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 shadow-xs">
+              <span className="text-[11px] font-semibold text-[#66737A] uppercase tracking-wider block">Active Bookings</span>
+              <div className="text-xl font-bold text-[#26343D] mt-1">{activeBookings.length} Bookings</div>
+              <span className="text-[11px] text-[#66737A]">Across {currencyAggregates.length} operating currencies</span>
+            </div>
+
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 shadow-xs">
+              <span className="text-[11px] font-semibold text-[#66737A] uppercase tracking-wider block">Platform Commission Rate</span>
+              <div className="text-xl font-bold text-[#A86445] mt-1">{commissionRateEffective}% Standard Rate</div>
+              <span className="text-[11px] text-[#66737A]">Deducted from gross host booking volume</span>
+            </div>
+
+            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 shadow-xs">
+              <span className="text-[11px] font-semibold text-[#66737A] uppercase tracking-wider block">Venues in Marketplace</span>
+              <div className="text-xl font-bold text-[#26343D] mt-1">{venues.length} Spaces</div>
+              <span className="text-[11px] text-[#66737A]">Across {new Set(venues.map((v) => v.location.city)).size} metropolitan markets</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {currencyAggregates.map((agg) => (
+              <div
+                key={agg.currency}
+                className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-4 shadow-xs"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-[#DDD8CF]">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#26343D] text-white text-xs font-bold font-mono">
+                      {agg.currency}
+                    </span>
+                    <span className="text-xs font-bold text-[#26343D]">Aggregate Financials</span>
+                  </div>
+                  <span className="text-xs text-[#66737A]">
+                    {agg.bookingCount} {agg.bookingCount === 1 ? 'booking' : 'bookings'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-[#66737A] uppercase tracking-wider block">
+                      Gross GMV
+                    </span>
+                    <div className="text-lg font-bold text-[#26343D]">
+                      {formatCurrency(agg.grossVolume, agg.currency)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-[#A86445] uppercase tracking-wider block">
+                      Platform Fee ({commissionRateEffective}%)
+                    </span>
+                    <div className="text-lg font-bold text-[#A86445]">
+                      {formatCurrency(agg.commissionAmount, agg.currency)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wider block">
+                      Venue Net
+                    </span>
+                    <div className="text-lg font-bold text-emerald-800">
+                      {formatCurrency(agg.venueNetPayable, agg.currency)}
+                    </div>
+                    <span className="text-[10px] text-emerald-700/80 block">Payable</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Global Marketplace Configuration Form */}
       <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 sm:p-8 space-y-6 shadow-xs">

@@ -75,7 +75,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
 
   const selectedVenue = venues.find((v) => v.id === selectedVenueId) || venues[0];
 
-  const commissionRate = marketplaceConfig.commissionPercentage || 12;
+  const commissionRate = marketplaceConfig.commissionPercentage ?? 12;
 
   const handleHostAction = async (bookingId: string, newStatus: VenueBookingStatus) => {
     if (processingBookingId === bookingId) return; // Prevent duplicate submissions
@@ -245,7 +245,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             {formatCurrency(venueNetPayoutTotal, hostCurrency)}
           </div>
           <div className="text-[11px] text-emerald-700/80">
-            Net revenue disbursed to venue
+            Net revenue payable to venue
           </div>
         </div>
 
@@ -462,7 +462,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             </h3>
           </div>
           <p className="text-xs text-[#66737A] leading-relaxed">
-            Customers pay the standard venue hire fee with zero surcharge. VenueStream retains an agreed <strong>{commissionRate}% platform commission</strong> upon confirmed space booking, with net payouts disbursed post-event.
+            Customers pay the standard venue hire fee with zero surcharge. VenueStream retains an agreed <strong>{commissionRate}% platform commission</strong> upon confirmed space booking, with net payouts payable post-event.
           </p>
           <div className="p-2.5 rounded-xl bg-white border border-[#DDD8CF] text-xs font-mono text-[#26343D] inline-block">
             <strong>Gross Booking ({formatCurrency(grossBookingsTotal, hostCurrency)})</strong> − <strong>Platform Commission ({commissionRate}% = {formatCurrency(platformCommissionTotal, hostCurrency)})</strong> = <strong className="text-emerald-700">Venue Net ({formatCurrency(venueNetPayoutTotal, hostCurrency)})</strong>

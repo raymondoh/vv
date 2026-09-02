@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { VenueBooking, WalkthroughBooking, Venue, VenueBookingStatus } from '../types';
 import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
-import { formatCurrency, formatDateDisplay } from '../utils/formatters';
+import { formatCurrency, formatDateDisplay, formatLocation } from '../utils/formatters';
 
 interface CustomerDashboardProps {
   venueBookings: VenueBooking[];
@@ -317,7 +317,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-[#26343D]">No Live Walkthroughs Scheduled</h4>
                 <p className="text-xs text-[#66737A] max-w-sm mx-auto leading-relaxed">
-                  Schedule a real-time virtual walkthrough with venue hosts in Seattle, Chicago, or Napa to inspect floor plans and spatial lighting.
+                  Schedule a real-time virtual walkthrough with venue hosts to inspect floor plans, spatial lighting, and layout options.
                 </p>
               </div>
               <button
@@ -435,47 +435,65 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {savedVenuesList.map((venue) => (
-                <div
-                  key={venue.id}
-                  className="bg-white border border-[#DDD8CF] rounded-2xl overflow-hidden shadow-xs hover:border-[#26343D] transition-all flex flex-col"
-                >
-                  <div className="relative h-44">
-                    <img
-                      src={venue.heroImage}
-                      alt={venue.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      onClick={() => onToggleFavorite(venue.id)}
-                      className="absolute top-3 right-3 p-2 bg-white/90 rounded-full text-rose-500 shadow-xs hover:bg-white transition-all"
-                    >
-                      <Heart className="w-4 h-4 fill-current" />
-                    </button>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                    <div>
-                      <span className="text-[10px] font-semibold text-[#A86445] uppercase tracking-wider">
-                        {venue.location.city}, {venue.location.state}
-                      </span>
-                      <h4 className="text-base font-bold text-[#26343D] mt-0.5">{venue.name}</h4>
-                      <p className="text-xs text-[#66737A] mt-1 line-clamp-2">{venue.tagline}</p>
-                    </div>
-                    <div className="pt-2 border-t border-[#DDD8CF] flex items-center justify-between">
-                      <div className="text-xs">
-                        <span className="text-[#66737A]">From </span>
-                        <strong className="text-[#26343D]">${venue.pricing.startingPrice.toLocaleString()}</strong>
-                      </div>
+              {savedVenuesList.map((venue) => {
+                const venueImage = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]);
+                const venueCurrency = venue.pricing?.currency || 'GBP';
+
+                return (
+                  <div
+                    key={venue.id}
+                    className="bg-white border border-[#DDD8CF] rounded-2xl overflow-hidden shadow-xs hover:border-[#26343D] transition-all flex flex-col"
+                  >
+                    <div className="relative h-44 bg-[#EAE5DC]">
+                      {venueImage ? (
+                        <img
+                          src={venueImage}
+                          alt={venue.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+                          <div className="w-10 h-10 rounded-xl bg-white/70 border border-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-2 shadow-2xs">
+                            <ImageIcon className="w-5 h-5" />
+                          </div>
+                          <span className="text-xs font-bold text-[#26343D] max-w-[85%] truncate">{venue.name}</span>
+                          <span className="text-[10px] text-[#66737A]">Architectural space • No photo</span>
+                        </div>
+                      )}
                       <button
-                        onClick={() => onExploreVenue(venue.id)}
-                        className="px-3 py-1.5 bg-[#26343D] text-white text-xs font-semibold rounded-xl hover:bg-[#1E2930] shadow-xs"
+                        onClick={() => onToggleFavorite(venue.id)}
+                        className="absolute top-3 right-3 p-2 bg-white/90 rounded-full text-rose-500 shadow-xs hover:bg-white transition-all"
+                        title="Remove from saved spaces"
                       >
-                        Inspect Space
+                        <Heart className="w-4 h-4 fill-current" />
                       </button>
                     </div>
+                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                      <div>
+                        <span className="text-[10px] font-semibold text-[#A86445] uppercase tracking-wider">
+                          {formatLocation(venue.location)}
+                        </span>
+                        <h4 className="text-base font-bold text-[#26343D] mt-0.5">{venue.name}</h4>
+                        <p className="text-xs text-[#66737A] mt-1 line-clamp-2">{venue.tagline}</p>
+                      </div>
+                      <div className="pt-2 border-t border-[#DDD8CF] flex items-center justify-between">
+                        <div className="text-xs">
+                          <span className="text-[#66737A]">From </span>
+                          <strong className="text-[#26343D]">
+                            {formatCurrency(venue.pricing.startingPrice, venueCurrency)}
+                          </strong>
+                        </div>
+                        <button
+                          onClick={() => onExploreVenue(venue.id)}
+                          className="px-3 py-1.5 bg-[#26343D] text-white text-xs font-semibold rounded-xl hover:bg-[#1E2930] shadow-xs"
+                        >
+                          Inspect Space
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -490,7 +508,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-[#26343D]">No Bookings in This Section</h4>
                 <p className="text-xs text-[#66737A] max-w-sm mx-auto leading-relaxed">
-                  Browse spaces in Seattle, Chicago, or Napa, inspect 4K layouts, and submit a "Request to Book" to reserve your date.
+                  Browse available venues and submit a Request to Book to reserve your date.
                 </p>
               </div>
               <button

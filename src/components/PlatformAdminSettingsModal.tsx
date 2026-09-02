@@ -28,16 +28,16 @@ export const PlatformAdminSettingsModal: React.FC<PlatformAdminSettingsModalProp
   onSaveConfig,
 }) => {
   const [commissionRate, setCommissionRate] = useState<number>(
-    currentConfig.commissionPercentage || DEFAULT_MARKETPLACE_CONFIG.commissionPercentage
+    currentConfig.commissionPercentage ?? DEFAULT_MARKETPLACE_CONFIG.commissionPercentage
   );
   const [depositPercent, setDepositPercent] = useState<number>(
-    currentConfig.depositPercentage || DEFAULT_MARKETPLACE_CONFIG.depositPercentage
+    currentConfig.depositPercentage ?? DEFAULT_MARKETPLACE_CONFIG.depositPercentage
   );
   const [balanceDays, setBalanceDays] = useState<number>(
-    currentConfig.balanceDueDaysBeforeEvent || DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent || 14
+    currentConfig.balanceDueDaysBeforeEvent ?? DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent ?? 14
   );
   const [cancellationHours, setCancellationHours] = useState<number>(
-    currentConfig.freeCancellationHours || DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours || 48
+    currentConfig.freeCancellationHours ?? DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours ?? 48
   );
   const [isSaved, setIsSaved] = useState(false);
 
@@ -63,8 +63,8 @@ export const PlatformAdminSettingsModal: React.FC<PlatformAdminSettingsModalProp
   const handleResetDefaults = () => {
     setCommissionRate(DEFAULT_MARKETPLACE_CONFIG.commissionPercentage);
     setDepositPercent(DEFAULT_MARKETPLACE_CONFIG.depositPercentage);
-    setBalanceDays(DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent || 14);
-    setCancellationHours(DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours || 48);
+    setBalanceDays(DEFAULT_MARKETPLACE_CONFIG.balanceDueDaysBeforeEvent ?? 14);
+    setCancellationHours(DEFAULT_MARKETPLACE_CONFIG.freeCancellationHours ?? 48);
   };
 
   // Example formula simulation based on $8,000 standard booking
@@ -206,7 +206,7 @@ export const PlatformAdminSettingsModal: React.FC<PlatformAdminSettingsModalProp
               <div className="flex items-center gap-2">
                 <input
                   type="number"
-                  min="12"
+                  min="0"
                   max="120"
                   value={cancellationHours}
                   onChange={(e) => setCancellationHours(Number(e.target.value))}

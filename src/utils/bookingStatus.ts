@@ -84,7 +84,7 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
     case 'completed':
       return {
         customerLabel: 'Event completed',
-        venueLabel: 'Event Completed — Disbursed',
+        venueLabel: 'Event Completed',
         adminLabel: 'Completed',
         badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
         description: 'Event concluded successfully.',
@@ -213,56 +213,84 @@ export function getFinalBalanceStatusDisplay(status: VenueBookingStatus): {
 
 /**
  * Dynamically generates checklist items adhering to the active MarketplaceConfig
+ * and truthful media availability.
  */
 export function generateBookingChecklist(
   config: MarketplaceConfig,
-  eventDate: string
+  eventDate: string,
+  mediaOptions?: { hasWalkthrough?: boolean; hasFloorPlan?: boolean }
 ): ChecklistItem[] {
-  const depositPct = config.depositPercentage || 25;
-  const balanceDays = config.balanceDueDaysBeforeEvent || 14;
+  const depositPct = config.depositPercentage ?? 25;
+  const balanceDays = config.balanceDueDaysBeforeEvent ?? 14;
 
-  return [
-    {
-      id: `chk-${Date.now()}-1`,
-      text: 'Explore venue 4K walkthrough and architectural floor plans',
-      completed: true,
+  const items: ChecklistItem[] = [];
+  let counter = 1;
+
+  if (mediaOptions?.hasWalkthrough) {
+    items.push({
+      id: `chk-${Date.now()}-${counter++}`,
+      text: 'Review venue walkthrough & virtual preview',
+      completed: false,
       category: 'Inspection',
-    },
+    });
+  }
+
+  if (mediaOptions?.hasFloorPlan) {
+    items.push({
+      id: `chk-${Date.now()}-${counter++}`,
+      text: 'Review architectural floor plan & spatial layout',
+      completed: false,
+      category: 'Inspection',
+    });
+  }
+
+  if (!mediaOptions || (!mediaOptions.hasWalkthrough && !mediaOptions.hasFloorPlan)) {
+    items.push({
+      id: `chk-${Date.now()}-${counter++}`,
+      text: 'Review venue details & specifications',
+      completed: false,
+      category: 'Inspection',
+    });
+  }
+
+  items.push(
     {
-      id: `chk-${Date.now()}-2`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: 'Venue booking request submitted to coordinator',
       completed: true,
       category: 'Contract & Payment',
     },
     {
-      id: `chk-${Date.now()}-3`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: 'Awaiting venue host review & date confirmation',
       completed: false,
       category: 'Contract & Payment',
     },
     {
-      id: `chk-${Date.now()}-4`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: `Pay initial deposit (${depositPct}%) once venue accepts`,
       completed: false,
       category: 'Contract & Payment',
     },
     {
-      id: `chk-${Date.now()}-5`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: 'Finalize catering, AV staging & run-of-show schedule',
       completed: false,
       category: 'Catering & AV',
     },
     {
-      id: `chk-${Date.now()}-6`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: 'Submit vendor COI (Certificate of Insurance) to venue team',
       completed: false,
       category: 'Logistics',
     },
     {
-      id: `chk-${Date.now()}-7`,
+      id: `chk-${Date.now()}-${counter++}`,
       text: `Pay final remaining balance (due ${balanceDays} days prior to event)`,
       completed: false,
       category: 'Contract & Payment',
-    },
-  ];
+    }
+  );
+
+  return items;
 }

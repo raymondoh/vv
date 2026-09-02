@@ -5,7 +5,7 @@ export const DEFAULT_MARKETPLACE_CONFIG: MarketplaceConfig = {
   depositPercentage: 25, // 25% initial booking deposit paid by customer
   balanceDueDaysBeforeEvent: 14, // 14 days before event date
   freeCancellationHours: 48, // 48-hour free cancellation window post-approval
-  payoutScheduleNote: 'Disbursed to venue 3-5 business days post-event completion',
+  payoutScheduleNote: 'Payable to venue 3-5 business days post-event completion',
 };
 
 /**
@@ -17,9 +17,9 @@ export function calculateBookingFinancials(
   config: MarketplaceConfig = DEFAULT_MARKETPLACE_CONFIG,
   eventDateStr?: string
 ) {
-  const depositPercent = config.depositPercentage || 25;
-  const commissionPercent = config.commissionPercentage || 12;
-  const balanceDueDays = config.balanceDueDaysBeforeEvent || 14;
+  const depositPercent = config.depositPercentage ?? 25;
+  const commissionPercent = config.commissionPercentage ?? 12;
+  const balanceDueDays = config.balanceDueDaysBeforeEvent ?? 14;
 
   const depositAmount = Math.round((grossAmount * depositPercent) / 100);
   const remainingBalance = grossAmount - depositAmount;

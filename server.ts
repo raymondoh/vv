@@ -4,7 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { VENUES } from './src/data/venues.ts';
 import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
-import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue } from './src/types.ts';
+import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
 
 const app = express();
@@ -849,8 +849,8 @@ app.post('/api/venue-bookings', (req, res) => {
   }
 
   const calculatedGross = Number(grossAmount) || venue.pricing.startingPrice;
-  const depositPercent = marketplaceConfig.depositPercentage || 25;
-  const balanceDays = marketplaceConfig.balanceDueDaysBeforeEvent || 14;
+  const depositPercent = marketplaceConfig.depositPercentage ?? 25;
+  const balanceDays = marketplaceConfig.balanceDueDaysBeforeEvent ?? 14;
   const depositAmount = Math.round((calculatedGross * depositPercent) / 100);
   const finalBalance = calculatedGross - depositAmount;
 
@@ -880,14 +880,70 @@ app.post('/api/venue-bookings', (req, res) => {
     venue.mediaAssets?.some((m) => m.type === 'floor_plan')
   );
 
-  let initialInspectionText = 'Review venue specifications & layout requirements';
-  if (hasWalkthrough && hasFloorPlan) {
-    initialInspectionText = 'Explore venue walkthrough & architectural floor plan';
-  } else if (hasWalkthrough) {
-    initialInspectionText = 'Explore high-resolution venue walkthrough';
-  } else if (hasFloorPlan) {
-    initialInspectionText = 'Review architectural floor plan & spatial layout';
+  // Build completely truthful initial checklist
+  const initialChecklist: ChecklistItem[] = [];
+  let chkCounter = 1;
+
+  // Media review tasks only exist if the media genuinely exists, and remain incomplete until reviewed
+  if (hasWalkthrough) {
+    initialChecklist.push({
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: 'Review venue walkthrough & virtual preview',
+      completed: false,
+      category: 'Inspection',
+    });
   }
+
+  if (hasFloorPlan) {
+    initialChecklist.push({
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: 'Review architectural floor plan & spatial layout',
+      completed: false,
+      category: 'Inspection',
+    });
+  }
+
+  // Only actions genuinely completed by booking submission begin as completed
+  initialChecklist.push({
+    id: `chk-${Date.now()}-${chkCounter++}`,
+    text: 'Venue booking request submitted to coordinator',
+    completed: true,
+    category: 'Contract & Payment',
+  });
+
+  // Next steps in booking lifecycle
+  initialChecklist.push(
+    {
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: 'Awaiting venue host review & date confirmation',
+      completed: false,
+      category: 'Contract & Payment',
+    },
+    {
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: `Pay initial deposit (${depositPercent}%) once venue accepts`,
+      completed: false,
+      category: 'Contract & Payment',
+    },
+    {
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: 'Finalize catering, AV setup & run-of-show',
+      completed: false,
+      category: 'Catering & AV',
+    },
+    {
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: 'Submit vendor COI (Certificate of Insurance)',
+      completed: false,
+      category: 'Logistics',
+    },
+    {
+      id: `chk-${Date.now()}-${chkCounter++}`,
+      text: `Pay remaining venue balance (due ${balanceDays} days prior to event)`,
+      completed: false,
+      category: 'Contract & Payment',
+    }
+  );
 
   const newVenueBooking: VenueBooking = {
     id: newId,
@@ -916,15 +972,7 @@ app.post('/api/venue-bookings', (req, res) => {
     finalBalanceDueDate: calculatedBalanceDueDate,
     createdAt: new Date().toISOString(),
     hostName: venue.host?.name || venue.businessName || 'Venue team',
-    checklist: [
-      { id: `chk-${Date.now()}-1`, text: initialInspectionText, completed: true, category: 'Inspection' },
-      { id: `chk-${Date.now()}-2`, text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
-      { id: `chk-${Date.now()}-3`, text: 'Awaiting venue host review & date confirmation', completed: false, category: 'Contract & Payment' },
-      { id: `chk-${Date.now()}-4`, text: `Pay initial deposit (${depositPercent}%) once venue accepts`, completed: false, category: 'Contract & Payment' },
-      { id: `chk-${Date.now()}-5`, text: 'Finalize catering, AV setup & run-of-show', completed: false, category: 'Catering & AV' },
-      { id: `chk-${Date.now()}-6`, text: 'Submit vendor COI (Certificate of Insurance)', completed: false, category: 'Logistics' },
-      { id: `chk-${Date.now()}-7`, text: `Pay remaining venue balance (due ${balanceDays} days prior to event)`, completed: false, category: 'Contract & Payment' },
-    ],
+    checklist: initialChecklist,
     personalNotes: '',
   };
 
@@ -991,12 +1039,12 @@ app.patch('/api/venue-bookings/:id', (req, res) => {
     }
   }
 
-  // Handle simulated final payment
+  // Handle simulated final payment (strictly allowed only when final_payment_due)
   if (isSimulatedFinalPayment) {
-    if (current.status !== 'final_payment_due' && current.status !== 'confirmed') {
+    if (current.status !== 'final_payment_due') {
       return res.status(400).json({
         success: false,
-        error: `Final payment cannot be processed for booking in status "${current.status}".`,
+        error: `Final payment cannot be processed for booking in status "${current.status}". Booking must be in "final_payment_due" status.`,
       });
     }
     updated.status = 'fully_paid';
