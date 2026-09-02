@@ -616,7 +616,17 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                             <span>•</span>
                             <span>{layoutsTotal} Configured Layouts</span>
                             <span>•</span>
-                            <span>Max {venue.capacity.cocktail} Guests</span>
+                            <span>
+                              {(() => {
+                                const derivedMax =
+                                  (venue.capacity?.cocktail && venue.capacity.cocktail > 0 ? venue.capacity.cocktail : 0) ||
+                                  (venue.capacity?.seatedBanquet && venue.capacity.seatedBanquet > 0 ? venue.capacity.seatedBanquet : 0) ||
+                                  (venue.spaces && venue.spaces.length > 0
+                                    ? Math.max(...venue.spaces.map((s) => s.maxCapacity || s.standingCapacity || s.seatedCapacity || s.theatreCapacity || 0))
+                                    : 0);
+                                return derivedMax > 0 ? `Max ${derivedMax} Guests` : 'Capacity on Request';
+                              })()}
+                            </span>
                             <span>•</span>
                             <span className="font-bold text-[#A86445]">
                               {formatCurrency(venue.pricing.startingPrice, venue.pricing.currency)} {venue.pricing.priceUnit}
@@ -675,7 +685,10 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                               <div className="flex items-center justify-between text-xs font-bold text-[#26343D]">
                                 <span className="truncate">{sp.name}</span>
                                 <span className="text-[10px] text-[#A86445] bg-[#F3E7DF] px-1.5 py-0.5 rounded">
-                                  Max {sp.maxCapacity}
+                                  {(() => {
+                                    const cap = sp.maxCapacity || sp.standingCapacity || sp.seatedCapacity || sp.theatreCapacity || 0;
+                                    return cap > 0 ? `Max ${cap}` : 'Flexible';
+                                  })()}
                                 </span>
                               </div>
                               <div className="text-[10px] text-[#66737A] truncate">
@@ -1029,7 +1042,10 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                           <p className="text-xs text-[#66737A] mt-0.5">{sp.description}</p>
                         </div>
                         <span className="text-xs font-bold text-[#26343D] bg-white border border-[#DDD8CF] px-2.5 py-1 rounded-lg shrink-0">
-                          Max {sp.maxCapacity}
+                          {(() => {
+                            const cap = sp.maxCapacity || sp.standingCapacity || sp.seatedCapacity || sp.theatreCapacity || 0;
+                            return cap > 0 ? `Max ${cap}` : 'Flexible';
+                          })()}
                         </span>
                       </div>
 

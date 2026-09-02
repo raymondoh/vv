@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Video, Users, MapPin, DollarSign, Star, Calendar, Heart, Eye } from 'lucide-react';
+import { Play, Video, Users, MapPin, Star, Calendar, Heart, ImageIcon } from 'lucide-react';
 import { Venue } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
@@ -22,6 +22,19 @@ export const VenueCard: React.FC<VenueCardProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const hasRecordedWalkthrough = Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0;
+  const hasLiveTours = Boolean(venue.availableSlots && venue.availableSlots.length > 0);
+  const hasPhotos = Boolean(venue.heroImage || (venue.galleryImages && venue.galleryImages.length > 0));
+  const heroImageSrc = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '';
+  const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);
+
+  const derivedSeated =
+    venue.capacity?.seatedBanquet ||
+    (venue.spaces?.reduce((max, s) => Math.max(max, s.seatedCapacity || 0), 0)) ||
+    0;
+  const derivedCocktail =
+    venue.capacity?.cocktail ||
+    (venue.spaces?.reduce((max, s) => Math.max(max, s.standingCapacity || s.maxCapacity || 0), 0)) ||
+    0;
 
   return (
     <div
@@ -45,19 +58,31 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         </div>
       )}
 
-      {/* Video Thumbnail Area */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-900 cursor-pointer" onClick={() => onSelectVenue(venue)}>
-        <img
-          src={venue.heroImage}
-          alt={venue.name}
-          className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
-            isHovered ? 'scale-105 opacity-95' : 'scale-100 opacity-90'
-          }`}
-          loading="lazy"
-        />
-
-        {/* Gradient overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+      {/* Video Thumbnail / Image Area */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#EAE5DC] cursor-pointer" onClick={() => onSelectVenue(venue)}>
+        {hasPhotos && heroImageSrc ? (
+          <>
+            <img
+              src={heroImageSrc}
+              alt={venue.name}
+              className={`w-full h-full object-cover transition-transform duration-700 ease-out ${
+                isHovered ? 'scale-105 opacity-95' : 'scale-100 opacity-90'
+              }`}
+              loading="lazy"
+            />
+            {/* Gradient overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+          </>
+        ) : (
+          /* Deliberate Visual Placeholder for Missing Photos */
+          <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-[#EAE5DC]">
+            <div className="w-11 h-11 rounded-2xl bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-2 shadow-xs">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-bold text-[#26343D] truncate max-w-[85%]">{venue.name}</span>
+            <span className="text-[11px] text-[#66737A] mt-0.5">Venue photos not added yet</span>
+          </div>
+        )}
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
@@ -110,14 +135,20 @@ export const VenueCard: React.FC<VenueCardProps> = ({
 
         {/* Bottom thumbnail tag */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-          <span className="text-[11px] font-medium text-stone-100 bg-black/70 backdrop-blur-md px-2.5 py-0.5 rounded-md border border-white/10 truncate max-w-[70%]">
-            {venue.aesthetic}
+          <span className="text-[11px] font-medium text-stone-100 bg-black/70 backdrop-blur-md px-2.5 py-0.5 rounded-md border border-white/10 truncate max-w-[65%]">
+            {venue.aesthetic || 'Event Space'}
           </span>
-          <div className="flex items-center gap-1 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-md text-amber-300 text-xs font-semibold">
-            <Star className="w-3 h-3 fill-current" />
-            <span>{venue.rating.toFixed(2)}</span>
-            <span className="text-stone-300 text-[10px]">({venue.reviewCount})</span>
-          </div>
+          {hasReviews ? (
+            <div className="flex items-center gap-1 bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-md text-amber-300 text-xs font-semibold">
+              <Star className="w-3 h-3 fill-current" />
+              <span>{venue.rating.toFixed(2)}</span>
+              <span className="text-stone-300 text-[10px]">({venue.reviewCount})</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-md text-stone-200 text-[10px]">
+              <span>No reviews yet</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -140,9 +171,11 @@ export const VenueCard: React.FC<VenueCardProps> = ({
             </p>
           </div>
 
-          <p className="text-xs text-[#66737A] line-clamp-2 mt-2 leading-relaxed">
-            {venue.tagline}
-          </p>
+          {venue.tagline && (
+            <p className="text-xs text-[#66737A] line-clamp-2 mt-2 leading-relaxed">
+              {venue.tagline}
+            </p>
+          )}
 
           {/* Key Layout Configurations or Spaces */}
           {hasRecordedWalkthrough && (
@@ -177,7 +210,15 @@ export const VenueCard: React.FC<VenueCardProps> = ({
             <span className="text-[10px] uppercase font-semibold text-[#66737A]">Capacity</span>
             <div className="flex items-center gap-1 text-[#26343D] font-medium">
               <Users className="w-3.5 h-3.5 text-[#A86445]" />
-              <span>{venue.capacity.seatedBanquet} seated / {venue.capacity.cocktail} cocktail</span>
+              <span>
+                {derivedSeated > 0 && derivedCocktail > 0
+                  ? `${derivedSeated} seated / ${derivedCocktail} cocktail`
+                  : derivedCocktail > 0
+                  ? `Max ${derivedCocktail} guests`
+                  : derivedSeated > 0
+                  ? `${derivedSeated} seated`
+                  : 'Capacity on Request'}
+              </span>
             </div>
           </div>
 
@@ -191,24 +232,30 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         </div>
 
         {/* Action Button Row */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        <div className={`grid ${hasLiveTours ? 'grid-cols-2' : 'grid-cols-1'} gap-2 pt-1`}>
           <button
             id={`watch-tour-btn-${venue.id}`}
             onClick={() => onSelectVenue(venue)}
-            className="w-full py-2.5 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] hover:bg-[#F4F1EA] hover:border-[#26343D] transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
+            className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs ${
+              hasLiveTours
+                ? 'bg-white border border-[#DDD8CF] text-[#26343D] hover:bg-[#F4F1EA] hover:border-[#26343D]'
+                : 'bg-[#26343D] text-white hover:bg-[#1E2930]'
+            }`}
           >
-            <Play className="w-3 h-3 fill-current text-[#A86445]" />
+            <Play className={`w-3 h-3 fill-current ${hasLiveTours ? 'text-[#A86445]' : 'text-[#D89B7F]'}`} />
             <span>Explore Space</span>
           </button>
 
-          <button
-            id={`book-live-btn-${venue.id}`}
-            onClick={() => onBookWalkthrough(venue)}
-            className="w-full py-2.5 px-3 rounded-xl bg-[#26343D] text-xs font-semibold text-white hover:bg-[#1E2930] transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
-          >
-            <Calendar className="w-3.5 h-3.5 text-stone-300" />
-            <span>Live Tour</span>
-          </button>
+          {hasLiveTours && (
+            <button
+              id={`book-live-btn-${venue.id}`}
+              onClick={() => onBookWalkthrough(venue)}
+              className="w-full py-2.5 px-3 rounded-xl bg-[#26343D] text-xs font-semibold text-white hover:bg-[#1E2930] transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-xs"
+            >
+              <Calendar className="w-3.5 h-3.5 text-stone-300" />
+              <span>Live Tour</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -171,6 +171,18 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     ...(venue.galleryImages || []),
   ].filter((img, idx, self) => self.indexOf(img) === idx);
 
+  const derivedSeated =
+    venue.capacity?.seatedBanquet ||
+    (venue.spaces?.reduce((max, s) => Math.max(max, s.seatedCapacity || 0), 0)) ||
+    0;
+  const derivedCocktail =
+    venue.capacity?.cocktail ||
+    (venue.spaces?.reduce((max, s) => Math.max(max, s.standingCapacity || s.maxCapacity || 0), 0)) ||
+    0;
+
+  const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);
+  const hasLiveTours = Boolean(venue.availableSlots && venue.availableSlots.length > 0);
+
   return (
     <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] pb-20">
       {/* Top Header Bar */}
@@ -216,14 +228,16 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <span className="hidden sm:inline">{isFavorited ? 'Saved' : 'Save'}</span>
             </button>
 
-            <button
-              id="detail-top-tour-btn"
-              onClick={() => onBookWalkthrough(venue)}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white border border-[#DDD8CF] text-[#26343D] hover:bg-[#F4F1EA] font-semibold text-xs shadow-xs transition-all"
-            >
-              <Video className="w-3.5 h-3.5 text-[#A86445]" />
-              <span>Live Tour</span>
-            </button>
+            {hasLiveTours && (
+              <button
+                id="detail-top-tour-btn"
+                onClick={() => onBookWalkthrough(venue)}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white border border-[#DDD8CF] text-[#26343D] hover:bg-[#F4F1EA] font-semibold text-xs shadow-xs transition-all"
+              >
+                <Video className="w-3.5 h-3.5 text-[#A86445]" />
+                <span>Live Tour</span>
+              </button>
+            )}
 
             <button
               id="detail-top-book-btn"
@@ -242,7 +256,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-[#F3E7DF] text-[#A86445] border border-[#A86445]/25 rounded-full">
-              {venue.aesthetic}
+              {venue.aesthetic || 'Event Space'}
             </span>
             {hasRecordedWalkthrough && (
               <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
@@ -250,15 +264,23 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 Recorded Walkthrough Available
               </span>
             )}
-            <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
-              <Video className="w-3 h-3 text-blue-600" />
-              Live Host Tours Available
-            </span>
-            <div className="flex items-center gap-1 text-xs text-[#26343D] font-semibold px-2.5 py-1 bg-white border border-[#DDD8CF] rounded-full shadow-xs">
-              <Star className="w-3.5 h-3.5 fill-current text-amber-400" />
-              <span>{(venue.rating || 5.0).toFixed(2)}</span>
-              <span className="text-[#66737A]">({venue.reviewCount || 0} reviews)</span>
-            </div>
+            {hasLiveTours && (
+              <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                <Video className="w-3 h-3 text-blue-600" />
+                Live Host Tours Available
+              </span>
+            )}
+            {hasReviews ? (
+              <div className="flex items-center gap-1 text-xs text-[#26343D] font-semibold px-2.5 py-1 bg-white border border-[#DDD8CF] rounded-full shadow-xs">
+                <Star className="w-3.5 h-3.5 fill-current text-amber-400" />
+                <span>{venue.rating.toFixed(2)}</span>
+                <span className="text-[#66737A]">({venue.reviewCount} reviews)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-xs text-[#66737A] px-2.5 py-1 bg-white border border-[#DDD8CF] rounded-full shadow-xs">
+                <span>No reviews yet</span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
@@ -288,7 +310,13 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div>
                 <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Capacity</span>
                 <span className="text-sm font-semibold text-[#26343D]">
-                  {venue.capacity?.seatedBanquet || 0} seated / {venue.capacity?.cocktail || 0} cocktail
+                  {derivedSeated > 0 && derivedCocktail > 0
+                    ? `${derivedSeated} seated / ${derivedCocktail} cocktail`
+                    : derivedCocktail > 0
+                    ? `Max ${derivedCocktail} guests`
+                    : derivedSeated > 0
+                    ? `${derivedSeated} seated`
+                    : 'Capacity on Request'}
                 </span>
               </div>
             </div>
@@ -299,6 +327,18 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column */}
           <div className="lg:col-span-8 space-y-6">
+            {/* About This Venue */}
+            {venue.description && venue.description.trim() && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-3 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#A86445]" />
+                  About This Venue
+                </h3>
+                <p className="text-sm text-[#66737A] leading-relaxed whitespace-pre-line">
+                  {venue.description}
+                </p>
+              </div>
+            )}
             {/* View Mode & Layout Switcher Bar (Only if walkthrough exists) */}
             {hasRecordedWalkthrough && activeClip ? (
               <div className="bg-white border border-[#DDD8CF] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
@@ -390,19 +430,23 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       Recorded walkthrough not added yet
                     </h3>
                     <p className="text-xs text-[#66737A] mt-0.5 leading-relaxed">
-                      Host {venue.host?.name || 'the coordinator'} hasn't uploaded a pre-recorded 4K walkthrough video for this listing yet. You can explore high-resolution space photography below, or schedule a 1-on-1 live video walkthrough.
+                      {hasLiveTours
+                        ? `Host ${venue.host?.name || 'the coordinator'} hasn't uploaded a pre-recorded 4K walkthrough video for this listing yet. You can explore high-resolution space photography below, or schedule a 1-on-1 live video walkthrough.`
+                        : `A pre-recorded 4K walkthrough video has not been uploaded for this listing yet. You can explore space specifications, layout capacities, and rates below.`}
                     </p>
                   </div>
                 </div>
 
-                <button
-                  id="zero-walkthrough-live-btn"
-                  onClick={() => onBookWalkthrough(venue)}
-                  className="shrink-0 px-3.5 py-2 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <Video className="w-3.5 h-3.5 text-stone-300" />
-                  <span>Book Live Tour</span>
-                </button>
+                {hasLiveTours && (
+                  <button
+                    id="zero-walkthrough-live-btn"
+                    onClick={() => onBookWalkthrough(venue)}
+                    className="shrink-0 px-3.5 py-2 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <Video className="w-3.5 h-3.5 text-stone-300" />
+                    <span>Book Live Tour</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -616,32 +660,63 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 </div>
               ) : (
                 /* Hero Gallery Media View for Zero-Walkthrough or Standard Gallery View */
-                <div className="relative w-full aspect-[16/9] bg-stone-900 overflow-hidden flex items-center justify-center">
-                  <img
-                    src={selectedGalleryImage || venue.heroImage}
-                    alt={venue.name}
-                    className="w-full h-full object-cover transition-all duration-300"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
-                    <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
-                      {venue.name} • {venue.aesthetic || 'Event Space'}
-                    </span>
-                    {venue.availableSlots && venue.availableSlots.length > 0 ? (
-                      <button
-                        onClick={() => onBookWalkthrough(venue)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Live Tour with Host</span>
-                      </button>
-                    ) : (
-                      <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
-                        Live tour availability has not been added yet.
+                galleryImages.length > 0 ? (
+                  <div className="relative w-full aspect-[16/9] bg-stone-900 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={selectedGalleryImage || galleryImages[0]}
+                      alt={venue.name}
+                      className="w-full h-full object-cover transition-all duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
+                      <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                        {venue.name} • {venue.aesthetic || 'Event Space'}
                       </span>
-                    )}
+                      {hasLiveTours ? (
+                        <button
+                          onClick={() => onBookWalkthrough(venue)}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Live Tour with Host</span>
+                        </button>
+                      ) : (
+                        <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
+                          Live tour availability has not been added yet.
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Intentional Warm Architectural Neutral Placeholder when no photos uploaded */
+                  <div className="relative w-full aspect-[16/9] bg-[#EAE5DC] flex flex-col items-center justify-center p-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-3 shadow-xs">
+                      <ImageIcon className="w-7 h-7" />
+                    </div>
+                    <h4 className="text-base font-bold text-[#26343D]">{venue.name}</h4>
+                    <p className="text-xs text-[#66737A] max-w-sm mt-1 leading-relaxed">
+                      Venue photos not added yet. Complete space dimensions, capacity setups, and hire rates are listed below.
+                    </p>
+                    <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs">
+                      <span className="font-semibold bg-black/60 text-white backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                        {venue.name} • {venue.aesthetic || 'Event Space'}
+                      </span>
+                      {hasLiveTours ? (
+                        <button
+                          onClick={() => onBookWalkthrough(venue)}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Live Tour with Host</span>
+                        </button>
+                      ) : (
+                        <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
+                          Live tour availability has not been added yet.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
               )}
             </div>
 
@@ -755,43 +830,45 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             )}
 
             {/* Photo Gallery Grid */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-[#A86445]" />
-                  High-Resolution Gallery ({galleryImages.length} Perspectives)
-                </h3>
-                <span className="text-xs text-[#66737A]">Click to inspect photo</span>
-              </div>
+            {galleryImages.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#A86445]" />
+                    High-Resolution Gallery ({galleryImages.length} Perspectives)
+                  </h3>
+                  <span className="text-xs text-[#66737A]">Click to inspect photo</span>
+                </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {galleryImages.map((img, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => {
-                      setSelectedGalleryImage(img);
-                      if (!hasRecordedWalkthrough) {
-                        window.scrollTo({ top: 180, behavior: 'smooth' });
-                      }
-                    }}
-                    className={`aspect-[4/3] rounded-xl overflow-hidden border bg-stone-900 group relative cursor-pointer shadow-xs transition-all ${
-                      selectedGalleryImage === img
-                        ? 'ring-2 ring-[#A86445] border-[#A86445]'
-                        : 'border-[#DDD8CF] hover:border-[#A86445]/60'
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${venue.name} perspective ${idx + 1}`}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Maximize className="w-5 h-5 text-white" />
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {galleryImages.map((img, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        setSelectedGalleryImage(img);
+                        if (!hasRecordedWalkthrough) {
+                          window.scrollTo({ top: 180, behavior: 'smooth' });
+                        }
+                      }}
+                      className={`aspect-[4/3] rounded-xl overflow-hidden border bg-stone-900 group relative cursor-pointer shadow-xs transition-all ${
+                        selectedGalleryImage === img
+                          ? 'ring-2 ring-[#A86445] border-[#A86445]'
+                          : 'border-[#DDD8CF] hover:border-[#A86445]/60'
+                      }`}
+                    >
+                      <img
+                        src={img}
+                        alt={`${venue.name} perspective ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Maximize className="w-5 h-5 text-white" />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Comprehensive Amenities Checklist */}
             <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">

@@ -143,7 +143,7 @@ export const ReviewPublishStep: React.FC<ReviewPublishStepProps> = ({
                 <div key={sp.id} className="flex items-center justify-between border-b border-[#DDD8CF]/40 pb-1">
                   <span className="font-medium text-[#26343D]">{sp.name}</span>
                   <span className="text-[11px] text-[#66737A]">
-                    Max {sp.maxCapacity} · {sp.layouts?.length || 0} Setups
+                    Max {sp.maxCapacity || sp.standingCapacity || sp.seatedCapacity || sp.theatreCapacity || 0} · {sp.layouts?.length || 0} Setups
                   </span>
                 </div>
               ))
