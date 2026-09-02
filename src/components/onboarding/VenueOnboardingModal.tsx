@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X, ChevronLeft, ChevronRight, Check, Building2, MapPin, Layers, Grid, Coins, Image as ImageIcon, CheckCircle2, Save } from 'lucide-react';
-import { Venue, BusinessOrganisation, VenueSpace, SpaceLayout, VenuePricing, Amenity, WalkthroughClip } from '../../types';
+import { Venue, BusinessOrganisation, VenueSpace, VenuePricing, Amenity, WalkthroughClip } from '../../types';
 import { BusinessDetailsStep } from './steps/BusinessDetailsStep';
 import { VenueDetailsStep } from './steps/VenueDetailsStep';
 import { SpacesCapacitiesStep } from './steps/SpacesCapacitiesStep';
@@ -30,11 +30,79 @@ const STEPS = [
   { id: 7, label: 'Review & Publish', icon: CheckCircle2 },
 ];
 
+export const createBlankVenueDraft = (): Partial<Venue> => ({
+  name: '',
+  tagline: '',
+  description: '',
+  organisationId: '',
+  businessName: '',
+  status: 'draft',
+  aesthetic: '',
+  eventTypes: [],
+  location: {
+    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    region: '',
+    state: '',
+    country: 'United Kingdom',
+    countryCode: 'GB',
+    postalCode: '',
+    zipCode: '',
+    neighborhood: '',
+    timezone: 'Europe/London',
+  },
+  capacity: {
+    cocktail: 0,
+    seatedBanquet: 0,
+    theater: 0,
+  },
+  pricing: {
+    startingPrice: 0,
+    priceUnit: 'per day',
+    hourlyRate: 0,
+    cleaningFee: 0,
+    securityDeposit: 0,
+    currency: 'GBP',
+    currencySymbol: '£',
+  },
+  spaces: [],
+  walkthroughClips: [],
+  mediaAssets: [],
+  amenities: [],
+  specs: {
+    curfew: '',
+    parking: '',
+    cateringPolicy: '',
+    alcoholPolicy: '',
+    powerSupply: '',
+    squareFootage: 0,
+    ceilingHeightFt: 0,
+    restroomCount: 0,
+    bridalSuite: false,
+    greenRoom: false,
+    adaCompliant: false,
+    loadingDock: false,
+  },
+  heroImage: '',
+  galleryImages: [],
+});
+
+export const createBlankOrganisation = (): Partial<BusinessOrganisation> => ({
+  name: '',
+  contactName: '',
+  email: '',
+  phone: '',
+  website: '',
+  description: '',
+});
+
 export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
   isOpen,
   onClose,
   onVenueCreatedOrUpdated,
-  existingOrganisations,
+  existingOrganisations = [],
   initialVenue,
   initialOrganisationId,
 }) => {
@@ -42,149 +110,115 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Business mode: 'existing' | 'new' | null
+  const [businessMode, setBusinessMode] = useState<'existing' | 'new' | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
   // Business organisation state
-  const [organisation, setOrganisation] = useState<Partial<BusinessOrganisation>>(() => {
-    const existing = existingOrganisations.find((o) => o.id === initialOrganisationId) || existingOrganisations[0];
-    return (
-      existing || {
-        id: `org-${Date.now().toString().slice(-6)}`,
-        name: 'Mayfair Heritage Hospitality Ltd',
-        contactName: 'Charlotte Sterling',
-        email: 'venues@mayfairheritage.co.uk',
-        phone: '+44 20 7946 0912',
-        website: 'https://mayfairheritage.co.uk',
-        description: 'Portfolio of architectural heritage properties and contemporary conservatories.',
-      }
-    );
-  });
+  const [organisation, setOrganisation] = useState<Partial<BusinessOrganisation>>(createBlankOrganisation());
 
   // Venue state
-  const [venue, setVenue] = useState<Partial<Venue>>(() => {
-    if (initialVenue) return initialVenue;
-    return {
-      name: '',
-      tagline: '',
-      description: '',
-      organisationId: organisation.id || 'org-mayfair-hospitality',
-      businessName: organisation.name || 'Mayfair Heritage Hospitality Ltd',
-      status: 'draft',
-      aesthetic: 'Regency Glasshouse & Riverfront Terrace',
-      eventTypes: ['meetings-conferences', 'weddings', 'parties-celebrations'],
-      location: {
-        address: '24 Embankment Gardens, Strand',
-        addressLine1: '24 Embankment Gardens, Strand',
-        addressLine2: '',
-        city: 'London',
-        region: 'Greater London',
-        state: 'Greater London',
-        country: 'United Kingdom',
-        countryCode: 'GB',
-        postalCode: 'WC2R 1LA',
-        zipCode: 'WC2R 1LA',
-        neighborhood: 'Covent Garden / Strand',
-        timezone: 'Europe/London',
-      },
-      capacity: {
-        cocktail: 250,
-        seatedBanquet: 160,
-        theater: 200,
-      },
-      pricing: {
-        startingPrice: 4200,
-        priceUnit: 'per day',
-        hourlyRate: 550,
-        cleaningFee: 350,
-        securityDeposit: 1200,
-        currency: 'GBP',
-        currencySymbol: '£',
-      },
-      spaces: [
-        {
-          id: `space-${Date.now()}-1`,
-          name: 'The Riverfront Glasshouse',
-          description: 'Soaring 8-metre regency ironwork conservatory with panoramic Thames views.',
-          floorLocation: 'Ground Floor',
-          maxCapacity: 250,
-          seatedCapacity: 160,
-          standingCapacity: 250,
-          theatreCapacity: 200,
-          squareMeters: 320,
-          squareFeet: 3444,
-          ceilingHeightMeters: 8,
-          ceilingHeightFt: 26,
-          accessibilityDetails: 'Step-free level access throughout with double entryway.',
-          amenities: ['Natural Daylight', 'Concert Audio', 'Dimmable Rigging'],
-          layouts: [
-            {
-              id: `layout-${Date.now()}-1`,
-              title: 'Gala Banquet & Central Dance Floor',
-              layoutType: 'Banquet',
-              capacity: 160,
-              description: 'Round tables positioned along glass perimeter with clear line of sight.',
-            },
-            {
-              id: `layout-${Date.now()}-2`,
-              title: 'Keynote & Presentation Format',
-              layoutType: 'Theatre',
-              capacity: 200,
-              description: 'Forward-facing tiered seating with stage audio and projection.',
-            },
-          ],
-        },
-      ],
-      walkthroughClips: [],
-      amenities: [
-        { name: '1Gbps Synchronous Dedicated Fiber WiFi', category: 'Audio/Visual', icon: 'Wifi' },
-        { name: 'Full Accessible Step-Free & Passenger Lifts', category: 'Access & Logistics', icon: 'Accessibility' },
-        { name: 'Dedicated Ground-Level Freight Loading Dock', category: 'Access & Logistics', icon: 'Truck' },
-      ],
-      specs: {
-        curfew: '1:00 AM',
-        parking: 'Reserved valet drop-off and partner NCP garage',
-        cateringPolicy: 'Flexible open caterer list with certified prep kitchen',
-        alcoholPolicy: 'Licensed in-house bar or BYO permitted with certified staff',
-        squareFootage: 3444,
-        ceilingHeightFt: 26,
-        restroomCount: 8,
-        bridalSuite: true,
-        greenRoom: true,
-        adaCompliant: true,
-        loadingDock: true,
-        powerSupply: '400A 3-Phase Cam-Lok dedicated show power',
-      },
-      heroImage: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=85',
-      galleryImages: [
-        'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1200&q=80',
-      ],
-    };
-  });
+  const [venue, setVenue] = useState<Partial<Venue>>(createBlankVenueDraft());
 
-  // Re-sync if initial props change
+  // Re-sync and cleanly reset whenever the modal opens or props change
   useEffect(() => {
-    if (initialVenue) {
-      setVenue(initialVenue);
-      if (initialVenue.organisationId) {
+    if (isOpen) {
+      setCurrentStep(1);
+      setErrorMessage(null);
+
+      if (initialVenue) {
+        // EDIT MODE: populate saved venue data
+        setVenue({ ...initialVenue });
         const found = existingOrganisations.find((o) => o.id === initialVenue.organisationId);
-        if (found) setOrganisation(found);
+        if (found) {
+          setOrganisation({ ...found });
+          setSelectedOrgId(found.id);
+          setBusinessMode('existing');
+        } else {
+          setOrganisation({
+            id: initialVenue.organisationId,
+            name: initialVenue.businessName || '',
+            contactName: '',
+            email: '',
+            phone: '',
+            website: '',
+            description: '',
+          });
+          setSelectedOrgId(initialVenue.organisationId || null);
+          setBusinessMode('existing');
+        }
+      } else {
+        // CREATE MODE: always start from clean truthful blank state
+        setVenue(createBlankVenueDraft());
+
+        if (initialOrganisationId) {
+          const found = existingOrganisations.find((o) => o.id === initialOrganisationId);
+          if (found) {
+            setOrganisation({ ...found });
+            setSelectedOrgId(found.id);
+            setBusinessMode('existing');
+            setVenue((v) => ({ ...v, organisationId: found.id, businessName: found.name }));
+          } else {
+            setOrganisation(createBlankOrganisation());
+            setSelectedOrgId(null);
+            setBusinessMode(existingOrganisations.length > 0 ? null : 'new');
+          }
+        } else {
+          setOrganisation(createBlankOrganisation());
+          setSelectedOrgId(null);
+          setBusinessMode(existingOrganisations.length > 0 ? null : 'new');
+        }
       }
     }
-  }, [initialVenue, existingOrganisations]);
+  }, [isOpen, initialVenue, initialOrganisationId, existingOrganisations]);
 
   if (!isOpen) return null;
 
   const completeness = calculateCompleteness(venue as Venue);
   const tierBadge = getQualityTierBadge(completeness.tier);
 
+  const handleSelectMode = (mode: 'existing' | 'new') => {
+    setBusinessMode(mode);
+    setErrorMessage(null);
+    if (mode === 'new') {
+      setSelectedOrgId(null);
+      setOrganisation(createBlankOrganisation());
+      setVenue((prev) => ({ ...prev, organisationId: '', businessName: '' }));
+    } else if (mode === 'existing') {
+      if (!selectedOrgId && existingOrganisations.length > 0) {
+        setOrganisation(createBlankOrganisation());
+        setVenue((prev) => ({ ...prev, organisationId: '', businessName: '' }));
+      }
+    }
+  };
+
+  const handleSelectExistingOrg = (org: BusinessOrganisation) => {
+    setSelectedOrgId(org.id);
+    setOrganisation({ ...org });
+    setVenue((prev) => ({
+      ...prev,
+      organisationId: org.id,
+      businessName: org.name,
+    }));
+  };
+
   const handleNext = () => {
     setErrorMessage(null);
     if (currentStep === 1) {
-      if (!organisation.name || !organisation.contactName || !organisation.email) {
-        setErrorMessage('Please fill in business name, contact name, and business email.');
+      if (existingOrganisations.length > 0 && businessMode === null) {
+        setErrorMessage('Please select whether to add this venue to an existing business or create a new business.');
+        return;
+      }
+      if (businessMode === 'existing' && !selectedOrgId) {
+        setErrorMessage('Please select an existing business account from the list above.');
+        return;
+      }
+      if (!organisation.name?.trim() || !organisation.contactName?.trim() || !organisation.email?.trim()) {
+        setErrorMessage('Please fill in business name, primary contact name, and business email.');
         return;
       }
     } else if (currentStep === 2) {
-      if (!venue.name || !venue.location?.city) {
+      if (!venue.name?.trim() || !venue.location?.city?.trim()) {
         setErrorMessage('Please provide a venue name and city.');
         return;
       }
@@ -195,15 +229,6 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
   const handleBack = () => {
     setErrorMessage(null);
     setCurrentStep((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleSelectExistingOrg = (org: BusinessOrganisation) => {
-    setOrganisation(org);
-    setVenue((prev) => ({
-      ...prev,
-      organisationId: org.id,
-      businessName: org.name,
-    }));
   };
 
   const handleOrgFieldChange = (field: keyof BusinessOrganisation, value: string) => {
@@ -239,7 +264,7 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
   };
 
   const handleSpacesChange = (spaces: VenueSpace[]) => {
-    // Calculate total capacity from spaces
+    // Calculate total capacity truthfully from configured spaces without invented fallback values
     const maxStanding = spaces.reduce((acc, s) => Math.max(acc, s.maxCapacity || s.standingCapacity || 0), 0);
     const maxSeated = spaces.reduce((acc, s) => Math.max(acc, s.seatedCapacity || 0), 0);
     const maxTheater = spaces.reduce((acc, s) => Math.max(acc, s.theatreCapacity || 0), 0);
@@ -248,9 +273,9 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
       ...prev,
       spaces,
       capacity: {
-        cocktail: maxStanding || prev.capacity?.cocktail || 200,
-        seatedBanquet: maxSeated || prev.capacity?.seatedBanquet || 120,
-        theater: maxTheater || prev.capacity?.theater || 150,
+        cocktail: maxStanding,
+        seatedBanquet: maxSeated,
+        theater: maxTheater,
       },
     }));
   };
@@ -286,32 +311,62 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
     setErrorMessage(null);
 
     try {
-      // 1. Save or ensure Organisation exists on server
-      const orgPayload = {
-        name: organisation.name || 'Mayfair Heritage Hospitality Ltd',
-        contactName: organisation.contactName || 'Charlotte Sterling',
-        email: organisation.email || 'venues@mayfairheritage.co.uk',
-        phone: organisation.phone || '',
-        website: organisation.website || '',
-        description: organisation.description || '',
-      };
+      if (publishStatus === 'published') {
+        if (!organisation.name?.trim() || !organisation.contactName?.trim() || !organisation.email?.trim()) {
+          throw new Error('Please fill in business name, contact name, and business email before publishing.');
+        }
+        if (!venue.name?.trim() || !venue.location?.city?.trim()) {
+          throw new Error('Please provide at least a venue name and city before publishing.');
+        }
+      } else {
+        if (!organisation.name?.trim() && !venue.name?.trim()) {
+          throw new Error('Please provide a business name or venue name to save this draft.');
+        }
+      }
 
-      const orgRes = await fetch('/api/organisations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orgPayload),
-      });
-      const orgData = await orgRes.json();
-      const savedOrg: BusinessOrganisation = orgData.organisation || {
-        id: organisation.id || `org-${Date.now()}`,
-        ...orgPayload,
-        createdAt: new Date().toISOString(),
-      };
+      // 1. Save or ensure Organisation exists on server
+      let savedOrg: BusinessOrganisation;
+      if (organisation.name?.trim() && organisation.contactName?.trim() && organisation.email?.trim()) {
+        const orgPayload: Partial<BusinessOrganisation> = {
+          name: organisation.name.trim(),
+          contactName: organisation.contactName.trim(),
+          email: organisation.email.trim(),
+          phone: organisation.phone?.trim() || '',
+          website: organisation.website?.trim() || '',
+          description: organisation.description?.trim() || '',
+        };
+        if (selectedOrgId && businessMode === 'existing') {
+          orgPayload.id = selectedOrgId;
+        }
+
+        const orgRes = await fetch('/api/organisations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orgPayload),
+        });
+        const orgData = await orgRes.json();
+        if (!orgRes.ok) {
+          throw new Error(orgData.error || 'Failed to save business account');
+        }
+        savedOrg = orgData.organisation;
+      } else {
+        savedOrg = {
+          id: organisation.id || `org-${Date.now().toString().slice(-6)}`,
+          name: organisation.name?.trim() || 'New Business Account',
+          contactName: organisation.contactName?.trim() || '',
+          email: organisation.email?.trim() || '',
+          phone: organisation.phone?.trim() || '',
+          website: organisation.website?.trim() || '',
+          description: organisation.description?.trim() || '',
+          createdAt: new Date().toISOString(),
+        };
+      }
 
       // 2. Prepare Venue Payload
       const score = calculateCompleteness(venue as Venue);
       const venuePayload: Partial<Venue> = {
         ...venue,
+        name: venue.name?.trim() || 'Untitled Venue Draft',
         organisationId: savedOrg.id,
         businessName: savedOrg.name,
         status: publishStatus,
@@ -440,8 +495,11 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
 
           {currentStep === 1 && (
             <BusinessDetailsStep
+              businessMode={businessMode}
+              selectedOrgId={selectedOrgId}
               organisation={organisation}
               existingOrganisations={existingOrganisations}
+              onSelectMode={handleSelectMode}
               onSelectExistingOrg={handleSelectExistingOrg}
               onChange={handleOrgFieldChange}
             />

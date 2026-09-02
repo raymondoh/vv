@@ -18,28 +18,20 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
   const handleAddSpace = () => {
     const newSpace: VenueSpace = {
       id: `space-${Date.now().toString().slice(-6)}`,
-      name: `Space ${spaces.length + 1}`,
-      description: 'Adaptable multi-functional room for gatherings, dining, or presentations.',
-      floorLocation: 'Ground Floor',
-      maxCapacity: 200,
-      seatedCapacity: 120,
-      standingCapacity: 200,
-      theatreCapacity: 150,
-      squareMeters: 250,
-      squareFeet: 2690,
-      ceilingHeightMeters: 4.5,
-      ceilingHeightFt: 15,
-      accessibilityDetails: 'Step-free level access with wide double doors.',
-      amenities: ['Natural Daylight', 'Dimmable Lighting', 'High-Speed Wi-Fi'],
-      layouts: [
-        {
-          id: `layout-${Date.now().toString().slice(-6)}-1`,
-          title: 'Standard Banquet Setup',
-          layoutType: 'Banquet',
-          capacity: 120,
-          description: 'Circular round tables with central processional or dance area.',
-        },
-      ],
+      name: '',
+      description: '',
+      floorLocation: '',
+      maxCapacity: 0,
+      seatedCapacity: 0,
+      standingCapacity: 0,
+      theatreCapacity: 0,
+      squareMeters: 0,
+      squareFeet: 0,
+      ceilingHeightMeters: 0,
+      ceilingHeightFt: 0,
+      accessibilityDetails: '',
+      amenities: [],
+      layouts: [],
     };
 
     const updated = [...spaces, newSpace];
@@ -48,7 +40,6 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
   };
 
   const handleRemoveSpace = (spaceId: string) => {
-    if (spaces.length <= 1) return;
     const updated = spaces.filter((s) => s.id !== spaceId);
     onSpacesChange(updated);
     if (editingSpaceId === spaceId) {
@@ -81,56 +72,75 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
       </div>
 
       {/* Spaces Tab / Pill Selector */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[#DDD8CF] pb-3">
-        {spaces.map((space, idx) => {
-          const isSelected = space.id === activeSpace?.id;
-          return (
-            <div key={space.id} className="flex items-center">
-              <button
-                type="button"
-                onClick={() => setEditingSpaceId(space.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
-                  isSelected
-                    ? 'bg-[#26343D] text-white border-[#26343D] shadow-xs'
-                    : 'bg-white text-[#66737A] border-[#DDD8CF] hover:text-[#26343D]'
-                }`}
-              >
-                <span>{space.name || `Space ${idx + 1}`}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-[#F4F1EA] text-[#66737A]'}`}>
-                  Max {space.maxCapacity}
-                </span>
-              </button>
-            </div>
-          );
-        })}
+      {spaces.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#DDD8CF] pb-3">
+          {spaces.map((space, idx) => {
+            const isSelected = space.id === activeSpace?.id;
+            return (
+              <div key={space.id} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setEditingSpaceId(space.id)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                    isSelected
+                      ? 'bg-[#26343D] text-white border-[#26343D] shadow-xs'
+                      : 'bg-white text-[#66737A] border-[#DDD8CF] hover:text-[#26343D]'
+                  }`}
+                >
+                  <span>{space.name || `Space ${idx + 1}`}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-[#F4F1EA] text-[#66737A]'}`}>
+                    Max {space.maxCapacity || 0}
+                  </span>
+                </button>
+              </div>
+            );
+          })}
 
-        <button
-          type="button"
-          onClick={handleAddSpace}
-          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F4F1EA] text-[#A86445] hover:bg-[#EAE4D8] border border-[#DDD8CF] flex items-center gap-1.5 transition-all shadow-xs"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Another Space</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={handleAddSpace}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F4F1EA] text-[#A86445] hover:bg-[#EAE4D8] border border-[#DDD8CF] flex items-center gap-1.5 transition-all shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Another Space</span>
+          </button>
+        </div>
+      )}
 
-      {activeSpace && (
+      {spaces.length === 0 ? (
+        <div className="bg-[#F4F1EA] p-8 rounded-2xl border border-[#DDD8CF] text-center space-y-3">
+          <Layers className="w-8 h-8 text-[#A86445] mx-auto" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-[#26343D]">No Rooms or Spaces Configured Yet</h4>
+            <p className="text-xs text-[#66737A] max-w-md mx-auto">
+              Add distinct rooms, suites, outdoor terraces, or event halls available for hire at this venue.
+            </p>
+          </div>
+          <button
+            type="button"
+            id="add-first-space-btn"
+            onClick={handleAddSpace}
+            className="px-4 py-2.5 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-bold inline-flex items-center gap-2 shadow-xs transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Your First Space</span>
+          </button>
+        </div>
+      ) : activeSpace ? (
         <div className="bg-[#F4F1EA] p-5 rounded-2xl border border-[#DDD8CF] space-y-5">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-[#26343D] flex items-center gap-2">
               <Edit3 className="w-4 h-4 text-[#A86445]" />
-              <span>Editing: {activeSpace.name}</span>
+              <span>Editing: {activeSpace.name || 'Unnamed Space'}</span>
             </h4>
-            {spaces.length > 1 && (
-              <button
-                type="button"
-                onClick={() => handleRemoveSpace(activeSpace.id)}
-                className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-red-200"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>Remove Space</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => handleRemoveSpace(activeSpace.id)}
+              className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-red-200"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>Remove Space</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -267,7 +277,7 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

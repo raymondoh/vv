@@ -32,11 +32,11 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
 
     const newLayout: SpaceLayout = {
       id: `layout-${Date.now().toString().slice(-6)}`,
-      title: 'New Room Layout',
+      title: '',
       layoutType: 'Banquet',
-      capacity: space.seatedCapacity || space.maxCapacity || 100,
-      description: 'Adaptable layout configuration for this room.',
-      setupHighlights: ['Flexible furniture arrangements', 'Clear line of sight'],
+      capacity: space.seatedCapacity || space.maxCapacity || 0,
+      description: '',
+      setupHighlights: [],
     };
 
     const updated = spaces.map((s) => {
@@ -54,13 +54,13 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
 
   const handleRemoveLayout = (spaceId: string, layoutId: string) => {
     const space = spaces.find((s) => s.id === spaceId);
-    if (!space || (space.layouts && space.layouts.length <= 1)) return;
+    if (!space) return;
 
     const updated = spaces.map((s) => {
       if (s.id === spaceId) {
         return {
           ...s,
-          layouts: s.layouts.filter((l) => l.id !== layoutId),
+          layouts: (s.layouts || []).filter((l) => l.id !== layoutId),
         };
       }
       return s;

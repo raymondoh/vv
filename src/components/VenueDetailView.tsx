@@ -137,17 +137,17 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const currency = venue.pricing.currency || 'GBP';
+  const currency = venue.pricing?.currency || 'GBP';
 
   // Pricing calculation
   const getCalculatedPrice = () => {
-    let base = venue.pricing.startingPrice;
+    let base = venue.pricing?.startingPrice || 0;
     if (calcEventType === 'weekend-peak') {
-      base = Math.round(base * (venue.pricing.peakSeasonMultiplier || 1.25));
+      base = Math.round(base * (venue.pricing?.peakSeasonMultiplier || 1.25));
     } else if (calcEventType === 'off-season') {
       base = Math.round(base * 0.85);
     }
-    const cleaning = venue.pricing.cleaningFee || 0;
+    const cleaning = venue.pricing?.cleaningFee || 0;
     const estFoodDrink = calcGuests * 95;
     return {
       venueRental: base,
@@ -268,9 +268,9 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <p className="text-sm text-[#66737A] flex items-center gap-1.5 mt-1">
                 <MapPin className="w-4 h-4 text-[#A86445] shrink-0" />
                 <span>
-                  {venue.location.address ? `${venue.location.address}, ` : ''}
-                  {venue.location.neighborhood ? `${venue.location.neighborhood}, ` : ''}
-                  {venue.location.city}, {venue.location.state || venue.location.country} {venue.location.zipCode}
+                  {venue.location?.address ? `${venue.location.address}, ` : ''}
+                  {venue.location?.neighborhood ? `${venue.location.neighborhood}, ` : ''}
+                  {venue.location?.city || ''}{venue.location?.state || venue.location?.country ? `, ${venue.location?.state || venue.location?.country}` : ''} {venue.location?.zipCode || venue.location?.postalCode || ''}
                 </span>
               </p>
             </div>
@@ -279,15 +279,15 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div className="text-right">
                 <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Starting Rate</span>
                 <div className="text-xl font-bold text-[#26343D]">
-                  {formatCurrency(venue.pricing.startingPrice, currency)}
-                  <span className="text-xs font-normal text-[#66737A]"> /{venue.pricing.priceUnit?.replace('per ', '') || 'day'}</span>
+                  {formatCurrency(venue.pricing?.startingPrice || 0, currency)}
+                  <span className="text-xs font-normal text-[#66737A]"> /{venue.pricing?.priceUnit?.replace('per ', '') || 'day'}</span>
                 </div>
               </div>
               <div className="h-8 w-[1px] bg-[#DDD8CF]" />
               <div>
                 <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Capacity</span>
                 <span className="text-sm font-semibold text-[#26343D]">
-                  {venue.capacity.seatedBanquet} seated / {venue.capacity.cocktail} cocktail
+                  {venue.capacity?.seatedBanquet || 0} seated / {venue.capacity?.cocktail || 0} cocktail
                 </span>
               </div>
             </div>
@@ -549,7 +549,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
                         Architectural Layout Diagram • {activeClip.title}
                       </h4>
-                      <p className="text-xs text-stone-300">Total usable floor area: {venue.specs.squareFootage.toLocaleString()} sq. ft.</p>
+                      <p className="text-xs text-stone-300">Total usable floor area: {(venue.specs?.squareFootage || 0).toLocaleString()} sq. ft.</p>
                     </div>
                     <span className="px-3 py-1 rounded bg-[#A86445]/20 text-[#D89B7F] font-mono text-xs border border-[#A86445]/40">
                       SCALE: 1/8" = 1'-0"
@@ -577,8 +577,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-stone-300 pt-3 border-t border-[#2B3942]">
-                    <span>Ceiling Clearance: {venue.specs.ceilingHeightFt} ft</span>
-                    <span>Restrooms: {venue.specs.restroomCount} Dedicated</span>
+                    <span>Ceiling Clearance: {venue.specs?.ceilingHeightFt || 0} ft</span>
+                    <span>Restrooms: {venue.specs?.restroomCount || 0} Dedicated</span>
                     <span>Emergency Exits: 4 Calibrated</span>
                   </div>
                 </div>
@@ -854,7 +854,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               </h3>
 
               <div className="space-y-3.5 text-xs">
-                {venue.specs.curfew && (
+                {venue.specs?.curfew && (
                   <div className="flex items-start gap-2.5">
                     <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
@@ -864,7 +864,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </div>
                 )}
 
-                {venue.specs.parking && (
+                {venue.specs?.parking && (
                   <div className="flex items-start gap-2.5">
                     <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
@@ -874,7 +874,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </div>
                 )}
 
-                {venue.specs.cateringPolicy && (
+                {venue.specs?.cateringPolicy && (
                   <div className="flex items-start gap-2.5">
                     <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
@@ -884,7 +884,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </div>
                 )}
 
-                {venue.specs.alcoholPolicy && (
+                {venue.specs?.alcoholPolicy && (
                   <div className="flex items-start gap-2.5">
                     <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
@@ -894,7 +894,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </div>
                 )}
 
-                {venue.specs.powerSupply && (
+                {venue.specs?.powerSupply && (
                   <div className="flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
                     <div>
@@ -902,6 +902,12 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
                     </div>
                   </div>
+                )}
+
+                {!venue.specs?.curfew && !venue.specs?.parking && !venue.specs?.cateringPolicy && !venue.specs?.alcoholPolicy && !venue.specs?.powerSupply && (
+                  <p className="text-[#66737A] text-xs italic">
+                    Standard commercial event guidelines apply. Specific policies confirmed during walkthrough.
+                  </p>
                 )}
               </div>
             </div>
