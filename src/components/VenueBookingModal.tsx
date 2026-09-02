@@ -343,11 +343,14 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                       {clip.title} (Cap: {clip.maxCapacityForLayout} guests)
                     </option>
                   ))}
-                  {venue.spaces?.map((space) => (
-                    <option key={space.id} value={space.name}>
-                      {space.name} (Cap: {space.capacity?.cocktail || venue.capacity.cocktail} guests)
-                    </option>
-                  ))}
+                  {venue.spaces?.map((space) => {
+                    const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
+                    return (
+                      <option key={space.id} value={space.name}>
+                        {space.name} {cap > 0 ? `(Cap: ${cap} guests)` : ''}
+                      </option>
+                    );
+                  })}
                   <option value="Main Hall - Standard Setup">Main Hall - Standard Setup</option>
                   <option value="Custom Modular Configuration">Custom Modular Configuration</option>
                 </select>

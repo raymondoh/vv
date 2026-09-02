@@ -377,8 +377,8 @@ app.post('/api/venues', (req, res) => {
       currency: 'GBP',
       currencySymbol: '£',
     },
-    rating: 5.0,
-    reviewCount: 0,
+    rating: typeof venueData.rating === 'number' ? venueData.rating : 0,
+    reviewCount: typeof venueData.reviewCount === 'number' ? venueData.reviewCount : 0,
     featured: false,
     heroImage: venueData.heroImage || '',
     galleryImages: venueData.galleryImages || [],
@@ -402,24 +402,16 @@ app.post('/api/venues', (req, res) => {
       powerSupply: '',
     },
     host: venueData.host || {
-      name: venueData.hostName || venueData.businessName || 'Venue Coordinator',
-      title: 'Events Lead',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
-      responseTime: 'Under 1 hour',
-      languages: ['English'],
-      rating: 5.0,
+      name: venueData.hostName || venueData.businessName || '',
+      title: '',
+      avatar: '',
+      responseTime: '',
+      languages: [],
+      rating: 0,
       totalToursConducted: 0,
-      bio: 'Dedicated coordinator helping planners orchestrate exceptional events.',
+      bio: '',
     },
-    availableSlots: venueData.availableSlots || [
-      {
-        date: '2026-09-01',
-        times: [
-          { time: '10:00 AM', period: 'morning', available: true },
-          { time: '2:00 PM', period: 'afternoon', available: true },
-        ],
-      },
-    ],
+    availableSlots: venueData.availableSlots || [],
   };
 
   venuesStore.unshift(createdVenue);

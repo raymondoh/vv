@@ -27,6 +27,7 @@ import {
   Video,
   ImageIcon,
   Maximize2,
+  User,
 } from 'lucide-react';
 import { Venue, WalkthroughClip } from '../types';
 import { formatCurrency } from '../utils/formatters';
@@ -597,14 +598,20 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </div>
                     <h4 className="text-lg font-bold text-white tracking-tight">Interactive 360° Spatial Mode</h4>
                     <p className="text-xs text-stone-200 max-w-md">
-                      Drag to look around or schedule a live video walkthrough with host {venue.host.name} to control the pan-tilt-zoom cameras in real time.
+                      Drag to look around or schedule a live video walkthrough to inspect the space in real time.
                     </p>
-                    <button
-                      onClick={() => onBookWalkthrough(venue)}
-                      className="px-4 py-2 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-sm transition-all"
-                    >
-                      Request Live Camera Control Tour
-                    </button>
+                    {venue.availableSlots && venue.availableSlots.length > 0 ? (
+                      <button
+                        onClick={() => onBookWalkthrough(venue)}
+                        className="px-4 py-2 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-sm transition-all"
+                      >
+                        Request Live Camera Control Tour
+                      </button>
+                    ) : (
+                      <span className="text-xs text-stone-400 italic">
+                        Live tour availability has not been added yet.
+                      </span>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -618,15 +625,21 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
                   <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
                     <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
-                      {venue.name} • {venue.aesthetic} Space
+                      {venue.name} • {venue.aesthetic || 'Event Space'}
                     </span>
-                    <button
-                      onClick={() => onBookWalkthrough(venue)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
-                    >
-                      <Video className="w-3.5 h-3.5" />
-                      <span>Live Tour with Host</span>
-                    </button>
+                    {venue.availableSlots && venue.availableSlots.length > 0 ? (
+                      <button
+                        onClick={() => onBookWalkthrough(venue)}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
+                      >
+                        <Video className="w-3.5 h-3.5" />
+                        <span>Live Tour with Host</span>
+                      </button>
+                    ) : (
+                      <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
+                        Live tour availability has not been added yet.
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -696,28 +709,47 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {venue.spaces.map((space) => (
-                    <div
-                      key={space.id}
-                      className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-[#26343D]">{space.name}</h4>
-                        {space.squareFootage && (
-                          <span className="text-[10px] font-semibold text-[#66737A] px-2 py-0.5 bg-white rounded border border-[#DDD8CF]">
-                            {space.squareFootage.toLocaleString()} sq ft
-                          </span>
+                  {venue.spaces.map((space) => {
+                    const areaText = space.squareFeet
+                      ? `${space.squareFeet.toLocaleString()} sq ft`
+                      : space.squareMeters
+                      ? `${space.squareMeters.toLocaleString()} m²`
+                      : null;
+                    const standing = space.standingCapacity || space.maxCapacity || 0;
+                    const seated = space.seatedCapacity || 0;
+                    const theatre = space.theatreCapacity || 0;
+
+                    return (
+                      <div
+                        key={space.id}
+                        className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-[#26343D]">{space.name}</h4>
+                            {space.floorLocation && (
+                              <span className="text-[10px] text-[#66737A]">{space.floorLocation}</span>
+                            )}
+                          </div>
+                          {areaText && (
+                            <span className="text-[10px] font-semibold text-[#66737A] px-2 py-0.5 bg-white rounded border border-[#DDD8CF]">
+                              {areaText}
+                            </span>
+                          )}
+                        </div>
+                        {space.description && (
+                          <p className="text-xs text-[#66737A] leading-relaxed line-clamp-2">
+                            {space.description}
+                          </p>
                         )}
+                        <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center justify-between text-[11px] text-[#66737A] flex-wrap gap-1">
+                          <span>Standing: <strong>{standing}</strong></span>
+                          <span>Seated: <strong>{seated}</strong></span>
+                          {theatre > 0 && <span>Theatre: <strong>{theatre}</strong></span>}
+                        </div>
                       </div>
-                      <p className="text-xs text-[#66737A] leading-relaxed line-clamp-2">
-                        {space.description}
-                      </p>
-                      <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center justify-between text-[11px] text-[#66737A]">
-                        <span>Capacity: <strong>{space.capacity?.cocktail || venue.capacity.cocktail}</strong> cocktail</span>
-                        <span><strong>{space.capacity?.seatedBanquet || venue.capacity.seatedBanquet}</strong> seated</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -788,41 +820,58 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             {/* Host Card */}
             <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <img
-                  src={venue.host.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
-                  alt={venue.host.name}
-                  className="w-13 h-13 rounded-full object-cover border-2 border-[#A86445] shadow-xs"
-                />
+                {venue.host?.avatar ? (
+                  <img
+                    src={venue.host.avatar}
+                    alt={venue.host.name || 'Host'}
+                    className="w-13 h-13 rounded-full object-cover border-2 border-[#A86445] shadow-xs"
+                  />
+                ) : (
+                  <div className="w-13 h-13 rounded-full bg-[#F4F1EA] border-2 border-[#DDD8CF] flex items-center justify-center text-[#66737A] shadow-xs font-bold text-sm">
+                    {venue.host?.name ? venue.host.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
+                  </div>
+                )}
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-sm font-bold text-[#26343D]">{venue.host.name}</h4>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online now" />
+                    <h4 className="text-sm font-bold text-[#26343D]">{venue.host?.name || venue.businessName || 'Venue Management'}</h4>
                   </div>
-                  <p className="text-xs text-[#66737A]">{venue.host.title}</p>
-                  <div className="flex items-center gap-1 text-[11px] text-[#26343D] font-semibold mt-0.5">
-                    <Star className="w-3 h-3 fill-current text-amber-400" />
-                    <span>{(venue.host.rating || 5.0).toFixed(2)} Rating</span>
-                    <span className="text-[#66737A]">• {venue.host.totalToursConducted || 0} Tours Led</span>
-                  </div>
+                  {venue.host?.title && (
+                    <p className="text-xs text-[#66737A]">{venue.host.title}</p>
+                  )}
+                  {venue.host?.rating && venue.host.rating > 0 && venue.host?.totalToursConducted && venue.host.totalToursConducted > 0 ? (
+                    <div className="flex items-center gap-1 text-[11px] text-[#26343D] font-semibold mt-0.5">
+                      <Star className="w-3 h-3 fill-current text-amber-400" />
+                      <span>{venue.host.rating.toFixed(2)} Rating</span>
+                      <span className="text-[#66737A]">• {venue.host.totalToursConducted} Tours Led</span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-[#66737A] block mt-0.5">Venue Host</span>
+                  )}
                 </div>
               </div>
 
-              {venue.host.bio && (
+              {venue.host?.bio && (
                 <p className="text-xs text-[#66737A] italic bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] leading-relaxed">
                   "{venue.host.bio}"
                 </p>
               )}
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-[#66737A] pt-1">
-                <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
-                  <span className="text-[#66737A] block text-[10px]">Response Time</span>
-                  <span className="font-semibold text-emerald-600">{venue.host.responseTime || '< 2 hours'}</span>
+              {(venue.host?.responseTime || (venue.host?.languages && venue.host.languages.length > 0)) && (
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-[#66737A] pt-1">
+                  {venue.host.responseTime && (
+                    <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
+                      <span className="text-[#66737A] block text-[10px]">Response Time</span>
+                      <span className="font-semibold text-emerald-600">{venue.host.responseTime}</span>
+                    </div>
+                  )}
+                  {venue.host.languages && venue.host.languages.length > 0 && (
+                    <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
+                      <span className="text-[#66737A] block text-[10px]">Languages</span>
+                      <span className="font-semibold text-[#26343D]">{venue.host.languages.join(', ')}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="p-2.5 rounded-lg bg-[#F4F1EA] border border-[#DDD8CF]">
-                  <span className="text-[#66737A] block text-[10px]">Languages</span>
-                  <span className="font-semibold text-[#26343D]">{venue.host.languages?.join(', ') || 'English'}</span>
-                </div>
-              </div>
+              )}
 
               {/* Primary Call to Action Buttons */}
               <div className="space-y-2 pt-1">
@@ -835,14 +884,20 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   <span>Request to Book Space</span>
                 </button>
 
-                <button
-                  id="sidebar-book-live-tour-btn"
-                  onClick={() => onBookWalkthrough(venue)}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#DDD8CF] text-[#26343D] font-semibold text-xs hover:bg-[#F4F1EA] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xs"
-                >
-                  <Video className="w-3.5 h-3.5 text-[#A86445]" />
-                  <span>Schedule Live Video Tour</span>
-                </button>
+                {venue.availableSlots && venue.availableSlots.length > 0 ? (
+                  <button
+                    id="sidebar-book-live-tour-btn"
+                    onClick={() => onBookWalkthrough(venue)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white border border-[#DDD8CF] text-[#26343D] font-semibold text-xs hover:bg-[#F4F1EA] active:scale-95 transition-all flex items-center justify-center gap-2 shadow-xs"
+                  >
+                    <Video className="w-3.5 h-3.5 text-[#A86445]" />
+                    <span>Schedule Live Video Tour</span>
+                  </button>
+                ) : (
+                  <div className="w-full py-2.5 px-3 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A] text-[11px] text-center italic">
+                    Live tour availability has not been added yet.
+                  </div>
+                )}
               </div>
             </div>
 

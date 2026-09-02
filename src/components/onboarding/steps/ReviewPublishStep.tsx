@@ -24,7 +24,16 @@ export const ReviewPublishStep: React.FC<ReviewPublishStepProps> = ({
   const completeness = calculateCompleteness(venue as Venue);
   const tierBadge = getQualityTierBadge(completeness.tier);
 
-  const missingCrucial = !venue.name || !venue.location?.city || !venue.pricing?.startingPrice;
+  const isPublishValid = Boolean(
+    organisation.name?.trim() &&
+    organisation.contactName?.trim() &&
+    organisation.email?.trim() &&
+    venue.name?.trim() &&
+    venue.location?.city?.trim() &&
+    venue.pricing?.startingPrice &&
+    venue.pricing.startingPrice > 0
+  );
+  const missingCrucial = !isPublishValid;
 
   return (
     <div className="space-y-6">
@@ -175,7 +184,7 @@ export const ReviewPublishStep: React.FC<ReviewPublishStepProps> = ({
       {missingCrucial && (
         <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-800">
           <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>Please complete the venue name, city, and pricing before publishing.</span>
+          <span>Please complete required business details (name, contact, email), venue name, city, and a starting price greater than 0 before publishing.</span>
         </div>
       )}
 

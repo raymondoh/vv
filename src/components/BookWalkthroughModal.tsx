@@ -35,10 +35,10 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
 }) => {
   const [step, setStep] = useState<'schedule' | 'confirmed'>('schedule');
   const [selectedDate, setSelectedDate] = useState<string>(
-    venue.availableSlots[0]?.date || '2026-09-01'
+    venue.availableSlots?.[0]?.date || ''
   );
   const [selectedTime, setSelectedTime] = useState<string>(
-    venue.availableSlots[0]?.times[0]?.time || '10:00 AM'
+    venue.availableSlots?.[0]?.times?.[0]?.time || ''
   );
   const [walkthroughType, setWalkthroughType] = useState<'private-director' | 'group-preview' | 'technical-av'>('private-director');
   
@@ -57,7 +57,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentSlot = venue.availableSlots.find((s) => s.date === selectedDate) || venue.availableSlots[0];
+  const currentSlot = venue.availableSlots?.find((s) => s.date === selectedDate) || venue.availableSlots?.[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +134,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 {step === 'schedule' ? 'Schedule Live Walkthrough' : 'Walkthrough Confirmed'}
               </h2>
               <p className="text-xs text-[#66737A]">
-                {venue.name} • Coordinator: {venue.host.name}
+                {venue.name} {venue.host?.name ? `• Host: ${venue.host.name}` : ''}
               </p>
             </div>
           </div>
@@ -172,7 +172,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                   }`}
                 >
                   <span className="text-xs font-bold text-[#26343D] block">1-on-1 Live Tour</span>
-                  <p className="text-[11px] text-[#66737A] mt-1">Direct live video walkthrough with venue coordinator {venue.host.name}</p>
+                  <p className="text-[11px] text-[#66737A] mt-1">Direct live video walkthrough with the venue team</p>
                 </button>
 
                 <button
@@ -209,58 +209,66 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 2. Select Date & Time Slot
               </label>
 
-              {/* Date Tabs */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {venue.availableSlots.map((slot) => {
-                  const isSelected = slot.date === selectedDate;
-                  const dateObj = new Date(slot.date + 'T00:00:00');
-                  const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                  const monthDay = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              {venue.availableSlots && venue.availableSlots.length > 0 ? (
+                <>
+                  {/* Date Tabs */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {venue.availableSlots.map((slot) => {
+                      const isSelected = slot.date === selectedDate;
+                      const dateObj = new Date(slot.date + 'T00:00:00');
+                      const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                      const monthDay = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                  return (
-                    <button
-                      key={slot.date}
-                      type="button"
-                      onClick={() => {
-                        setSelectedDate(slot.date);
-                        if (slot.times.length > 0) setSelectedTime(slot.times[0].time);
-                      }}
-                      className={`px-4 py-2.5 rounded-xl border text-center shrink-0 transition-all ${
-                        isSelected
-                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                          : 'bg-[#F4F1EA] text-[#66737A] border-[#DDD8CF] hover:border-[#A86445]/60'
-                      }`}
-                    >
-                      <span className="text-[10px] uppercase block">{weekday}</span>
-                      <span className="text-xs">{monthDay}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                      return (
+                        <button
+                          key={slot.date}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate(slot.date);
+                            if (slot.times.length > 0) setSelectedTime(slot.times[0].time);
+                          }}
+                          className={`px-4 py-2.5 rounded-xl border text-center shrink-0 transition-all ${
+                            isSelected
+                              ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                              : 'bg-[#F4F1EA] text-[#66737A] border-[#DDD8CF] hover:border-[#A86445]/60'
+                          }`}
+                        >
+                          <span className="text-[10px] uppercase block">{weekday}</span>
+                          <span className="text-xs">{monthDay}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              {/* Available Time Slots */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                {currentSlot?.times.map((timeItem) => {
-                  const isSelected = timeItem.time === selectedTime;
-                  return (
-                    <button
-                      key={timeItem.time}
-                      type="button"
-                      disabled={!timeItem.available}
-                      onClick={() => setSelectedTime(timeItem.time)}
-                      className={`p-2.5 rounded-xl border text-xs text-center transition-all ${
-                        !timeItem.available
-                          ? 'bg-stone-200/50 text-stone-400 border-[#DDD8CF] cursor-not-allowed line-through'
-                          : isSelected
-                          ? 'bg-[#F3E7DF] border-[#A86445] text-[#A86445] font-bold shadow-xs'
-                          : 'bg-[#F4F1EA] text-[#66737A] border-[#DDD8CF] hover:border-[#A86445]/60'
-                      }`}
-                    >
-                      <span>{timeItem.time}</span>
-                    </button>
-                  );
-                })}
-              </div>
+                  {/* Available Time Slots */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    {currentSlot?.times.map((timeItem) => {
+                      const isSelected = timeItem.time === selectedTime;
+                      return (
+                        <button
+                          key={timeItem.time}
+                          type="button"
+                          disabled={!timeItem.available}
+                          onClick={() => setSelectedTime(timeItem.time)}
+                          className={`p-2.5 rounded-xl border text-xs text-center transition-all ${
+                            !timeItem.available
+                              ? 'bg-stone-200/50 text-stone-400 border-[#DDD8CF] cursor-not-allowed line-through'
+                              : isSelected
+                              ? 'bg-[#F3E7DF] border-[#A86445] text-[#A86445] font-bold shadow-xs'
+                              : 'bg-[#F4F1EA] text-[#66737A] border-[#DDD8CF] hover:border-[#A86445]/60'
+                          }`}
+                        >
+                          <span>{timeItem.time}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-xs text-[#66737A] text-center italic">
+                  Live tour availability has not been added yet. Please provide your event details below to request a tailored appointment.
+                </div>
+              )}
             </div>
 
             {/* Event & Contact Details Form */}

@@ -306,17 +306,31 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
     setVenue((prev) => ({ ...prev, walkthroughClips }));
   };
 
+  const validateForPublish = (): string | null => {
+    if (!organisation.name?.trim() || !organisation.contactName?.trim() || !organisation.email?.trim()) {
+      return 'Please complete required business details (name, contact person, and email) before publishing.';
+    }
+    if (!venue.name?.trim()) {
+      return 'Please provide a venue name before publishing.';
+    }
+    if (!venue.location?.city?.trim()) {
+      return 'Please provide a venue city before publishing.';
+    }
+    if (!venue.pricing?.startingPrice || venue.pricing.startingPrice <= 0) {
+      return 'Please specify a starting price greater than 0 before publishing.';
+    }
+    return null;
+  };
+
   const handleSave = async (publishStatus: 'draft' | 'published') => {
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
       if (publishStatus === 'published') {
-        if (!organisation.name?.trim() || !organisation.contactName?.trim() || !organisation.email?.trim()) {
-          throw new Error('Please fill in business name, contact name, and business email before publishing.');
-        }
-        if (!venue.name?.trim() || !venue.location?.city?.trim()) {
-          throw new Error('Please provide at least a venue name and city before publishing.');
+        const validationError = validateForPublish();
+        if (validationError) {
+          throw new Error(validationError);
         }
       } else {
         if (!organisation.name?.trim() && !venue.name?.trim()) {
@@ -352,7 +366,7 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
       } else {
         savedOrg = {
           id: organisation.id || `org-${Date.now().toString().slice(-6)}`,
-          name: organisation.name?.trim() || 'New Business Account',
+          name: organisation.name?.trim() || '',
           contactName: organisation.contactName?.trim() || '',
           email: organisation.email?.trim() || '',
           phone: organisation.phone?.trim() || '',
@@ -366,7 +380,7 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
       const score = calculateCompleteness(venue as Venue);
       const venuePayload: Partial<Venue> = {
         ...venue,
-        name: venue.name?.trim() || 'Untitled Venue Draft',
+        name: venue.name?.trim() || '',
         organisationId: savedOrg.id,
         businessName: savedOrg.name,
         status: publishStatus,
