@@ -727,7 +727,7 @@ app.post('/api/walkthroughs/book', (req, res) => {
     venueId: venue.id,
     venueName: venue.name,
     venueLocation: `${venue.location.city}, ${venue.location.state}`,
-    venueImage: venue.heroImage,
+    venueImage: venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '',
     clientName,
     clientEmail,
     clientPhone: clientPhone || '',
@@ -742,7 +742,7 @@ app.post('/api/walkthroughs/book', (req, res) => {
     meetingCode,
     status: 'confirmed',
     createdAt: new Date().toISOString(),
-    hostName: venue.host.name,
+    hostName: venue.host?.name || venue.businessName || 'Venue team',
   };
 
   bookingsStore.unshift(newBooking);
@@ -750,7 +750,7 @@ app.post('/api/walkthroughs/book', (req, res) => {
   res.status(201).json({
     success: true,
     booking: newBooking,
-    message: `Live walkthrough confirmed with ${venue.host.name} on ${scheduledDate} at ${scheduledTime}`,
+    message: `Live walkthrough confirmed with ${venue.host?.name || venue.businessName || 'the venue team'} on ${scheduledDate} at ${scheduledTime}`,
   });
 });
 
@@ -870,17 +870,17 @@ app.post('/api/venue-bookings', (req, res) => {
     venueId: venue.id,
     venueName: venue.name,
     venueLocation: `${venue.location.city}, ${venue.location.state}`,
-    venueImage: venue.heroImage,
+    venueImage: venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '',
     clientName,
     clientEmail,
     clientPhone: clientPhone || '',
     clientCompany: clientCompany || '',
     eventType: eventType || 'meetings-conferences',
-    guestCount: Number(guestCount) || venue.capacity.seatedBanquet,
+    guestCount: Number(guestCount) || venue.capacity?.seatedBanquet || venue.capacity?.cocktail || 50,
     eventDate,
     startTime: startTime || '09:00 AM',
     endTime: endTime || '06:00 PM',
-    selectedLayout: selectedLayout || venue.walkthroughClips[0]?.title || 'Standard Setup',
+    selectedLayout: selectedLayout || venue.walkthroughClips?.[0]?.title || venue.spaces?.[0]?.name || 'Standard Setup',
     specialRequirements: specialRequirements || '',
     status: 'requested', // starts as requested -> awaiting venue review
     grossAmount: calculatedGross,
@@ -889,7 +889,7 @@ app.post('/api/venue-bookings', (req, res) => {
     finalBalance,
     finalBalanceDueDate: calculatedBalanceDueDate,
     createdAt: new Date().toISOString(),
-    hostName: venue.host.name,
+    hostName: venue.host?.name || venue.businessName || 'Venue team',
     checklist: [
       { id: `chk-${Date.now()}-1`, text: 'Explore venue walkthrough & architectural floor plan', completed: true, category: 'Inspection' },
       { id: `chk-${Date.now()}-2`, text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
@@ -907,7 +907,7 @@ app.post('/api/venue-bookings', (req, res) => {
   res.status(201).json({
     success: true,
     booking: newVenueBooking,
-    message: `Booking request ${bookingNumber} submitted to ${venue.name}. Coordinator ${venue.host.name} has been notified.`,
+    message: `Booking request ${bookingNumber} submitted to ${venue.name}. Coordinator ${venue.host?.name || venue.businessName || 'Venue team'} has been notified.`,
   });
 });
 

@@ -608,7 +608,7 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
               </button>
             )}
 
-            {currentStep < 7 ? (
+            {currentStep < 7 && (
               <button
                 type="button"
                 onClick={handleNext}
@@ -616,16 +616,6 @@ export const VenueOnboardingModal: React.FC<VenueOnboardingModalProps> = ({
               >
                 <span>Continue</span>
                 <ChevronRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={isSaving}
-                onClick={() => handleSave('published')}
-                className="px-6 py-2 bg-[#A86445] hover:bg-[#8F5236] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{isSaving ? 'Publishing...' : 'Publish Venue'}</span>
               </button>
             )}
           </div>

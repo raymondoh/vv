@@ -28,6 +28,7 @@ import {
   FileText,
   Lock,
   Globe,
+  ImageIcon,
 } from 'lucide-react';
 import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus, BusinessOrganisation, VenueSpace } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
@@ -309,11 +310,21 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     {/* Customer & Space Identification */}
                     <div className="flex items-start gap-3.5">
-                      <img
-                        src={request.venueImage}
-                        alt={request.venueName}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                      />
+                      {request.venueImage ? (
+                        <img
+                          src={request.venueImage}
+                          alt={request.venueName}
+                          className="w-16 h-16 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-1 text-center">
+                          <ImageIcon className="w-4 h-4 text-[#A86445] mb-0.5" />
+                          <span className="text-[9px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                            {request.venueName ? request.venueName.slice(0, 8) : 'Venue'}
+                          </span>
+                          <span className="text-[8px] text-[#66737A]">No photo</span>
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-bold uppercase tracking-wider bg-[#A86445] text-white px-2 py-0.5 rounded">
@@ -574,6 +585,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                 const isDraft = venue.status === 'draft';
                 const spacesCount = venue.spaces?.length || 1;
                 const layoutsTotal = venue.spaces?.reduce((acc, s) => acc + (s.layouts?.length || 1), 0) || venue.walkthroughClips.length;
+                const venueThumbSrc = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '';
 
                 return (
                   <div
@@ -582,11 +594,23 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="flex items-start gap-4">
-                        <img
-                          src={venue.heroImage}
-                          alt={venue.name}
-                          className="w-24 h-24 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                        />
+                        {venueThumbSrc ? (
+                          <img
+                            src={venueThumbSrc}
+                            alt={venue.name}
+                            className="w-24 h-24 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                          />
+                        ) : (
+                          <div className="w-24 h-24 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-2 text-center">
+                            <div className="w-8 h-8 rounded-lg bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-1 shadow-2xs">
+                              <ImageIcon className="w-4 h-4" />
+                            </div>
+                            <span className="text-[10px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                              {venue.name || 'Venue'}
+                            </span>
+                            <span className="text-[9px] text-[#66737A] mt-0.5">No photo added</span>
+                          </div>
+                        )}
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <h4 className="text-base font-bold text-[#26343D]">{venue.name}</h4>

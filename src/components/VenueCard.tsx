@@ -122,16 +122,18 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           </button>
         </div>
 
-        {/* Center Hover Video Play Overlay */}
-        <div
-          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-            isHovered ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="w-12 h-12 rounded-full bg-[#26343D] border border-white/30 flex items-center justify-center text-white shadow-lg transform scale-95 group-hover:scale-100 transition-transform">
-            <Play className="w-4 h-4 fill-current ml-0.5 text-white" />
+        {/* Center Hover Video Play Overlay - Only show when actual recorded walkthrough exists */}
+        {hasRecordedWalkthrough && (
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className="w-12 h-12 rounded-full bg-[#26343D] border border-white/30 flex items-center justify-center text-white shadow-lg transform scale-95 group-hover:scale-100 transition-transform">
+              <Play className="w-4 h-4 fill-current ml-0.5 text-white" />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Bottom thumbnail tag */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">

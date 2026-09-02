@@ -41,12 +41,12 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Form State
-  const [eventType, setEventType] = useState<string>(venue.eventTypes[0] || 'meetings-conferences');
+  const [eventType, setEventType] = useState<string>(venue.eventTypes?.[0] || 'meetings-conferences');
   const [eventDate, setEventDate] = useState<string>('2026-11-18');
   const [startTime, setStartTime] = useState<string>('09:00 AM');
   const [endTime, setEndTime] = useState<string>('05:30 PM');
   const [guestCount, setGuestCount] = useState<number>(
-    Math.min(100, venue.capacity.seatedBanquet || 100)
+    Math.min(100, venue.capacity?.seatedBanquet || venue.capacity?.cocktail || 100)
   );
   const [selectedLayout, setSelectedLayout] = useState<string>(
     selectedLayoutCategory
@@ -66,7 +66,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   if (!isOpen) return null;
 
   // Calculation based on active MarketplaceConfig (Standard venue pricing - NO customer platform fees)
-  const grossAmount = venue.pricing.startingPrice;
+  const grossAmount = venue.pricing?.startingPrice || 0;
   const financials = calculateBookingFinancials(grossAmount, marketplaceConfig, eventDate);
   const depositPercentage = financials.depositPercentage;
   const depositAmount = financials.depositAmount;
@@ -99,58 +99,18 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to submit booking request');
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success || !data?.booking) {
+        throw new Error(data?.error || `Booking submission failed (${response.status})`);
       }
 
-      const data = await response.json();
-      if (data.success && data.booking) {
-        setCreatedBooking(data.booking);
-        onBookingSubmitted(data.booking);
-        setStep('confirmed');
-      } else {
-        throw new Error(data.error || 'Submission failed');
-      }
+      setCreatedBooking(data.booking);
+      onBookingSubmitted(data.booking);
+      setStep('confirmed');
     } catch (err: any) {
       console.error('Booking submission error:', err);
-      // Fallback local creation for offline prototype resilience
-      const fallbackBooking: VenueBooking = {
-        id: `vb-${Date.now().toString().slice(-6)}`,
-        bookingNumber: `VSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        venueId: venue.id,
-        venueName: venue.name,
-        venueLocation: `${venue.location.city}, ${venue.location.state}`,
-        venueImage: venue.heroImage,
-        clientName,
-        clientEmail,
-        clientPhone,
-        clientCompany,
-        eventType,
-        guestCount,
-        eventDate,
-        startTime,
-        endTime,
-        selectedLayout,
-        specialRequirements,
-        status: 'requested',
-        grossAmount,
-        depositPercentage,
-        depositAmount,
-        finalBalance: remainingBalance,
-        finalBalanceDueDate: financials.finalBalanceDueDate,
-        createdAt: new Date().toISOString(),
-        hostName: venue.host.name,
-        checklist: [
-          { id: 'c1', text: 'Explore venue walkthrough & architectural floor plan', completed: true, category: 'Inspection' },
-          { id: 'c2', text: 'Venue booking request submitted to coordinator', completed: true, category: 'Contract & Payment' },
-          { id: 'c3', text: 'Awaiting venue host review & date confirmation', completed: false, category: 'Contract & Payment' },
-          { id: 'c4', text: `Pay initial deposit (${depositPercentage}%) once venue accepts`, completed: false, category: 'Contract & Payment' },
-          { id: 'c5', text: 'Finalize catering, AV setup & run-of-show', completed: false, category: 'Catering & AV' },
-        ],
-      };
-      setCreatedBooking(fallbackBooking);
-      onBookingSubmitted(fallbackBooking);
-      setStep('confirmed');
+      setError(err?.message || 'Failed to submit booking request. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
@@ -170,7 +130,8 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                 {step === 'confirmed' ? 'Booking Request Submitted' : `Request to Book — ${venue.name}`}
               </h2>
               <p className="text-xs text-[#66737A]">
-                {venue.location.city}, {venue.location.state} • Coordinator: {venue.host.name}
+                {venue.location.city}{venue.location.state ? `, ${venue.location.state}` : ''}
+                {venue.host?.name ? ` • Coordinator: ${venue.host.name}` : ''}
               </p>
             </div>
           </div>
@@ -278,7 +239,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     id="booking-guest-count-input"
                     type="number"
                     min="1"
-                    max={venue.capacity.cocktail}
+                    max={venue.capacity?.cocktail || venue.capacity?.seatedBanquet || 500}
                     value={guestCount}
                     onChange={(e) => setGuestCount(Number(e.target.value))}
                     className="w-full bg-[#F4F1EA] text-[#26343D] text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#26343D]"
@@ -514,7 +475,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     <span>{formatCurrency(remainingBalance, venue.pricing.currency || 'GBP')} (Due {balanceDueDays} days prior to event)</span>
                   </div>
                   <p className="text-[10px] text-[#66737A] pt-1">
-                    *Deposit is only requested once {venue.host.name} reviews and confirms your date.
+                    *Deposit is only requested once {venue.host?.name ? venue.host.name : 'the venue team'} reviews and confirms your date.
                   </p>
                 </div>
               </div>
@@ -552,7 +513,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                   Booking Request Submitted!
                 </h3>
                 <p className="text-xs text-[#66737A] max-w-md mx-auto leading-relaxed">
-                  Your reservation request <strong className="text-[#26343D] font-mono">{createdBooking.bookingNumber}</strong> has been transmitted to venue coordinator <strong>{createdBooking.hostName}</strong>.
+                  Your reservation request <strong className="text-[#26343D] font-mono">{createdBooking.bookingNumber}</strong> has been transmitted to {createdBooking.hostName ? <>venue coordinator <strong>{createdBooking.hostName}</strong></> : 'the venue management team'}.
                 </p>
               </div>
 
@@ -568,7 +529,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     </div>
                     <div>
                       <strong className="text-[#26343D] block">Venue Reviews Calendar</strong>
-                      <span>{createdBooking.hostName} verifies floor plan setup and date hold ({createdBooking.eventDate}).</span>
+                      <span>{createdBooking.hostName || 'Venue team'} verifies floor plan setup and date hold ({createdBooking.eventDate}).</span>
                     </div>
                   </div>
 
