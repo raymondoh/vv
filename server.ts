@@ -6,6 +6,7 @@ import { VENUES } from './src/data/venues.ts';
 import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
 import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
+import { resolveBookingConfiguration } from './src/utils/venueConfigurationHelpers.ts';
 
 const app = express();
 const PORT = 3000;
@@ -828,6 +829,8 @@ app.post('/api/venue-bookings', (req, res) => {
     startTime,
     endTime,
     selectedLayout,
+    selectedSpaceId,
+    selectedLayoutId,
     specialRequirements,
     grossAmount,
   } = req.body;
@@ -868,23 +871,25 @@ app.post('/api/venue-bookings', (req, res) => {
   const newId = `vb-${Date.now().toString().slice(-6)}`;
   const bookingNumber = `VSB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  // Determine media capabilities truthfully
-  const hasWalkthrough = Boolean(
-    (venue.walkthroughClips && venue.walkthroughClips.length > 0) ||
-    venue.mediaAssets?.some((m) => m.type === 'walkthrough_video' || m.type === '360_tour') ||
-    venue.spaces?.some((s) => s.layouts?.some((l) => l.walkthroughMediaUrl))
+  // Determine media capabilities truthfully from the BOOKED CONFIGURATION
+  const resolvedConfig = resolveBookingConfiguration(
+    venue,
+    selectedSpaceId,
+    selectedLayoutId,
+    selectedLayout
   );
 
-  const hasFloorPlan = Boolean(
-    venue.spaces?.some((s) => s.layouts?.some((l) => l.floorPlanUrl)) ||
-    venue.mediaAssets?.some((m) => m.type === 'floor_plan')
-  );
+  const matchedSpace = resolvedConfig.space;
+  const matchedLayout = resolvedConfig.layout;
+  const associatedWalkthroughId = resolvedConfig.walkthroughClip?.id;
+  const hasWalkthrough = resolvedConfig.hasWalkthrough;
+  const hasFloorPlan = resolvedConfig.hasFloorPlan;
 
   // Build completely truthful initial checklist
   const initialChecklist: ChecklistItem[] = [];
   let chkCounter = 1;
 
-  // Media review tasks only exist if the media genuinely exists, and remain incomplete until reviewed
+  // Media review tasks only exist if the media genuinely exists for THIS configuration
   if (hasWalkthrough) {
     initialChecklist.push({
       id: `chk-${Date.now()}-${chkCounter++}`,
@@ -962,7 +967,14 @@ app.post('/api/venue-bookings', (req, res) => {
     eventDate,
     startTime: startTime || '09:00 AM',
     endTime: endTime || '06:00 PM',
-    selectedLayout: selectedLayout || venue.walkthroughClips?.[0]?.title || venue.spaces?.[0]?.name || 'Standard Setup',
+    selectedLayout:
+      selectedLayout ||
+      (matchedSpace && matchedLayout
+        ? `${matchedSpace.name} — ${matchedLayout.title || `${matchedLayout.layoutType} Setup`}`
+        : matchedSpace?.name || venue.walkthroughClips?.[0]?.title || 'Standard Setup'),
+    selectedSpaceId: matchedSpace?.id || selectedSpaceId || undefined,
+    selectedLayoutId: matchedLayout?.id || selectedLayoutId || undefined,
+    associatedWalkthroughId: associatedWalkthroughId || undefined,
     specialRequirements: specialRequirements || '',
     status: 'requested', // starts as requested -> awaiting venue review
     grossAmount: calculatedGross,

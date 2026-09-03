@@ -275,6 +275,8 @@ export interface VenueBooking {
   startTime?: string;
   endTime?: string;
   selectedLayout?: string;
+  selectedSpaceId?: string;
+  selectedLayoutId?: string;
   specialRequirements?: string;
   status: VenueBookingStatus;
   grossAmount: number;

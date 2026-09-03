@@ -16,7 +16,7 @@ import {
 import { Venue, VenueBooking, LayoutCategory, MarketplaceConfig } from '../types';
 import { DEFAULT_MARKETPLACE_CONFIG, calculateBookingFinancials } from '../config/marketplaceConfig';
 import { formatCurrency, formatDateDisplay } from '../utils/formatters';
-import { getVenueSpaces, getVenueLayouts } from '../utils/venueConfigurationHelpers';
+import { getVenueSpaces, getVenueLayouts, resolveBookingConfiguration } from '../utils/venueConfigurationHelpers';
 
 interface VenueBookingModalProps {
   venue: Venue;
@@ -25,6 +25,8 @@ interface VenueBookingModalProps {
   onBookingSubmitted: (booking: VenueBooking) => void;
   selectedLayoutCategory?: LayoutCategory;
   preselectedLayout?: string;
+  preselectedSpaceId?: string;
+  preselectedLayoutId?: string;
   marketplaceConfig?: MarketplaceConfig;
   onViewInMyEvents?: () => void;
 }
@@ -36,6 +38,8 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   onBookingSubmitted,
   selectedLayoutCategory,
   preselectedLayout,
+  preselectedSpaceId,
+  preselectedLayoutId,
   marketplaceConfig = DEFAULT_MARKETPLACE_CONFIG,
   onViewInMyEvents,
 }) => {
@@ -46,22 +50,60 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   const spaces = getVenueSpaces(venue);
   const spaceLayouts = getVenueLayouts(venue);
 
-  const computeInitialLayout = (): string => {
-    if (preselectedLayout && preselectedLayout.trim()) {
-      return preselectedLayout;
+  // Initialize selected configuration with explicit spaceId & layoutId where possible
+  const initialConfig = (() => {
+    // 1. If explicit layoutId or preselection passed
+    if (preselectedSpaceId || preselectedLayoutId || preselectedLayout) {
+      const resolved = resolveBookingConfiguration(venue, preselectedSpaceId, preselectedLayoutId, preselectedLayout);
+      if (resolved.layout && resolved.space) {
+        return {
+          label: `${resolved.space.name} — ${resolved.layout.title || `${resolved.layout.layoutType} Setup`}`,
+          spaceId: resolved.space.id,
+          layoutId: resolved.layout.id,
+        };
+      }
+      if (resolved.space) {
+        return {
+          label: preselectedLayout || resolved.space.name,
+          spaceId: resolved.space.id,
+          layoutId: undefined,
+        };
+      }
     }
+
+    // 2. Fall back to first configured space layout
     if (spaceLayouts.length > 0) {
       const first = spaceLayouts[0];
-      return `${first.space.name} — ${first.layout.title || `${first.layout.layoutType} Setup`}`;
+      return {
+        label: `${first.space.name} — ${first.layout.title || `${first.layout.layoutType} Setup`}`,
+        spaceId: first.space.id,
+        layoutId: first.layout.id,
+      };
     }
+
+    // 3. Category or space fallback
     if (selectedLayoutCategory) {
-      return `${selectedLayoutCategory.charAt(0).toUpperCase() + selectedLayoutCategory.slice(1)} Setup`;
+      return {
+        label: `${selectedLayoutCategory.charAt(0).toUpperCase() + selectedLayoutCategory.slice(1)} Setup`,
+        spaceId: spaces[0]?.id,
+        layoutId: undefined,
+      };
     }
+
     if (spaces.length > 0) {
-      return spaces[0].name;
+      return {
+        label: spaces[0].name,
+        spaceId: spaces[0].id,
+        layoutId: undefined,
+      };
     }
-    return venue.walkthroughClips?.[0]?.title || 'Standard Setup';
-  };
+
+    return {
+      label: venue.walkthroughClips?.[0]?.title || 'Standard Setup',
+      spaceId: undefined,
+      layoutId: undefined,
+    };
+  })();
 
   // Form State
   const [eventType, setEventType] = useState<string>(venue.eventTypes?.[0] || 'meetings-conferences');
@@ -71,8 +113,48 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   const [guestCount, setGuestCount] = useState<number>(
     Math.min(100, venue.capacity?.seatedBanquet || venue.capacity?.cocktail || 100)
   );
-  const [selectedLayout, setSelectedLayout] = useState<string>(computeInitialLayout());
+  const [selectedLayout, setSelectedLayout] = useState<string>(initialConfig.label);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | undefined>(initialConfig.spaceId);
+  const [selectedLayoutId, setSelectedLayoutId] = useState<string | undefined>(initialConfig.layoutId);
   const [specialRequirements, setSpecialRequirements] = useState<string>('');
+
+  const handleSelectLayout = (rawVal: string) => {
+    // If rawVal is composite: `${space.id}::${layout.id}`
+    if (rawVal.includes('::')) {
+      const [sId, lId] = rawVal.split('::');
+      const found = spaceLayouts.find((sl) => sl.space.id === sId && sl.layout.id === lId);
+      if (found) {
+        setSelectedLayout(`${found.space.name} — ${found.layout.title || `${found.layout.layoutType} Setup`}`);
+        setSelectedSpaceId(found.space.id);
+        setSelectedLayoutId(found.layout.id);
+        return;
+      }
+    }
+
+    // If rawVal is a space id or name
+    if (rawVal.startsWith('space:')) {
+      const sId = rawVal.replace('space:', '');
+      const space = spaces.find((s) => s.id === sId);
+      if (space) {
+        setSelectedLayout(space.name);
+        setSelectedSpaceId(space.id);
+        setSelectedLayoutId(undefined);
+        return;
+      }
+    }
+
+    // Fallback: search across spaceLayouts or resolveBookingConfiguration
+    const resolved = resolveBookingConfiguration(venue, undefined, undefined, rawVal);
+    if (resolved.layout && resolved.space) {
+      setSelectedLayout(`${resolved.space.name} — ${resolved.layout.title || `${resolved.layout.layoutType} Setup`}`);
+      setSelectedSpaceId(resolved.space.id);
+      setSelectedLayoutId(resolved.layout.id);
+    } else {
+      setSelectedLayout(rawVal);
+      setSelectedSpaceId(resolved.space?.id);
+      setSelectedLayoutId(undefined);
+    }
+  };
 
   // Customer Contact Info
   const [clientName, setClientName] = useState<string>('Sarah Jenkins');
@@ -113,6 +195,8 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
           startTime,
           endTime,
           selectedLayout,
+          selectedSpaceId,
+          selectedLayoutId,
           specialRequirements,
           grossAmount,
         }),
@@ -315,8 +399,8 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                 </label>
                 <select
                   id="booking-layout-select"
-                  value={selectedLayout}
-                  onChange={(e) => setSelectedLayout(e.target.value)}
+                  value={selectedSpaceId && selectedLayoutId ? `${selectedSpaceId}::${selectedLayoutId}` : (selectedSpaceId ? `space:${selectedSpaceId}` : selectedLayout)}
+                  onChange={(e) => handleSelectLayout(e.target.value)}
                   className="w-full bg-[#F4F1EA] text-[#26343D] text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#26343D]"
                 >
                   {spaces.length > 0 && spaceLayouts.length > 0 ? (
@@ -325,7 +409,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                       if (layouts.length === 0) {
                         const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
                         return (
-                          <option key={space.id} value={space.name}>
+                          <option key={space.id} value={`space:${space.id}`}>
                             {space.name} {cap > 0 ? `(Max ${cap} guests)` : ''}
                           </option>
                         );
@@ -333,9 +417,8 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                       return (
                         <optgroup key={space.id} label={space.name}>
                           {layouts.map((layout) => {
-                            const val = `${space.name} — ${layout.title || `${layout.layoutType} Setup`}`;
                             return (
-                              <option key={layout.id} value={val}>
+                              <option key={layout.id} value={`${space.id}::${layout.id}`}>
                                 {layout.title || `${layout.layoutType} Setup`} (Cap: {layout.capacity} guests)
                               </option>
                             );
@@ -347,7 +430,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                     spaces.map((space) => {
                       const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
                       return (
-                        <option key={space.id} value={space.name}>
+                        <option key={space.id} value={`space:${space.id}`}>
                           {space.name} {cap > 0 ? `(Max ${cap} guests)` : ''}
                         </option>
                       );

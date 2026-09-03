@@ -38,6 +38,8 @@ export default function App() {
   const [walkthroughBookingVenue, setWalkthroughBookingVenue] = useState<Venue | null>(null);
   const [requestBookingVenue, setRequestBookingVenue] = useState<Venue | null>(null);
   const [requestBookingPreselectedLayout, setRequestBookingPreselectedLayout] = useState<string | undefined>(undefined);
+  const [requestBookingSpaceId, setRequestBookingSpaceId] = useState<string | undefined>(undefined);
+  const [requestBookingLayoutId, setRequestBookingLayoutId] = useState<string | undefined>(undefined);
   const [isEventsHubOpen, setIsEventsHubOpen] = useState(false);
   const [activeLiveSimulatorBooking, setActiveLiveSimulatorBooking] = useState<WalkthroughBooking | null>(null);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
@@ -458,6 +460,8 @@ export default function App() {
             onRequestToBookVenue={(venue) => {
               setRequestBookingVenue(venue);
               setRequestBookingPreselectedLayout(undefined);
+              setRequestBookingSpaceId(undefined);
+              setRequestBookingLayoutId(undefined);
             }}
             onToggleFavorite={handleToggleFavorite}
           />
@@ -467,9 +471,11 @@ export default function App() {
             venue={selectedVenue}
             onBack={() => setSelectedVenue(null)}
             onBookWalkthrough={(venue) => setWalkthroughBookingVenue(venue)}
-            onRequestToBook={(venue, preselectedLayout) => {
+            onRequestToBook={(venue, preselectedLayout, preselectedSpaceId, preselectedLayoutId) => {
               setRequestBookingVenue(venue);
               setRequestBookingPreselectedLayout(preselectedLayout);
+              setRequestBookingSpaceId(preselectedSpaceId);
+              setRequestBookingLayoutId(preselectedLayoutId);
             }}
             isFavorited={favorites.includes(selectedVenue.id)}
             onToggleFavorite={handleToggleFavorite}
@@ -605,9 +611,13 @@ export default function App() {
           venue={requestBookingVenue}
           isOpen={true}
           preselectedLayout={requestBookingPreselectedLayout}
+          preselectedSpaceId={requestBookingSpaceId}
+          preselectedLayoutId={requestBookingLayoutId}
           onClose={() => {
             setRequestBookingVenue(null);
             setRequestBookingPreselectedLayout(undefined);
+            setRequestBookingSpaceId(undefined);
+            setRequestBookingLayoutId(undefined);
           }}
           onBookingSubmitted={handleVenueBookingSubmitted}
           onViewInMyEvents={() => {

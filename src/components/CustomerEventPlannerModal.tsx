@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -21,6 +21,7 @@ import {
 import { Venue, VenueBooking, ChecklistItem, MarketplaceConfig } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
 import { formatCurrency, formatDateDisplay } from '../utils/formatters';
+import { resolveBookingConfiguration } from '../utils/venueConfigurationHelpers';
 
 interface CustomerEventPlannerModalProps {
   booking: VenueBooking;
@@ -151,15 +152,85 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
     }
   };
 
-  const completedCount = checklist.filter((i) => i.completed).length;
-  const progressPercent = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : 0;
-
   const targetVenue = venue || venues?.find((v) => v.id === booking.venueId);
-  const hasRecordedWalkthrough = Boolean(
-    targetVenue &&
-    Array.isArray(targetVenue.walkthroughClips) &&
-    targetVenue.walkthroughClips.length > 0
-  );
+
+  // Truthfully resolve walkthrough clip for this specific booking
+  const bookingWalkthroughClip = useMemo(() => {
+    if (!targetVenue) return undefined;
+
+    // 1. If explicit associatedWalkthroughId exists, verify it on the venue
+    if (booking.associatedWalkthroughId && Array.isArray(targetVenue.walkthroughClips)) {
+      const found = targetVenue.walkthroughClips.find(
+        (c) => c.id === booking.associatedWalkthroughId
+      );
+      if (found) return found;
+    }
+
+    // 2. Otherwise, for legacy bookings: resolve configuration safely
+    const resolved = resolveBookingConfiguration(
+      targetVenue,
+      booking.selectedSpaceId,
+      booking.selectedLayoutId,
+      booking.selectedLayout
+    );
+
+    return resolved.walkthroughClip;
+  }, [
+    targetVenue,
+    booking.associatedWalkthroughId,
+    booking.selectedSpaceId,
+    booking.selectedLayoutId,
+    booking.selectedLayout,
+  ]);
+
+  const hasRecordedWalkthrough = Boolean(bookingWalkthroughClip);
+
+  // Truthfully resolve floor plan availability for this specific booking
+  const hasFloorPlanForBooking = useMemo(() => {
+    if (!targetVenue) return false;
+    const resolved = resolveBookingConfiguration(
+      targetVenue,
+      booking.selectedSpaceId,
+      booking.selectedLayoutId,
+      booking.selectedLayout
+    );
+    return resolved.hasFloorPlan;
+  }, [
+    targetVenue,
+    booking.selectedSpaceId,
+    booking.selectedLayoutId,
+    booking.selectedLayout,
+  ]);
+
+  // Suppress legacy auto-generated tasks if the configuration genuinely lacks the media
+  const visibleChecklist = useMemo(() => {
+    return checklist.filter((item) => {
+      // Suppress legacy auto-generated walkthrough tasks if this configuration has NO walkthrough
+      if (!hasRecordedWalkthrough) {
+        if (
+          item.text === 'Review venue walkthrough & virtual preview' ||
+          item.text === 'Review recorded walkthrough for selected configuration'
+        ) {
+          return false;
+        }
+      }
+
+      // Suppress legacy auto-generated floor plan tasks if this configuration has NO floor plan
+      if (!hasFloorPlanForBooking) {
+        if (item.text === 'Review architectural floor plan & spatial layout') {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [checklist, hasRecordedWalkthrough, hasFloorPlanForBooking]);
+
+  const completedCount = visibleChecklist.filter((i) => i.completed).length;
+  const progressPercent =
+    visibleChecklist.length > 0
+      ? Math.round((completedCount / visibleChecklist.length) * 100)
+      : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -204,7 +275,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                   : 'text-[#66737A] hover:text-[#26343D] bg-white border border-[#DDD8CF]'
               }`}
             >
-              Event Checklist ({completedCount}/{checklist.length})
+              Event Checklist ({completedCount}/{visibleChecklist.length})
             </button>
             <button
               onClick={() => setActiveTab('notes')}
@@ -238,7 +309,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
               className="hidden sm:flex items-center gap-1.5 text-xs text-[#A86445] hover:text-[#8F5439] font-medium bg-white px-2.5 py-1 rounded-lg border border-[#DDD8CF] shadow-xs"
             >
               <Video className="w-3.5 h-3.5" />
-              <span>Open 4K Walkthrough</span>
+              <span>Open Recorded Walkthrough</span>
             </button>
           )}
         </div>
@@ -292,7 +363,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs text-[#66737A]">
                   <span className="font-semibold text-[#26343D]">Planning Progress</span>
-                  <span>{progressPercent}% completed ({completedCount}/{checklist.length} items)</span>
+                  <span>{progressPercent}% completed ({completedCount}/{visibleChecklist.length} items)</span>
                 </div>
                 <div className="w-full h-2 bg-[#DDD8CF] rounded-full overflow-hidden">
                   <div
@@ -304,7 +375,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
 
               {/* Tasks List */}
               <div className="space-y-2">
-                {checklist.map((item) => (
+                {visibleChecklist.map((item) => (
                   <div
                     key={item.id}
                     className={`flex items-start justify-between gap-3 p-3 rounded-xl border transition-all ${

@@ -297,3 +297,126 @@ export function getVenueLayoutChips(venue: Venue, max = 3): string[] {
 
   return [];
 }
+
+export interface ResolvedBookingConfiguration {
+  space?: VenueSpace;
+  layout?: SpaceLayout;
+  walkthroughClip?: WalkthroughClip;
+  hasWalkthrough: boolean;
+  hasFloorPlan: boolean;
+}
+
+/**
+ * Resolves the genuine space, layout, walkthrough, and floor plan for a booking.
+ * Backward compatible with legacy bookings that only have selectedLayout (human-readable string).
+ *
+ * Rules:
+ * 1. If selectedLayoutId is provided, matches layout.id directly.
+ * 2. If legacy selectedLayout string is provided:
+ *    - Matches `${space.name} — ${layout.title}`
+ *    - Matches layout.title or layoutType setup
+ *    - Only resolves if unambiguous (1 unique match).
+ * 3. Walkthrough is resolved ONLY for THAT layout via getWalkthroughForLayout.
+ * 4. Floor plan is resolved ONLY for THAT layout via hasGenuineFloorPlan.
+ */
+export function resolveBookingConfiguration(
+  venue: Venue,
+  selectedSpaceId?: string,
+  selectedLayoutId?: string,
+  selectedLayoutString?: string
+): ResolvedBookingConfiguration {
+  const flattened = getVenueLayouts(venue);
+  let matchedSpace: VenueSpace | undefined;
+  let matchedLayout: SpaceLayout | undefined;
+
+  // 1. Direct layoutId match (highest priority)
+  if (selectedLayoutId) {
+    const match = flattened.find((f) => f.layout.id === selectedLayoutId);
+    if (match) {
+      matchedSpace = match.space;
+      matchedLayout = match.layout;
+    }
+  }
+
+  // 2. If no direct layoutId match, attempt resolution from selectedLayoutString
+  if (!matchedLayout && selectedLayoutString && selectedLayoutString.trim()) {
+    const cleanTarget = selectedLayoutString.trim().toLowerCase();
+
+    // 2a. If selectedSpaceId is specified, check layouts within that space first
+    if (selectedSpaceId) {
+      const spaceCandidates = flattened.filter((f) => f.space.id === selectedSpaceId);
+      const spaceExact = spaceCandidates.filter((f) => {
+        const fullTitle = `${f.space.name} — ${f.layout.title || `${f.layout.layoutType} Setup`}`.toLowerCase();
+        const layoutTitle = (f.layout.title || `${f.layout.layoutType} Setup`).toLowerCase();
+        return fullTitle === cleanTarget || layoutTitle === cleanTarget;
+      });
+      if (spaceExact.length === 1) {
+        matchedSpace = spaceExact[0].space;
+        matchedLayout = spaceExact[0].layout;
+      }
+    }
+
+    // 2b. Full label match: `${space.name} — ${layout.title}` across all venue layouts
+    if (!matchedLayout) {
+      const fullMatches = flattened.filter((f) => {
+        const fullTitle = `${f.space.name} — ${f.layout.title || `${f.layout.layoutType} Setup`}`.toLowerCase();
+        return fullTitle === cleanTarget;
+      });
+      if (fullMatches.length === 1) {
+        matchedSpace = fullMatches[0].space;
+        matchedLayout = fullMatches[0].layout;
+      }
+    }
+
+    // 2c. Exact layout title match: `layout.title`
+    if (!matchedLayout) {
+      const titleMatches = flattened.filter((f) => {
+        const layoutTitle = (f.layout.title || `${f.layout.layoutType} Setup`).toLowerCase();
+        return layoutTitle === cleanTarget || (f.layout.title && f.layout.title.toLowerCase() === cleanTarget);
+      });
+      if (titleMatches.length === 1) {
+        matchedSpace = titleMatches[0].space;
+        matchedLayout = titleMatches[0].layout;
+      }
+    }
+
+    // 2d. Substring matching if completely unambiguous across the venue
+    if (!matchedLayout) {
+      const subMatches = flattened.filter((f) => {
+        const layoutTitle = (f.layout.title || `${f.layout.layoutType} Setup`).toLowerCase();
+        return cleanTarget.includes(layoutTitle) || (f.layout.title && cleanTarget.includes(f.layout.title.toLowerCase()));
+      });
+      if (subMatches.length === 1) {
+        matchedSpace = subMatches[0].space;
+        matchedLayout = subMatches[0].layout;
+      }
+    }
+  }
+
+  // 3. If spaceId is specified or resolved without a layout
+  if (!matchedSpace && selectedSpaceId) {
+    const spaces = getVenueSpaces(venue);
+    matchedSpace = spaces.find((s) => s.id === selectedSpaceId);
+  }
+
+  // 4. Resolve walkthrough ONLY for this specific layout
+  const walkthroughClip = matchedLayout
+    ? getWalkthroughForLayout(venue, matchedLayout.id, matchedSpace?.id, matchedLayout.layoutType)
+    : (selectedLayoutId
+        ? getWalkthroughForLayout(venue, selectedLayoutId, selectedSpaceId)
+        : undefined);
+
+  // 5. Resolve floor plan ONLY for this specific layout
+  const hasFloorPlan = matchedLayout
+    ? hasGenuineFloorPlan(venue, matchedLayout, matchedSpace?.id)
+    : false;
+
+  return {
+    space: matchedSpace,
+    layout: matchedLayout,
+    walkthroughClip,
+    hasWalkthrough: Boolean(walkthroughClip),
+    hasFloorPlan,
+  };
+}
+

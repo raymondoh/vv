@@ -43,7 +43,7 @@ interface VenueDetailViewProps {
   venue: Venue;
   onBack: () => void;
   onBookWalkthrough: (venue: Venue) => void;
-  onRequestToBook: (venue: Venue, preselectedLayout?: string) => void;
+  onRequestToBook: (venue: Venue, preselectedLayout?: string, preselectedSpaceId?: string, preselectedLayoutId?: string) => void;
   isFavorited: boolean;
   onToggleFavorite: (venueId: string) => void;
 }
@@ -104,7 +104,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
       activeSpace && activeLayout
         ? `${activeSpace.name} — ${activeLayout.title || `${activeLayout.layoutType} Setup`}`
         : activeClip?.title || undefined;
-    onRequestToBook(venue, preselected);
+    onRequestToBook(venue, preselected, activeSpace?.id, activeLayout?.id);
   };
 
   const handleSelectLayout = (layoutId: string) => {
