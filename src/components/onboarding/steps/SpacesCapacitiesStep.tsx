@@ -190,8 +190,10 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
                 value={activeSpace.maxCapacity || activeSpace.standingCapacity || 0}
                 onChange={(e) => {
                   const val = parseInt(e.target.value, 10) || 0;
-                  handleUpdateSpace(activeSpace.id, 'maxCapacity', val);
-                  handleUpdateSpace(activeSpace.id, 'standingCapacity', val);
+                  handleUpdateSpace(activeSpace.id, {
+                    maxCapacity: val,
+                    standingCapacity: val,
+                  });
                 }}
                 className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
               />
