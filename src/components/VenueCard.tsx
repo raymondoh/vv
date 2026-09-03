@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Play, Video, Users, MapPin, Star, Calendar, Heart, ImageIcon } from 'lucide-react';
 import { Venue } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { getVenueSpaces, getTotalConfiguredLayouts, getVenueLayoutChips } from '../utils/venueConfigurationHelpers';
 
 interface VenueCardProps {
   venue: Venue;
@@ -26,6 +27,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   const hasPhotos = Boolean(venue.heroImage || (venue.galleryImages && venue.galleryImages.length > 0));
   const heroImageSrc = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '';
   const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);
+
+  const spaces = getVenueSpaces(venue);
+  const totalLayouts = getTotalConfiguredLayouts(venue);
+  const layoutChips = getVenueLayoutChips(venue, 3);
 
   const derivedSeated =
     venue.capacity?.seatedBanquet ||
@@ -88,21 +93,21 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5 flex-wrap">
             {hasRecordedWalkthrough && (
-              <>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-white bg-[#A86445] rounded-full shadow-xs">
-                  <Video className="w-3 h-3 text-white" />
-                  4K Walkthrough
-                </span>
-                <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
-                  {venue.walkthroughClips.length} Layout Views
-                </span>
-              </>
-            )}
-            {!hasRecordedWalkthrough && venue.spaces && venue.spaces.length > 0 && (
-              <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
-                {venue.spaces.length} {venue.spaces.length === 1 ? 'Space' : 'Spaces'}
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold text-white bg-[#A86445] rounded-full shadow-xs">
+                <Video className="w-3 h-3 text-white" />
+                Recorded Walkthrough
               </span>
             )}
+            {totalLayouts > 0 ? (
+              <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
+                {spaces.length > 0 ? `${spaces.length} ${spaces.length === 1 ? 'Space' : 'Spaces'} · ` : ''}
+                {totalLayouts} {totalLayouts === 1 ? 'Configuration' : 'Configurations'}
+              </span>
+            ) : spaces.length > 0 ? (
+              <span className="px-2.5 py-1 text-[10px] font-medium text-white bg-black/60 backdrop-blur-md rounded-full border border-white/20">
+                {spaces.length} {spaces.length === 1 ? 'Space' : 'Spaces'}
+              </span>
+            ) : null}
           </div>
 
           <button
@@ -180,26 +185,14 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           )}
 
           {/* Key Layout Configurations or Spaces */}
-          {hasRecordedWalkthrough && (
+          {layoutChips.length > 0 && (
             <div className="mt-3.5 flex items-center gap-1.5 flex-wrap">
-              {venue.walkthroughClips.map((clip) => (
+              {layoutChips.map((chip, idx) => (
                 <span
-                  key={clip.id}
-                  className="text-[10px] px-2 py-0.5 rounded-md bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A] capitalize"
-                >
-                  {clip.layoutCategory} setup
-                </span>
-              ))}
-            </div>
-          )}
-          {!hasRecordedWalkthrough && venue.spaces && venue.spaces.length > 0 && (
-            <div className="mt-3.5 flex items-center gap-1.5 flex-wrap">
-              {venue.spaces.slice(0, 3).map((space) => (
-                <span
-                  key={space.id}
+                  key={idx}
                   className="text-[10px] px-2 py-0.5 rounded-md bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A]"
                 >
-                  {space.name}
+                  {chip}
                 </span>
               ))}
             </div>

@@ -37,6 +37,7 @@ export default function App() {
   const [aiMatchedVenueIds, setAiMatchedVenueIds] = useState<string[]>([]);
   const [walkthroughBookingVenue, setWalkthroughBookingVenue] = useState<Venue | null>(null);
   const [requestBookingVenue, setRequestBookingVenue] = useState<Venue | null>(null);
+  const [requestBookingPreselectedLayout, setRequestBookingPreselectedLayout] = useState<string | undefined>(undefined);
   const [isEventsHubOpen, setIsEventsHubOpen] = useState(false);
   const [activeLiveSimulatorBooking, setActiveLiveSimulatorBooking] = useState<WalkthroughBooking | null>(null);
   const [isAdminSettingsOpen, setIsAdminSettingsOpen] = useState(false);
@@ -454,7 +455,10 @@ export default function App() {
               setAiInitialPrompt('');
               setIsAiMatcherOpen(true);
             }}
-            onRequestToBookVenue={(venue) => setRequestBookingVenue(venue)}
+            onRequestToBookVenue={(venue) => {
+              setRequestBookingVenue(venue);
+              setRequestBookingPreselectedLayout(undefined);
+            }}
             onToggleFavorite={handleToggleFavorite}
           />
         ) : selectedVenue ? (
@@ -463,7 +467,10 @@ export default function App() {
             venue={selectedVenue}
             onBack={() => setSelectedVenue(null)}
             onBookWalkthrough={(venue) => setWalkthroughBookingVenue(venue)}
-            onRequestToBook={(venue) => setRequestBookingVenue(venue)}
+            onRequestToBook={(venue, preselectedLayout) => {
+              setRequestBookingVenue(venue);
+              setRequestBookingPreselectedLayout(preselectedLayout);
+            }}
             isFavorited={favorites.includes(selectedVenue.id)}
             onToggleFavorite={handleToggleFavorite}
           />
@@ -597,7 +604,11 @@ export default function App() {
         <VenueBookingModal
           venue={requestBookingVenue}
           isOpen={true}
-          onClose={() => setRequestBookingVenue(null)}
+          preselectedLayout={requestBookingPreselectedLayout}
+          onClose={() => {
+            setRequestBookingVenue(null);
+            setRequestBookingPreselectedLayout(undefined);
+          }}
           onBookingSubmitted={handleVenueBookingSubmitted}
           onViewInMyEvents={() => {
             setSelectedVenue(null);

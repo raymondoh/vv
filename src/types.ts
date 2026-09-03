@@ -28,6 +28,8 @@ export interface Milestone {
 
 export interface WalkthroughClip {
   id: string;
+  spaceId?: string;
+  layoutId?: string;
   layoutCategory: LayoutCategory;
   title: string;
   description: string;
@@ -100,6 +102,7 @@ export interface SpaceLayout {
   setupHighlights?: string[];
   images?: string[];
   floorPlanUrl?: string;
+  threeSixtyUrl?: string;
   walkthroughMediaUrl?: string;
   walkthroughDurationSec?: number;
 }
@@ -120,6 +123,8 @@ export interface VenueSpace {
   ceilingHeightFt?: number;
   accessibilityDetails?: string;
   amenities?: string[];
+  floorPlanUrl?: string;
+  threeSixtyUrl?: string;
   layouts: SpaceLayout[];
 }
 

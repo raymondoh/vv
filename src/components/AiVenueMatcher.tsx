@@ -266,9 +266,11 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
                     <span className="text-[#66737A]">
                       Recommended Layout: <strong className="text-[#26343D]">{matchResult.recommendedLayout}</strong>
                     </span>
-                    <span className="text-[#26343D] text-[11px] font-medium">
-                      {topVenue.walkthroughClips.length} Layout Walkthroughs
-                    </span>
+                    {topVenue.walkthroughClips && topVenue.walkthroughClips.length > 0 && (
+                      <span className="text-emerald-700 text-[11px] font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        {topVenue.walkthroughClips.length} {topVenue.walkthroughClips.length === 1 ? 'Walkthrough Video' : 'Walkthrough Videos'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

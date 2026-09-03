@@ -16,6 +16,7 @@ import {
 import { Venue, VenueBooking, LayoutCategory, MarketplaceConfig } from '../types';
 import { DEFAULT_MARKETPLACE_CONFIG, calculateBookingFinancials } from '../config/marketplaceConfig';
 import { formatCurrency, formatDateDisplay } from '../utils/formatters';
+import { getVenueSpaces, getVenueLayouts } from '../utils/venueConfigurationHelpers';
 
 interface VenueBookingModalProps {
   venue: Venue;
@@ -23,6 +24,7 @@ interface VenueBookingModalProps {
   onClose: () => void;
   onBookingSubmitted: (booking: VenueBooking) => void;
   selectedLayoutCategory?: LayoutCategory;
+  preselectedLayout?: string;
   marketplaceConfig?: MarketplaceConfig;
   onViewInMyEvents?: () => void;
 }
@@ -33,12 +35,33 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   onClose,
   onBookingSubmitted,
   selectedLayoutCategory,
+  preselectedLayout,
   marketplaceConfig = DEFAULT_MARKETPLACE_CONFIG,
   onViewInMyEvents,
 }) => {
   const [step, setStep] = useState<'details' | 'contact' | 'review' | 'confirmed'>('details');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const spaces = getVenueSpaces(venue);
+  const spaceLayouts = getVenueLayouts(venue);
+
+  const computeInitialLayout = (): string => {
+    if (preselectedLayout && preselectedLayout.trim()) {
+      return preselectedLayout;
+    }
+    if (spaceLayouts.length > 0) {
+      const first = spaceLayouts[0];
+      return `${first.space.name} — ${first.layout.title || `${first.layout.layoutType} Setup`}`;
+    }
+    if (selectedLayoutCategory) {
+      return `${selectedLayoutCategory.charAt(0).toUpperCase() + selectedLayoutCategory.slice(1)} Setup`;
+    }
+    if (spaces.length > 0) {
+      return spaces[0].name;
+    }
+    return venue.walkthroughClips?.[0]?.title || 'Standard Setup';
+  };
 
   // Form State
   const [eventType, setEventType] = useState<string>(venue.eventTypes?.[0] || 'meetings-conferences');
@@ -48,11 +71,7 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
   const [guestCount, setGuestCount] = useState<number>(
     Math.min(100, venue.capacity?.seatedBanquet || venue.capacity?.cocktail || 100)
   );
-  const [selectedLayout, setSelectedLayout] = useState<string>(
-    selectedLayoutCategory
-      ? `${selectedLayoutCategory.charAt(0).toUpperCase() + selectedLayoutCategory.slice(1)} Setup`
-      : venue.walkthroughClips?.[0]?.title || venue.spaces?.[0]?.name || 'Standard Setup'
-  );
+  const [selectedLayout, setSelectedLayout] = useState<string>(computeInitialLayout());
   const [specialRequirements, setSpecialRequirements] = useState<string>('');
 
   // Customer Contact Info
@@ -295,25 +314,50 @@ export const VenueBookingModal: React.FC<VenueBookingModalProps> = ({
                   Preferred Floor Plan / Layout Configuration
                 </label>
                 <select
+                  id="booking-layout-select"
                   value={selectedLayout}
                   onChange={(e) => setSelectedLayout(e.target.value)}
                   className="w-full bg-[#F4F1EA] text-[#26343D] text-xs px-3.5 py-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#26343D]"
                 >
-                  {venue.walkthroughClips?.map((clip) => (
-                    <option key={clip.id} value={clip.title}>
-                      {clip.title} (Cap: {clip.maxCapacityForLayout} guests)
-                    </option>
-                  ))}
-                  {venue.spaces?.map((space) => {
-                    const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
-                    return (
-                      <option key={space.id} value={space.name}>
-                        {space.name} {cap > 0 ? `(Cap: ${cap} guests)` : ''}
-                      </option>
-                    );
-                  })}
-                  <option value="Main Hall - Standard Setup">Main Hall - Standard Setup</option>
-                  <option value="Custom Modular Configuration">Custom Modular Configuration</option>
+                  {spaces.length > 0 && spaceLayouts.length > 0 ? (
+                    spaces.map((space) => {
+                      const layouts = space.layouts || [];
+                      if (layouts.length === 0) {
+                        const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
+                        return (
+                          <option key={space.id} value={space.name}>
+                            {space.name} {cap > 0 ? `(Max ${cap} guests)` : ''}
+                          </option>
+                        );
+                      }
+                      return (
+                        <optgroup key={space.id} label={space.name}>
+                          {layouts.map((layout) => {
+                            const val = `${space.name} — ${layout.title || `${layout.layoutType} Setup`}`;
+                            return (
+                              <option key={layout.id} value={val}>
+                                {layout.title || `${layout.layoutType} Setup`} (Cap: {layout.capacity} guests)
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      );
+                    })
+                  ) : spaces.length > 0 ? (
+                    spaces.map((space) => {
+                      const cap = space.maxCapacity || space.standingCapacity || space.seatedCapacity || 0;
+                      return (
+                        <option key={space.id} value={space.name}>
+                          {space.name} {cap > 0 ? `(Max ${cap} guests)` : ''}
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <>
+                      <option value="Main Space — Standard Setup">Main Space — Standard Setup</option>
+                      <option value="Custom Modular Configuration">Custom Modular Configuration</option>
+                    </>
+                  )}
                 </select>
               </div>
 

@@ -31,12 +31,19 @@ import {
 } from 'lucide-react';
 import { Venue, WalkthroughClip } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import {
+  getVenueSpaces,
+  getVenueLayouts,
+  getWalkthroughForLayout,
+  hasGenuineFloorPlan,
+  hasGenuine360Media,
+} from '../utils/venueConfigurationHelpers';
 
 interface VenueDetailViewProps {
   venue: Venue;
   onBack: () => void;
   onBookWalkthrough: (venue: Venue) => void;
-  onRequestToBook: (venue: Venue) => void;
+  onRequestToBook: (venue: Venue, preselectedLayout?: string) => void;
   isFavorited: boolean;
   onToggleFavorite: (venueId: string) => void;
 }
@@ -53,32 +60,96 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0
   );
 
-  const [selectedClipId, setSelectedClipId] = useState<string>(
-    hasRecordedWalkthrough ? venue.walkthroughClips[0]?.id : ''
-  );
+  const spaces = getVenueSpaces(venue);
+  const allLayouts = getVenueLayouts(venue);
+
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(spaces[0]?.id || '');
+  const activeSpace = spaces.find((s) => s.id === selectedSpaceId) || spaces[0];
+  const activeLayouts = activeSpace?.layouts || [];
+
+  // Default selected layout: choose one with a walkthrough if available, or first layout
+  const [selectedLayoutId, setSelectedLayoutId] = useState<string>(() => {
+    const layoutWithClip = activeLayouts.find((l) =>
+      Boolean(getWalkthroughForLayout(venue, l.id, activeSpace?.id, l.layoutType))
+    );
+    return layoutWithClip?.id || activeLayouts[0]?.id || '';
+  });
+
+  const activeLayout = activeLayouts.find((l) => l.id === selectedLayoutId) || activeLayouts[0];
+
+  const activeClip: WalkthroughClip | undefined = activeLayout
+    ? getWalkthroughForLayout(venue, activeLayout.id, activeSpace?.id, activeLayout.layoutType)
+    : venue.walkthroughClips?.[0];
+
+  const hasClipForActiveLayout = Boolean(activeClip);
+  const hasGenuineFloor = hasGenuineFloorPlan(venue, activeLayout, activeSpace?.id);
+  const hasGenuine360 = hasGenuine360Media(venue, activeLayout, activeSpace?.id);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [ambientAudioOn, setAmbientAudioOn] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<'video' | 'floorplan' | '360' | 'gallery'>(
-    hasRecordedWalkthrough ? 'video' : 'gallery'
-  );
+  const [viewMode, setViewMode] = useState<'video' | 'floorplan' | '360' | 'gallery'>(() => {
+    return hasClipForActiveLayout ? 'video' : 'gallery';
+  });
   const [selectedCameraAngle, setSelectedCameraAngle] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string>(
     venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || ''
   );
 
+  const handleRequestBooking = () => {
+    const preselected =
+      activeSpace && activeLayout
+        ? `${activeSpace.name} — ${activeLayout.title || `${activeLayout.layoutType} Setup`}`
+        : activeClip?.title || undefined;
+    onRequestToBook(venue, preselected);
+  };
+
+  const handleSelectLayout = (layoutId: string) => {
+    setSelectedLayoutId(layoutId);
+    const targetLayout = activeLayouts.find((l) => l.id === layoutId);
+    if (targetLayout) {
+      const clip = getWalkthroughForLayout(venue, targetLayout.id, activeSpace?.id, targetLayout.layoutType);
+      if (clip) {
+        setViewMode('video');
+        setIsPlaying(true);
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        setViewMode('gallery');
+      }
+    }
+  };
+
+  const handleSelectSpace = (spaceId: string) => {
+    setSelectedSpaceId(spaceId);
+    const targetSpace = spaces.find((s) => s.id === spaceId);
+    if (targetSpace && targetSpace.layouts && targetSpace.layouts.length > 0) {
+      const firstLayout = targetSpace.layouts[0];
+      setSelectedLayoutId(firstLayout.id);
+      const clip = getWalkthroughForLayout(venue, firstLayout.id, targetSpace.id, firstLayout.layoutType);
+      if (clip) {
+        setViewMode('video');
+        setIsPlaying(true);
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        setViewMode('gallery');
+      }
+    }
+  };
+
   // Pricing calculator state
   const [calcGuests, setCalcGuests] = useState<number>(120);
   const [calcEventType, setCalcEventType] = useState<'weekend-peak' | 'weekday' | 'off-season'>('weekend-peak');
 
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  const activeClip: WalkthroughClip | undefined = hasRecordedWalkthrough
-    ? venue.walkthroughClips.find((c) => c.id === selectedClipId) || venue.walkthroughClips[0]
-    : undefined;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -92,11 +163,12 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
       setSelectedCameraAngle(activeClip.cameraAngles?.[0] || '');
       if (videoRef.current) {
         videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(() => {});
-        setIsPlaying(true);
+        if (isPlaying) {
+          videoRef.current.play().catch(() => {});
+        }
       }
     }
-  }, [selectedClipId]);
+  }, [activeClip?.id]);
 
   // Sync video timeline
   const handleTimeUpdate = () => {
@@ -241,7 +313,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
             <button
               id="detail-top-book-btn"
-              onClick={() => onRequestToBook(venue)}
+              onClick={handleRequestBooking}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-sm hover:bg-[#8F5439] active:scale-95 transition-all"
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -260,8 +332,14 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </span>
             {hasRecordedWalkthrough && (
               <span className="flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <Video className="w-3.5 h-3.5 text-emerald-600" />
                 Recorded Walkthrough Available
+              </span>
+            )}
+            {allLayouts.length > 0 && (
+              <span className="px-3 py-1 text-xs font-semibold text-[#26343D] bg-white border border-[#DDD8CF] rounded-full shadow-2xs">
+                {spaces.length > 0 ? `${spaces.length} ${spaces.length === 1 ? 'Space' : 'Spaces'} · ` : ''}
+                {allLayouts.length} {allLayouts.length === 1 ? 'Configuration' : 'Configurations'}
               </span>
             )}
             {hasLiveTours && (
@@ -339,112 +417,174 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 </p>
               </div>
             )}
-            {/* View Mode & Layout Switcher Bar (Only if walkthrough exists) */}
-            {hasRecordedWalkthrough && activeClip ? (
-              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-3 sm:p-4 space-y-3 shadow-sm">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-1.5 px-1">
-                    <Layers className="w-3.5 h-3.5 text-[#A86445]" />
-                    Select Layout Setup:
-                  </span>
+            {/* Space & Layout Configuration Selector */}
+            {activeLayouts.length > 0 && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-[#A86445]" />
+                      <span>Explore Configurations {spaces.length === 1 ? `(${activeSpace?.name})` : ''}</span>
+                    </span>
+                    <p className="text-[11px] text-[#66737A]">
+                      Select a room setup to inspect walkthrough footage, capacities, and layout options.
+                    </p>
+                  </div>
 
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center bg-[#F4F1EA] p-1 rounded-xl border border-[#DDD8CF]">
+                  {/* Media View Mode Toggle */}
+                  <div className="flex items-center bg-[#F4F1EA] p-1 rounded-xl border border-[#DDD8CF] gap-1 self-start sm:self-auto">
+                    {hasClipForActiveLayout && (
+                      <button
+                        onClick={() => setViewMode('video')}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          viewMode === 'video'
+                            ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                            : 'text-[#66737A] hover:text-[#26343D]'
+                        }`}
+                      >
+                        Video Tour
+                      </button>
+                    )}
                     <button
-                      onClick={() => setViewMode('video')}
+                      onClick={() => setViewMode('gallery')}
                       className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                        viewMode === 'video'
+                        viewMode === 'gallery'
                           ? 'bg-[#A86445] text-white font-semibold shadow-xs'
                           : 'text-[#66737A] hover:text-[#26343D]'
                       }`}
                     >
-                      4K Video Tour
+                      Photo Gallery
                     </button>
-                    <button
-                      onClick={() => setViewMode('floorplan')}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                        viewMode === 'floorplan'
-                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                          : 'text-[#66737A] hover:text-[#26343D]'
-                      }`}
-                    >
-                      Floor Plan
-                    </button>
-                    <button
-                      onClick={() => setViewMode('360')}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                        viewMode === '360'
-                          ? 'bg-[#A86445] text-white font-semibold shadow-xs'
-                          : 'text-[#66737A] hover:text-[#26343D]'
-                      }`}
-                    >
-                      360° Panorama
-                    </button>
+                    {hasGenuineFloor && (
+                      <button
+                        onClick={() => setViewMode('floorplan')}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          viewMode === 'floorplan'
+                            ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                            : 'text-[#66737A] hover:text-[#26343D]'
+                        }`}
+                      >
+                        Floor Plan
+                      </button>
+                    )}
+                    {hasGenuine360 && (
+                      <button
+                        onClick={() => setViewMode('360')}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          viewMode === '360'
+                            ? 'bg-[#A86445] text-white font-semibold shadow-xs'
+                            : 'text-[#66737A] hover:text-[#26343D]'
+                        }`}
+                      >
+                        360° View
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Layout Category Tabs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {venue.walkthroughClips.map((clip) => {
-                    const isSelected = clip.id === selectedClipId;
+                {/* Multi-space tabs if venue has > 1 space */}
+                {spaces.length > 1 && (
+                  <div className="pt-1 flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[#DDD8CF]/60">
+                    <span className="text-[11px] font-semibold text-[#66737A] mr-1 shrink-0">Space:</span>
+                    {spaces.map((sp) => {
+                      const isSpaceActive = sp.id === (activeSpace?.id || selectedSpaceId);
+                      const configCount = sp.layouts?.length || 0;
+                      return (
+                        <button
+                          key={sp.id}
+                          onClick={() => handleSelectSpace(sp.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                            isSpaceActive
+                              ? 'bg-[#26343D] text-white shadow-xs'
+                              : 'bg-[#F4F1EA] text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
+                          }`}
+                        >
+                          <span>{sp.name}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                              isSpaceActive ? 'bg-white/20 text-white' : 'bg-stone-200 text-[#66737A]'
+                            }`}
+                          >
+                            {configCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Configuration Cards for Active Space */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {activeLayouts.map((layout) => {
+                    const isSelected = layout.id === activeLayout?.id;
+                    const clip = getWalkthroughForLayout(venue, layout.id, activeSpace?.id, layout.layoutType);
+                    const hasClip = Boolean(clip);
+
                     return (
                       <button
-                        key={clip.id}
-                        id={`clip-tab-${clip.id}`}
-                        onClick={() => {
-                          setSelectedClipId(clip.id);
-                          setViewMode('video');
-                        }}
-                        className={`relative p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                        key={layout.id}
+                        id={`config-select-${layout.id}`}
+                        onClick={() => handleSelectLayout(layout.id)}
+                        className={`p-3.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
                           isSelected
-                            ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445]'
-                            : 'bg-[#F4F1EA] border-[#DDD8CF] hover:border-[#A86445]/60'
+                            ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445] shadow-xs'
+                            : 'bg-[#F4F1EA] border-[#DDD8CF] hover:border-[#A86445]/60 hover:bg-white'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#26343D] truncate">
-                            {clip.title}
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="text-xs font-bold text-[#26343D] leading-tight">
+                            {layout.title || `${layout.layoutType} Setup`}
                           </span>
                           {isSelected && (
-                            <span className="w-2 h-2 rounded-full bg-[#A86445] animate-ping" />
+                            <span className="w-2 h-2 rounded-full bg-[#A86445] shrink-0 mt-0.5 animate-pulse" />
                           )}
                         </div>
-                        <div className="mt-2 flex items-center justify-between text-[11px] text-[#66737A]">
-                          <span>Max {clip.maxCapacityForLayout} guests</span>
-                          <span className="text-[#A86445] font-semibold">{formatTime(clip.durationSec)}</span>
+
+                        <div className="mt-3 flex items-center justify-between text-[11px] gap-2">
+                          <span className="text-[#66737A]">Max {layout.capacity} guests</span>
+                          {hasClip ? (
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1 shrink-0">
+                              <Video className="w-2.5 h-2.5 text-emerald-600" />
+                              Walkthrough
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-[#66737A] bg-white px-2 py-0.5 rounded border border-[#DDD8CF] shrink-0">
+                              No walkthrough
+                            </span>
+                          )}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
-            ) : (
-              /* Informational Banner for Zero Walkthroughs */
-              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 sm:p-5 flex items-start justify-between gap-4 shadow-sm">
+            )}
+
+            {/* Informative Banner when Selected Configuration has no Walkthrough */}
+            {!hasClipForActiveLayout && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#F3E7DF] text-[#A86445] shrink-0 mt-0.5">
-                    <Info className="w-5 h-5" />
+                  <div className="p-2.5 rounded-xl bg-[#F4F1EA] text-[#66737A] shrink-0 mt-0.5">
+                    <Video className="w-5 h-5 text-[#A86445]" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-[#26343D]">
-                      Recorded walkthrough not added yet
-                    </h3>
+                    <h4 className="text-xs font-bold text-[#26343D]">
+                      Recorded walkthrough not yet available for {activeLayout?.title || 'this setup'}
+                    </h4>
                     <p className="text-xs text-[#66737A] mt-0.5 leading-relaxed">
-                      {hasLiveTours
-                        ? `Host ${venue.host?.name || 'the coordinator'} hasn't uploaded a pre-recorded 4K walkthrough video for this listing yet. You can explore high-resolution space photography below, or schedule a 1-on-1 live video walkthrough.`
-                        : `A pre-recorded 4K walkthrough video has not been uploaded for this listing yet. You can explore space specifications, layout capacities, and rates below.`}
+                      Explore photography below, or book a live 1-on-1 virtual walkthrough with the host to inspect this layout.
                     </p>
                   </div>
                 </div>
 
                 {hasLiveTours && (
                   <button
-                    id="zero-walkthrough-live-btn"
+                    id="no-walkthrough-live-btn"
                     onClick={() => onBookWalkthrough(venue)}
-                    className="shrink-0 px-3.5 py-2 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                    className="shrink-0 px-4 py-2 rounded-xl bg-[#26343D] text-white hover:bg-[#1E2930] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                   >
                     <Video className="w-3.5 h-3.5 text-stone-300" />
-                    <span>Book Live Tour</span>
+                    <span>Book Live Walkthrough</span>
                   </button>
                 )}
               </div>
@@ -452,7 +592,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
             {/* Main Visual Media Display Container */}
             <div className="relative rounded-2xl overflow-hidden bg-black border border-[#DDD8CF] shadow-xl group">
-              {hasRecordedWalkthrough && activeClip && viewMode === 'video' ? (
+              {hasClipForActiveLayout && activeClip && viewMode === 'video' ? (
                 <>
                   <video
                     ref={videoRef}
@@ -471,7 +611,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-md bg-[#A86445] text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-lg">
                         <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                        4K Ultra-HD Walkthrough
+                        Recorded Walkthrough
                       </span>
                       <span className="px-2.5 py-1 rounded-md bg-black/60 backdrop-blur-md text-white text-xs font-semibold border border-white/20">
                         {activeClip.title}
@@ -586,80 +726,40 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     </div>
                   </div>
                 </>
-              ) : hasRecordedWalkthrough && activeClip && viewMode === 'floorplan' ? (
-                /* Floor Plan Blueprint View */
-                <div className="w-full aspect-[16/9] bg-[#1F2B33] p-6 flex flex-col justify-between relative overflow-hidden border border-[#2B3942]">
-                  <div className="flex items-center justify-between border-b border-[#2B3942] pb-3">
-                    <div>
-                      <h4 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                        Architectural Layout Diagram • {activeClip.title}
-                      </h4>
-                      <p className="text-xs text-stone-300">Total usable floor area: {(venue.specs?.squareFootage || 0).toLocaleString()} sq. ft.</p>
-                    </div>
-                    <span className="px-3 py-1 rounded bg-[#A86445]/20 text-[#D89B7F] font-mono text-xs border border-[#A86445]/40">
-                      SCALE: 1/8" = 1'-0"
-                    </span>
+              ) : hasGenuineFloor && viewMode === 'floorplan' ? (
+                /* Genuine Floor Plan Media View */
+                <div className="w-full aspect-[16/9] bg-stone-900 p-4 flex flex-col justify-between relative overflow-hidden">
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10 text-white text-xs">
+                    <span className="font-semibold">Floor Plan • {activeLayout?.title || activeSpace?.name}</span>
+                    {activeSpace?.squareFeet && (
+                      <span className="text-stone-400">{activeSpace.squareFeet.toLocaleString()} sq ft</span>
+                    )}
                   </div>
-
-                  <div className="my-auto py-6 grid grid-cols-3 gap-4 text-center font-mono">
-                    <div className="p-4 rounded-lg bg-[#27353F] border border-dashed border-[#3D505D] space-y-1">
-                      <span className="text-xs text-amber-200 block font-bold">ZONE A: RECEPTION</span>
-                      <p className="text-[11px] text-stone-300">Welcome bar & coat check</p>
-                      <span className="text-[10px] text-stone-400">1,800 sq ft</span>
-                    </div>
-
-                    <div className="p-4 rounded-lg bg-[#2D3E49] border border-[#A86445] space-y-1 shadow-lg shadow-[#A86445]/10">
-                      <span className="text-xs text-[#D89B7F] block font-bold">ZONE B: MAIN SPACE</span>
-                      <p className="text-[11px] text-stone-200">Main hall & flexible seating</p>
-                      <span className="text-[10px] text-[#D89B7F]">4,800 sq ft (Cap: {activeClip.maxCapacityForLayout})</span>
-                    </div>
-
-                    <div className="p-4 rounded-lg bg-[#27353F] border border-dashed border-[#3D505D] space-y-1">
-                      <span className="text-xs text-emerald-300 block font-bold">ZONE C: BACKSTAGE & PREP</span>
-                      <p className="text-[11px] text-stone-300">Commercial kitchen & green room</p>
-                      <span className="text-[10px] text-stone-400">1,900 sq ft</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-stone-300 pt-3 border-t border-[#2B3942]">
-                    <span>Ceiling Clearance: {venue.specs?.ceilingHeightFt || 0} ft</span>
-                    <span>Restrooms: {venue.specs?.restroomCount || 0} Dedicated</span>
-                    <span>Emergency Exits: 4 Calibrated</span>
+                  <div className="flex-1 flex items-center justify-center p-2">
+                    <img
+                      src={activeLayout?.floorPlanUrl || activeSpace?.floorPlanUrl}
+                      alt="Floor Plan"
+                      className="max-h-full max-w-full object-contain rounded-lg"
+                    />
                   </div>
                 </div>
-              ) : hasRecordedWalkthrough && activeClip && viewMode === '360' ? (
-                /* 360 Panorama Interactive Simulation View */
-                <div className="w-full aspect-[16/9] relative bg-black flex items-center justify-center overflow-hidden">
+              ) : hasGenuine360 && viewMode === '360' ? (
+                /* Genuine 360 View */
+                <div className="w-full aspect-[16/9] bg-stone-900 relative flex items-center justify-center overflow-hidden">
                   <img
-                    src={venue.heroImage}
-                    alt="360 Tour"
-                    className="w-full h-full object-cover scale-125 filter brightness-90"
+                    src={activeLayout?.threeSixtyUrl}
+                    alt="360 View"
+                    className="w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-[#A86445]/30 border border-[#A86445] flex items-center justify-center text-white">
-                      <Compass className="w-8 h-8" />
-                    </div>
-                    <h4 className="text-lg font-bold text-white tracking-tight">Interactive 360° Spatial Mode</h4>
-                    <p className="text-xs text-stone-200 max-w-md">
-                      Drag to look around or schedule a live video walkthrough to inspect the space in real time.
-                    </p>
-                    {venue.availableSlots && venue.availableSlots.length > 0 ? (
-                      <button
-                        onClick={() => onBookWalkthrough(venue)}
-                        className="px-4 py-2 bg-[#A86445] text-white font-semibold text-xs rounded-xl hover:bg-[#8F5439] shadow-sm transition-all"
-                      >
-                        Request Live Camera Control Tour
-                      </button>
-                    ) : (
-                      <span className="text-xs text-stone-400 italic">
-                        Live tour availability has not been added yet.
-                      </span>
-                    )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
+                    <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
+                      360° Panorama • {activeLayout?.title}
+                    </span>
                   </div>
                 </div>
               ) : (
-                /* Hero Gallery Media View for Zero-Walkthrough or Standard Gallery View */
+                /* Photo Gallery View */
                 galleryImages.length > 0 ? (
                   <div className="relative w-full aspect-[16/9] bg-stone-900 overflow-hidden flex items-center justify-center">
                     <img
@@ -669,26 +769,26 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
                     <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white text-xs">
-                      <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
-                        {venue.name} • {venue.aesthetic || 'Event Space'}
+                      <span className="font-semibold bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 truncate max-w-md">
+                        {venue.name} • {activeSpace ? `${activeSpace.name} — ` : ''}{activeLayout?.title || venue.aesthetic || 'Space Photo'}
                       </span>
                       {hasLiveTours ? (
                         <button
                           onClick={() => onBookWalkthrough(venue)}
-                          className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
+                          className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all shrink-0"
                         >
                           <Video className="w-3.5 h-3.5" />
                           <span>Live Tour with Host</span>
                         </button>
                       ) : (
-                        <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
+                        <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic shrink-0">
                           Live tour availability has not been added yet.
                         </span>
                       )}
                     </div>
                   </div>
                 ) : (
-                  /* Intentional Warm Architectural Neutral Placeholder when no photos uploaded */
+                  /* Architectural Neutral Placeholder */
                   <div className="relative w-full aspect-[16/9] bg-[#EAE5DC] flex flex-col items-center justify-center p-8 text-center">
                     <div className="w-14 h-14 rounded-2xl bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-3 shadow-xs">
                       <ImageIcon className="w-7 h-7" />
@@ -701,7 +801,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                       <span className="font-semibold bg-black/60 text-white backdrop-blur-md px-3 py-1 rounded-lg border border-white/10">
                         {venue.name} • {venue.aesthetic || 'Event Space'}
                       </span>
-                      {hasLiveTours ? (
+                      {hasLiveTours && (
                         <button
                           onClick={() => onBookWalkthrough(venue)}
                           className="px-3.5 py-1.5 rounded-lg bg-[#A86445] text-white font-semibold text-xs shadow-md hover:bg-[#8F5439] flex items-center gap-1.5 transition-all"
@@ -709,10 +809,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                           <Video className="w-3.5 h-3.5" />
                           <span>Live Tour with Host</span>
                         </button>
-                      ) : (
-                        <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-stone-300 text-[11px] italic">
-                          Live tour availability has not been added yet.
-                        </span>
                       )}
                     </div>
                   </div>
@@ -720,8 +816,8 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               )}
             </div>
 
-            {/* Layout Milestones & Setup Highlights (Only if walkthrough exists) */}
-            {hasRecordedWalkthrough && activeClip && (
+            {/* Layout Milestones & Setup Highlights (Only if walkthrough exists for active layout) */}
+            {hasClipForActiveLayout && activeClip && (
               <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
@@ -772,19 +868,19 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               </div>
             )}
 
-            {/* Configured Spaces Breakdown (If venue has configured spaces) */}
-            {venue.spaces && venue.spaces.length > 0 && (
-              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+            {/* Spaces & Configurations Breakdown (Complementary structural summary) */}
+            {spaces.length > 0 && (
+              <div id="spaces-configurations-section" className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
                     <Layers className="w-4 h-4 text-[#A86445]" />
-                    Configured Spaces & Layout Areas ({venue.spaces.length})
+                    Spaces & Configurations ({spaces.length})
                   </h3>
                   <span className="text-xs text-[#66737A]">Available for hire</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {venue.spaces.map((space) => {
+                <div className="space-y-4">
+                  {spaces.map((space) => {
                     const areaText = space.squareFeet
                       ? `${space.squareFeet.toLocaleString()} sq ft`
                       : space.squareMeters
@@ -793,34 +889,105 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                     const standing = space.standingCapacity || space.maxCapacity || 0;
                     const seated = space.seatedCapacity || 0;
                     const theatre = space.theatreCapacity || 0;
+                    const spaceLayouts = space.layouts || [];
 
                     return (
                       <div
                         key={space.id}
-                        className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-2"
+                        className="p-5 rounded-2xl bg-[#F4F1EA] border border-[#DDD8CF] space-y-4"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DDD8CF]/60 pb-3">
                           <div>
-                            <h4 className="text-xs font-bold text-[#26343D]">{space.name}</h4>
-                            {space.floorLocation && (
-                              <span className="text-[10px] text-[#66737A]">{space.floorLocation}</span>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-[#26343D]">{space.name}</h4>
+                              {space.floorLocation && (
+                                <span className="text-[10px] text-[#66737A] bg-white px-2 py-0.5 rounded border border-[#DDD8CF]">
+                                  {space.floorLocation}
+                                </span>
+                              )}
+                            </div>
+                            {space.description && (
+                              <p className="text-xs text-[#66737A] mt-1 leading-relaxed">
+                                {space.description}
+                              </p>
                             )}
                           </div>
-                          {areaText && (
-                            <span className="text-[10px] font-semibold text-[#66737A] px-2 py-0.5 bg-white rounded border border-[#DDD8CF]">
-                              {areaText}
-                            </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {standing > 0 && (
+                              <span className="text-xs text-[#26343D] font-semibold bg-white px-2.5 py-1 rounded-lg border border-[#DDD8CF]">
+                                Max {standing} guests
+                              </span>
+                            )}
+                            {areaText && (
+                              <span className="text-xs text-[#66737A] font-semibold px-2.5 py-1 bg-white rounded-lg border border-[#DDD8CF]">
+                                {areaText}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Configurations List */}
+                        <div className="space-y-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#66737A] block">
+                            {spaceLayouts.length} {spaceLayouts.length === 1 ? 'Configuration' : 'Configurations'}:
+                          </span>
+
+                          {spaceLayouts.length === 0 ? (
+                            <p className="text-xs text-[#66737A]">Standard room layout.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                              {spaceLayouts.map((layout) => {
+                                const clip = getWalkthroughForLayout(venue, layout.id, space.id, layout.layoutType);
+                                const isCurrent = space.id === activeSpace?.id && layout.id === activeLayout?.id;
+
+                                return (
+                                  <div
+                                    key={layout.id}
+                                    onClick={() => {
+                                      handleSelectSpace(space.id);
+                                      handleSelectLayout(layout.id);
+                                      window.scrollTo({ top: 380, behavior: 'smooth' });
+                                    }}
+                                    className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
+                                      isCurrent
+                                        ? 'bg-[#F3E7DF] border-[#A86445] ring-1 ring-[#A86445]'
+                                        : 'bg-white border-[#DDD8CF] hover:border-[#A86445]/60 hover:shadow-xs'
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-1">
+                                      <span className="text-xs font-bold text-[#26343D]">
+                                        {layout.title || `${layout.layoutType} Setup`}
+                                      </span>
+                                      {isCurrent && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#A86445] mt-1 shrink-0" />
+                                      )}
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-between text-[11px] gap-2">
+                                      <span className="text-[#66737A]">{layout.capacity} guests</span>
+                                      {clip ? (
+                                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 flex items-center gap-1 shrink-0">
+                                          <Video className="w-2.5 h-2.5 text-emerald-600" />
+                                          Walkthrough
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-[#66737A] bg-[#F4F1EA] px-1.5 py-0.5 rounded border border-[#DDD8CF] shrink-0">
+                                          No walkthrough
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
-                        {space.description && (
-                          <p className="text-xs text-[#66737A] leading-relaxed line-clamp-2">
-                            {space.description}
-                          </p>
-                        )}
-                        <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center justify-between text-[11px] text-[#66737A] flex-wrap gap-1">
-                          <span>Standing: <strong>{standing}</strong></span>
-                          <span>Seated: <strong>{seated}</strong></span>
-                          {theatre > 0 && <span>Theatre: <strong>{theatre}</strong></span>}
+
+                        {/* Room dimensions / capacities footer */}
+                        <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center gap-4 text-[11px] text-[#66737A] flex-wrap">
+                          <span>Standing: <strong className="text-[#26343D]">{standing}</strong></span>
+                          <span>Seated: <strong className="text-[#26343D]">{seated}</strong></span>
+                          {theatre > 0 && <span>Theatre: <strong className="text-[#26343D]">{theatre}</strong></span>}
+                          {space.ceilingHeightFt && <span>Ceiling: <strong className="text-[#26343D]">{space.ceilingHeightFt} ft</strong></span>}
                         </div>
                       </div>
                     );
@@ -954,7 +1121,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div className="space-y-2 pt-1">
                 <button
                   id="sidebar-request-to-book-btn"
-                  onClick={() => onRequestToBook(venue)}
+                  onClick={handleRequestBooking}
                   className="w-full py-3.5 px-4 rounded-xl bg-[#A86445] text-white font-semibold text-sm shadow-sm hover:bg-[#8F5439] active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   <Calendar className="w-4 h-4" />
