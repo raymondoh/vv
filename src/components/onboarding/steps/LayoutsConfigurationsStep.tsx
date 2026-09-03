@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Grid, Plus, Trash2, Layout, Users, FileText, CheckCircle2, Video } from 'lucide-react';
+import { Grid, Plus, Trash2, Layout, Users, FileText, CheckCircle2, Video, AlertTriangle } from 'lucide-react';
 import { VenueSpace, SpaceLayout, SpaceLayoutType } from '../../../types';
+import { getLayoutCapacityWarning } from '../../../utils/venueConfigurationHelpers';
 
 interface LayoutsConfigurationsStepProps {
   spaces: VenueSpace[];
@@ -69,14 +70,15 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
     onSpacesChange(updated);
   };
 
-  const handleUpdateLayout = (spaceId: string, layoutId: string, field: keyof SpaceLayout, value: any) => {
+  // Atomic layout update in a single state transformation
+  const handleUpdateLayout = (spaceId: string, layoutId: string, patch: Partial<SpaceLayout>) => {
     const updated = spaces.map((s) => {
       if (s.id === spaceId) {
         return {
           ...s,
-          layouts: s.layouts.map((l) => {
+          layouts: (s.layouts || []).map((l) => {
             if (l.id === layoutId) {
-              return { ...l, [field]: value };
+              return { ...l, ...patch };
             }
             return l;
           }),
@@ -194,11 +196,13 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
                       value={layout.layoutType}
                       onChange={(e) => {
                         const newType = e.target.value as SpaceLayoutType;
-                        handleUpdateLayout(activeSpace.id, layout.id, 'layoutType', newType);
                         const matched = LAYOUT_TYPES.find((t) => t.id === newType);
+                        // Atomic transformation: update layoutType and auto-populate description together
+                        const patch: Partial<SpaceLayout> = { layoutType: newType };
                         if (matched && (!layout.description || layout.description.length < 10)) {
-                          handleUpdateLayout(activeSpace.id, layout.id, 'description', matched.defaultDesc);
+                          patch.description = matched.defaultDesc;
                         }
+                        handleUpdateLayout(activeSpace.id, layout.id, patch);
                       }}
                       className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
                     >
@@ -215,7 +219,7 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
                     <input
                       type="text"
                       value={layout.title}
-                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, 'title', e.target.value)}
+                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, { title: e.target.value })}
                       placeholder="e.g. Banquet & Gala Setup"
                       className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
                     />
@@ -230,7 +234,7 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
                       type="number"
                       min="1"
                       value={layout.capacity}
-                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, 'capacity', parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, { capacity: parseInt(e.target.value, 10) || 0 })}
                       className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
                     />
                   </div>
@@ -240,11 +244,23 @@ export const LayoutsConfigurationsStep: React.FC<LayoutsConfigurationsStepProps>
                     <textarea
                       rows={2}
                       value={layout.description}
-                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, 'description', e.target.value)}
+                      onChange={(e) => handleUpdateLayout(activeSpace.id, layout.id, { description: e.target.value })}
                       placeholder="Describe the arrangement of tables, chairs, sightlines, dance floor, or AV positioning..."
                       className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
                     />
                   </div>
+
+                  {/* Host capacity consistency warning */}
+                  {(() => {
+                    const warning = getLayoutCapacityWarning(activeSpace, layout);
+                    if (!warning) return null;
+                    return (
+                      <div className="sm:col-span-2 md:col-span-3 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{warning}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

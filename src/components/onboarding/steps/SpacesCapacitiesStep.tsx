@@ -47,10 +47,11 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
     }
   };
 
-  const handleUpdateSpace = (spaceId: string, field: keyof VenueSpace, value: any) => {
+  const handleUpdateSpace = (spaceId: string, patchOrField: keyof VenueSpace | Partial<VenueSpace>, value?: any) => {
+    const patch = typeof patchOrField === 'string' ? { [patchOrField]: value } : patchOrField;
     const updated = spaces.map((s) => {
       if (s.id === spaceId) {
-        return { ...s, [field]: value };
+        return { ...s, ...patch };
       }
       return s;
     });
@@ -236,8 +237,10 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
                 value={activeSpace.squareMeters || 0}
                 onChange={(e) => {
                   const sqm = parseInt(e.target.value, 10) || 0;
-                  handleUpdateSpace(activeSpace.id, 'squareMeters', sqm);
-                  handleUpdateSpace(activeSpace.id, 'squareFeet', Math.round(sqm * 10.764));
+                  handleUpdateSpace(activeSpace.id, {
+                    squareMeters: sqm,
+                    squareFeet: Math.round(sqm * 10.764),
+                  });
                 }}
                 className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
               />
@@ -255,8 +258,10 @@ export const SpacesCapacitiesStep: React.FC<SpacesCapacitiesStepProps> = ({
                 value={activeSpace.ceilingHeightMeters || 0}
                 onChange={(e) => {
                   const ch = parseFloat(e.target.value) || 0;
-                  handleUpdateSpace(activeSpace.id, 'ceilingHeightMeters', ch);
-                  handleUpdateSpace(activeSpace.id, 'ceilingHeightFt', Math.round(ch * 3.281));
+                  handleUpdateSpace(activeSpace.id, {
+                    ceilingHeightMeters: ch,
+                    ceilingHeightFt: Math.round(ch * 3.281),
+                  });
                 }}
                 className="w-full px-3 py-2 bg-white border border-[#DDD8CF] rounded-xl text-xs text-[#26343D] focus:outline-hidden focus:border-[#A86445]"
               />

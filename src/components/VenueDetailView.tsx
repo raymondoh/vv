@@ -881,9 +881,9 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
                 <div className="space-y-4">
                   {spaces.map((space) => {
-                    const areaText = space.squareFeet
+                    const areaText = (space.squareFeet && space.squareFeet > 0)
                       ? `${space.squareFeet.toLocaleString()} sq ft`
-                      : space.squareMeters
+                      : (space.squareMeters && space.squareMeters > 0)
                       ? `${space.squareMeters.toLocaleString()} m²`
                       : null;
                     const standing = space.standingCapacity || space.maxCapacity || 0;
@@ -984,10 +984,12 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
                         {/* Room dimensions / capacities footer */}
                         <div className="pt-2 border-t border-[#DDD8CF]/60 flex items-center gap-4 text-[11px] text-[#66737A] flex-wrap">
-                          <span>Standing: <strong className="text-[#26343D]">{standing}</strong></span>
-                          <span>Seated: <strong className="text-[#26343D]">{seated}</strong></span>
+                          {standing > 0 && <span>Standing: <strong className="text-[#26343D]">{standing}</strong></span>}
+                          {seated > 0 && <span>Seated: <strong className="text-[#26343D]">{seated}</strong></span>}
                           {theatre > 0 && <span>Theatre: <strong className="text-[#26343D]">{theatre}</strong></span>}
-                          {space.ceilingHeightFt && <span>Ceiling: <strong className="text-[#26343D]">{space.ceilingHeightFt} ft</strong></span>}
+                          {Boolean(space.ceilingHeightFt && space.ceilingHeightFt > 0) && (
+                            <span>Ceiling: <strong className="text-[#26343D]">{space.ceilingHeightFt} ft</strong></span>
+                          )}
                         </div>
                       </div>
                     );

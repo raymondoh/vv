@@ -53,7 +53,7 @@ export const MediaWalkthroughStep: React.FC<MediaWalkthroughStepProps> = ({
       id: `clip-${Date.now().toString().slice(-6)}`,
       spaceId: targetSpace.id,
       layoutId: targetLayout.id,
-      layoutCategory: mapLayoutTypeToCategory(targetLayout.layoutType),
+      layoutCategory: mapLayoutTypeToCategory(targetLayout.layoutType) || 'banquet',
       title: clipTitle,
       description: `Recorded walkthrough displaying the ${targetLayout.title || targetLayout.layoutType} setup in ${targetSpace.name}.`,
       durationSec: 75,

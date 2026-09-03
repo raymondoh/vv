@@ -1,8 +1,9 @@
 import React from 'react';
-import { CheckCircle2, Building2, MapPin, Layers, Grid, Coins, Image as ImageIcon, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Building2, MapPin, Layers, Grid, Coins, Image as ImageIcon, Sparkles, AlertCircle, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Venue, BusinessOrganisation } from '../../../types';
 import { calculateCompleteness, getQualityTierBadge } from '../../../utils/completeness';
 import { formatCurrency, formatLocation } from '../../../utils/formatters';
+import { getAllCapacityWarnings } from '../../../utils/venueConfigurationHelpers';
 
 interface ReviewPublishStepProps {
   organisation: Partial<BusinessOrganisation>;
@@ -23,6 +24,7 @@ export const ReviewPublishStep: React.FC<ReviewPublishStepProps> = ({
 }) => {
   const completeness = calculateCompleteness(venue as Venue);
   const tierBadge = getQualityTierBadge(completeness.tier);
+  const capacityWarnings = getAllCapacityWarnings(venue.spaces || []);
 
   const isPublishValid = Boolean(
     organisation.name?.trim() &&
@@ -73,6 +75,27 @@ export const ReviewPublishStep: React.FC<ReviewPublishStepProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Host Capacity Consistency Warning Banner */}
+      {capacityWarnings.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-xs text-amber-900 shadow-xs">
+          <div className="font-bold flex items-center gap-2 text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Capacity Consistency Notice</span>
+          </div>
+          <p className="text-[#66737A] text-[11px]">
+            The following setup capacities exceed the base physical room limits. Review and ensure setup specifications align with your venue safety allowances:
+          </p>
+          <ul className="space-y-1 pl-1">
+            {capacityWarnings.map((w, idx) => (
+              <li key={idx} className="flex items-start gap-1.5 text-[11px] text-amber-800">
+                <span className="text-amber-500 font-bold">•</span>
+                <span>{w.message}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Structured Review Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
