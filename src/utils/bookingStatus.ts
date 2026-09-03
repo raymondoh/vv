@@ -44,7 +44,7 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
     case 'requested':
       return {
         customerLabel: 'Booking requested',
-        venueLabel: 'New Request — Pending Review',
+        venueLabel: 'New Booking Request',
         adminLabel: 'Requested',
         badgeClass: 'bg-stone-100 text-[#26343D] border-[#DDD8CF]',
         description: 'Waiting for venue host to verify calendar and approve request.',
@@ -52,7 +52,7 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
     case 'deposit_due':
       return {
         customerLabel: 'Venue approved — deposit due',
-        venueLabel: 'Approved — Deposit Due from Client',
+        venueLabel: 'Accepted — Awaiting Deposit',
         adminLabel: 'Deposit Due',
         badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
         description: 'Venue confirmed availability. Deposit required to secure date.',
@@ -68,7 +68,7 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
     case 'final_payment_due':
       return {
         customerLabel: 'Final payment due',
-        venueLabel: 'Final Balance Due from Client',
+        venueLabel: 'Final Payment Due',
         adminLabel: 'Final Payment Due',
         badgeClass: 'bg-orange-50 text-orange-800 border-orange-200',
         description: 'Final balance payment is due prior to event date.',
@@ -76,7 +76,7 @@ export function getStatusDisplay(status: VenueBookingStatus): StatusDisplayInfo 
     case 'fully_paid':
       return {
         customerLabel: 'Fully paid',
-        venueLabel: 'Fully Paid — Ready for Event',
+        venueLabel: 'Fully Paid',
         adminLabel: 'Fully Paid',
         badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
         description: 'All payments completed. Ready for event execution.',

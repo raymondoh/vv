@@ -72,6 +72,8 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed'>('all');
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
+  const [acceptedBookingIds, setAcceptedBookingIds] = useState<string[]>([]);
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
 
   const selectedVenue = venues.find((v) => v.id === selectedVenueId) || venues[0];
 
@@ -86,6 +88,9 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
       const result = await onUpdateBookingStatus(bookingId, newStatus);
       if (result && !result.success && result.error) {
         setActionError({ id: bookingId, message: result.error });
+      } else if (result && result.success && newStatus === 'deposit_due') {
+        // Retain visual identity in the queue so the host sees the clear accepted feedback
+        setAcceptedBookingIds((prev) => (prev.includes(bookingId) ? prev : [...prev, bookingId]));
       }
     } catch (err: any) {
       setActionError({
@@ -95,6 +100,23 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
     } finally {
       setProcessingBookingId(null);
     }
+  };
+
+  const handleDismissAcceptedBooking = (bookingId: string) => {
+    setAcceptedBookingIds((prev) => prev.filter((id) => id !== bookingId));
+  };
+
+  const handleNavigateToBooking = (bookingId: string) => {
+    setActiveTab('bookings');
+    setStatusFilter('all');
+    setHighlightedBookingId(bookingId);
+    setAcceptedBookingIds((prev) => prev.filter((id) => id !== bookingId));
+    setTimeout(() => {
+      const el = document.getElementById(`host-booking-card-${bookingId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   // Filter bookings for the selected venue (or all)
@@ -124,7 +146,12 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
     : venueBookings.filter((b) => b.venueId === selectedVenueId);
 
   // Prominent global pending requests queue across all managed properties
-  const globalPendingRequests = venueBookings.filter((b) => b.status === 'requested');
+  // Includes pending 'requested' items and any recently accepted items awaiting dismissal
+  const queueBookings = venueBookings.filter(
+    (b) => b.status === 'requested' || acceptedBookingIds.includes(b.id)
+  );
+  const pendingRequestsCount = allVenueBookings.filter((b) => b.status === 'requested').length;
+  const globalPendingRequestsCount = venueBookings.filter((b) => b.status === 'requested').length;
 
   const activeBookings = allVenueBookings.filter(
     (b) => b.status !== 'cancelled' && b.status !== 'declined'
@@ -137,7 +164,6 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   const platformCommissionTotal = Math.round((grossBookingsTotal * commissionRate) / 100);
   const venueNetPayoutTotal = grossBookingsTotal - platformCommissionTotal;
 
-  const pendingRequestsCount = allVenueBookings.filter((b) => b.status === 'requested').length;
   const confirmedCount = allVenueBookings.filter(
     (b) => b.status === 'confirmed' || b.status === 'deposit_due' || b.status === 'final_payment_due' || b.status === 'fully_paid'
   ).length;
@@ -275,9 +301,9 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             <div>
               <h2 className="text-base font-bold text-[#26343D] flex items-center gap-2">
                 <span>New Booking Requests Queue</span>
-                {globalPendingRequests.length > 0 ? (
+                {globalPendingRequestsCount > 0 ? (
                   <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#A86445] text-white">
-                    {globalPendingRequests.length} Awaiting Host Review
+                    {globalPendingRequestsCount} Awaiting Host Review
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -292,7 +318,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
           </div>
         </div>
 
-        {globalPendingRequests.length === 0 ? (
+        {queueBookings.length === 0 ? (
           <div className="p-6 text-center bg-[#F4F1EA]/60 rounded-xl border border-[#DDD8CF] text-xs text-[#66737A] space-y-1">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto" />
             <p className="font-semibold text-[#26343D]">No New Booking Requests Pending Review</p>
@@ -300,10 +326,95 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {globalPendingRequests.map((request) => {
+            {queueBookings.map((request) => {
               const reqCommission = Math.round((request.grossAmount * commissionRate) / 100);
               const reqNet = request.grossAmount - reqCommission;
+              const isAccepted = acceptedBookingIds.includes(request.id) && request.status !== 'requested';
+              const reqCurrency = request.currency || 'GBP';
 
+              // Post-Acceptance Success Feedback State
+              if (isAccepted) {
+                return (
+                  <div
+                    key={request.id}
+                    id={`accepted-request-card-${request.id}`}
+                    className="bg-[#FDFCF7] border-2 border-emerald-600/40 rounded-xl p-5 space-y-4 shadow-xs transition-all animate-fadeIn"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center shrink-0">
+                          <Check className="w-5 h-5 stroke-[2.5]" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-700 text-white flex items-center gap-1">
+                              <Check className="w-3 h-3 stroke-[2.5]" />
+                              <span>Booking accepted — deposit requested</span>
+                            </span>
+                            <span className="text-xs font-mono text-[#66737A]">{request.bookingNumber}</span>
+                          </div>
+                          <h3 className="text-base font-bold text-[#26343D]">
+                            {request.venueName} · {request.clientName} {request.clientCompany ? `(${request.clientCompany})` : ''}
+                          </h3>
+                          <p className="text-xs text-[#26343D]">
+                            <strong className="text-emerald-800 font-bold">
+                              {formatCurrency(request.depositAmount, reqCurrency)} deposit requested from customer
+                            </strong>
+                            {' '}·{' '}
+                            <span className="text-[#66737A]">
+                              Event date: <strong className="text-[#26343D]">{formatDateDisplay(request.eventDate, 'readable')}</strong> ({request.guestCount} guests · {request.selectedLayout})
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Financial Snapshot */}
+                      <div className="bg-white p-3 rounded-xl border border-[#DDD8CF] text-xs text-right min-w-[200px] shrink-0">
+                        <div className="flex justify-between text-[#66737A]">
+                          <span>Gross Hire:</span>
+                          <span className="font-bold text-[#26343D]">{formatCurrency(request.grossAmount, reqCurrency)}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-800 font-bold pt-1 border-t border-[#DDD8CF]">
+                          <span>Deposit ({request.depositPercentage}%):</span>
+                          <span>{formatCurrency(request.depositAmount, reqCurrency)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200/70 text-xs text-emerald-900 flex items-center justify-between gap-3">
+                      <span>
+                        This reservation is now active in <strong>Bookings & Payments</strong> awaiting customer deposit payment. The customer has been prompted to complete their deposit.
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-[#DDD8CF]">
+                      <div className="text-xs text-[#66737A]">
+                        Status: <strong className="text-emerald-800 font-semibold">Accepted — Awaiting Deposit</strong>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          id={`queue-view-in-pipeline-btn-${request.id}`}
+                          onClick={() => handleNavigateToBooking(request.id)}
+                          className="px-4 py-2 bg-[#26343D] hover:bg-[#1E2930] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-all active:scale-95"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>View in Bookings & Payments</span>
+                        </button>
+                        <button
+                          id={`queue-dismiss-accepted-btn-${request.id}`}
+                          onClick={() => handleDismissAcceptedBooking(request.id)}
+                          className="px-3.5 py-2 bg-white border border-[#DDD8CF] hover:bg-[#F4F1EA] text-[#26343D] font-semibold text-xs rounded-xl transition-all active:scale-95"
+                        >
+                          Dismiss / Continue
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Standard Pending Review State
               return (
                 <div
                   key={request.id}
@@ -346,7 +457,6 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
 
                     {/* Financial Payout Summary */}
                     {(() => {
-                      const reqCurrency = request.currency || 'GBP';
                       return (
                         <div className="bg-white p-3 rounded-xl border border-[#DDD8CF] text-xs min-w-[240px] space-y-1">
                           <div className="flex justify-between text-[#66737A]">
@@ -491,14 +601,21 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             <button
               id="venue-tab-bookings-btn"
               onClick={() => setActiveTab('bookings')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                 activeTab === 'bookings'
                   ? 'bg-[#26343D] text-white shadow-xs'
                   : 'bg-white text-[#66737A] hover:text-[#26343D] border border-[#DDD8CF]'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span>Booking Pipeline ({allVenueBookings.length})</span>
+              <span>Bookings & Payments</span>
+              {pendingRequestsCount > 0 ? (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#A86445] text-white">
+                  {pendingRequestsCount} new
+                </span>
+              ) : (
+                <span className="text-[11px] opacity-75 font-mono">({allVenueBookings.length})</span>
+              )}
             </button>
 
             <button
@@ -562,6 +679,133 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
         {/* TAB 0: MY VENUES & SPACES PORTFOLIO */}
         {activeTab === 'venues' && (
           <div className="space-y-6">
+            {/* Prominent Deposit Received / Booking Confirmed Alert Cards */}
+            {(() => {
+              const confirmedBookings = venueBookings.filter((b) => b.status === 'confirmed');
+              if (confirmedBookings.length === 0) return null;
+
+              return (
+                <div className="space-y-3">
+                  {confirmedBookings.map((b) => {
+                    const bCurrency = b.currency || 'GBP';
+                    return (
+                      <div
+                        key={b.id}
+                        id={`deposit-received-highlight-${b.id}`}
+                        className="bg-emerald-50/90 border-2 border-emerald-600/30 rounded-2xl p-5 sm:p-6 shadow-xs transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-700 text-white">
+                                  Deposit received — booking confirmed
+                                </span>
+                                <span className="text-xs font-mono text-[#66737A]">{b.bookingNumber}</span>
+                              </div>
+                              <h3 className="text-base font-bold text-[#26343D]">
+                                {b.venueName} · {b.clientName} {b.clientCompany ? `(${b.clientCompany})` : ''}
+                              </h3>
+                              <p className="text-xs text-[#26343D] flex flex-wrap items-center gap-1.5">
+                                <strong className="text-emerald-800 font-bold">
+                                  {formatCurrency(b.depositAmount, bCurrency)} received
+                                </strong>
+                                <span>·</span>
+                                <strong className="text-[#26343D]">
+                                  {formatDateDisplay(b.eventDate, 'readable')} secured
+                                </strong>
+                                <span className="text-[#66737A]">
+                                  ({b.startTime} – {b.endTime} · {b.guestCount} guests · {b.selectedLayout})
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            id={`view-confirmed-booking-btn-${b.id}`}
+                            onClick={() => handleNavigateToBooking(b.id)}
+                            className="px-4 py-2.5 bg-[#26343D] hover:bg-[#1E2930] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
+                          >
+                            <span>View booking</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* Compact Recent Booking Activity & Operational Updates */}
+            {(() => {
+              const recentActivityBookings = venueBookings
+                .filter((b) => b.status !== 'requested' && b.status !== 'declined' && b.status !== 'cancelled')
+                .slice(0, 4);
+              if (recentActivityBookings.length === 0) return null;
+
+              return (
+                <div className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-3.5 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-[#DDD8CF] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#A86445]" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D]">
+                        Recent Booking Activity & Updates
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveTab('bookings');
+                        setStatusFilter('all');
+                      }}
+                      className="text-xs font-semibold text-[#A86445] hover:text-[#8F5236] flex items-center gap-1"
+                    >
+                      <span>View in Bookings & Payments</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {recentActivityBookings.map((b) => {
+                      const bCurrency = b.currency || 'GBP';
+                      const statusInfo = getStatusDisplay(b.status);
+                      return (
+                        <div
+                          key={b.id}
+                          className="p-3 bg-[#FDFCF7] border border-[#DDD8CF] rounded-xl flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${statusInfo.badgeClass}`}>
+                                {statusInfo.venueLabel}
+                              </span>
+                              <span className="text-[11px] font-mono text-[#66737A] truncate">{b.bookingNumber}</span>
+                            </div>
+                            <div className="font-bold text-[#26343D] truncate">
+                              {b.venueName} · {b.clientName}
+                            </div>
+                            <div className="text-[11px] text-[#66737A]">
+                              {formatDateDisplay(b.eventDate, 'short')} · {b.status === 'confirmed' ? `${formatCurrency(b.depositAmount, bCurrency)} deposit paid` : `Hire: ${formatCurrency(b.grossAmount, bCurrency)}`}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleNavigateToBooking(b.id)}
+                            className="px-2.5 py-1.5 bg-white border border-[#DDD8CF] hover:bg-[#F4F1EA] text-[#26343D] text-[11px] font-bold rounded-lg transition-all shrink-0 flex items-center gap-1"
+                          >
+                            <span>View</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#F4F1EA] p-5 rounded-2xl border border-[#DDD8CF]">
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-[#26343D] flex items-center gap-2">
@@ -738,9 +982,21 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
           </div>
         )}
 
-        {/* TAB 1: BOOKING REQUESTS MANAGEMENT */}
+        {/* TAB 1: BOOKINGS & COMMERCIAL PAYMENTS */}
         {activeTab === 'bookings' && (
           <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F4F1EA] p-4 sm:p-5 rounded-2xl border border-[#DDD8CF]">
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[#26343D] flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#A86445]" />
+                  <span>Bookings & Commercial Payments</span>
+                </h3>
+                <p className="text-xs text-[#66737A]">
+                  Manage incoming reservation requests, accepted booking deposits, confirmed dates, final balances, and completed events.
+                </p>
+              </div>
+            </div>
+
             {filteredBookings.length === 0 ? (
               <div className="py-16 text-center bg-white rounded-2xl border border-[#DDD8CF] p-8 space-y-3">
                 <Calendar className="w-10 h-10 text-[#A86445] mx-auto" />
@@ -762,12 +1018,18 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                   const isFinalPaymentDue = booking.status === 'final_payment_due';
                   const isFullyPaid = booking.status === 'fully_paid';
                   const isCompleted = booking.status === 'completed';
+                  const isHighlighted = highlightedBookingId === booking.id;
 
                   return (
                     <div
                       key={booking.id}
+                      id={`host-booking-card-${booking.id}`}
                       className={`bg-white border rounded-2xl p-5 space-y-4 transition-all shadow-xs ${
-                        isRequested ? 'border-[#A86445] ring-1 ring-[#A86445]/30' : 'border-[#DDD8CF]'
+                        isHighlighted
+                          ? 'border-[#A86445] ring-2 ring-[#A86445] bg-[#FDFCF7]'
+                          : isRequested
+                          ? 'border-[#A86445] ring-1 ring-[#A86445]/30'
+                          : 'border-[#DDD8CF]'
                       }`}
                     >
                       {/* Top Row: Client & Booking Metadata */}
@@ -778,6 +1040,11 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                               {statusInfo.venueLabel}
                             </span>
                             <span className="text-xs font-mono text-[#66737A]">{booking.bookingNumber}</span>
+                            {isHighlighted && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#A86445] text-white">
+                                Selected Booking
+                              </span>
+                            )}
                           </div>
                           <h4 className="text-base font-bold text-[#26343D]">
                             {booking.clientName} {booking.clientCompany ? `(${booking.clientCompany})` : ''}
