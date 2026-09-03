@@ -956,7 +956,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
             </div>
 
             {/* Venue Cards List */}
-            <div className="grid grid-cols-1 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
               {venues.map((venue) => {
                 const comp = calculateCompleteness(venue);
                 const tier = getQualityTierBadge(comp.tier);
@@ -965,139 +965,174 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                 const layoutsTotal = venue.spaces?.reduce((acc, s) => acc + (s.layouts?.length || 1), 0) || venue.walkthroughClips.length;
                 const venueThumbSrc = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '';
 
+                const derivedMax =
+                  (venue.capacity?.cocktail && venue.capacity.cocktail > 0 ? venue.capacity.cocktail : 0) ||
+                  (venue.capacity?.seatedBanquet && venue.capacity.seatedBanquet > 0 ? venue.capacity.seatedBanquet : 0) ||
+                  (venue.spaces && venue.spaces.length > 0
+                    ? Math.max(...venue.spaces.map((s) => s.maxCapacity || s.standingCapacity || s.seatedCapacity || s.theatreCapacity || 0))
+                    : 0);
+                const maxGuestsText = derivedMax > 0 ? `Max ${derivedMax} Guests` : 'Capacity on Request';
+
                 return (
                   <div
                     key={venue.id}
-                    className="bg-white rounded-2xl border border-[#DDD8CF] p-5 space-y-4 shadow-xs hover:border-[#26343D]/30 transition-all"
+                    className="bg-white rounded-2xl border border-[#DDD8CF] p-5 space-y-4 shadow-xs hover:border-[#26343D]/30 transition-all flex flex-col"
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        {venueThumbSrc ? (
-                          <img
-                            src={venueThumbSrc}
-                            alt={venue.name}
-                            className="w-24 h-24 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
-                          />
-                        ) : (
-                          <div className="w-24 h-24 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-2 text-center">
-                            <div className="w-8 h-8 rounded-lg bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-1 shadow-2xs">
-                              <ImageIcon className="w-4 h-4" />
-                            </div>
-                            <span className="text-[10px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
-                              {venue.name || 'Venue'}
-                            </span>
-                            <span className="text-[9px] text-[#66737A] mt-0.5">No photo added</span>
+                    {/* Top Area: Compact Thumbnail + Venue Identity & Status Badges */}
+                    <div className="flex items-start gap-3.5">
+                      {venueThumbSrc ? (
+                        <img
+                          src={venueThumbSrc}
+                          alt={venue.name}
+                          className="w-20 h-20 rounded-xl object-cover border border-[#DDD8CF] shrink-0"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-xl bg-[#EAE5DC] border border-[#DDD8CF] shrink-0 flex flex-col items-center justify-center p-2 text-center">
+                          <div className="w-7 h-7 rounded-lg bg-[#DDD8CF] flex items-center justify-center text-[#A86445] mb-1 shadow-2xs">
+                            <ImageIcon className="w-3.5 h-3.5" />
                           </div>
-                        )}
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="text-base font-bold text-[#26343D]">{venue.name}</h4>
-                            <span
-                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                isDraft
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              }`}
-                            >
-                              {isDraft ? 'Draft (Unpublished)' : 'Live on Marketplace'}
-                            </span>
-                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${tier.bg} ${tier.color} ${tier.border}`}>
-                              {tier.label} ({comp.score}%)
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-[#66737A] flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-[#A86445]" />
-                            <span>{formatLocation(venue.location)}</span>
-                          </p>
-
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-[#66737A] pt-1">
-                            <span className="font-semibold text-[#26343D]">
-                              {spacesCount} Spaces / Rooms
-                            </span>
-                            <span>•</span>
-                            <span>{layoutsTotal} Configured Layouts</span>
-                            <span>•</span>
-                            <span>
-                              {(() => {
-                                const derivedMax =
-                                  (venue.capacity?.cocktail && venue.capacity.cocktail > 0 ? venue.capacity.cocktail : 0) ||
-                                  (venue.capacity?.seatedBanquet && venue.capacity.seatedBanquet > 0 ? venue.capacity.seatedBanquet : 0) ||
-                                  (venue.spaces && venue.spaces.length > 0
-                                    ? Math.max(...venue.spaces.map((s) => s.maxCapacity || s.standingCapacity || s.seatedCapacity || s.theatreCapacity || 0))
-                                    : 0);
-                                return derivedMax > 0 ? `Max ${derivedMax} Guests` : 'Capacity on Request';
-                              })()}
-                            </span>
-                            <span>•</span>
-                            <span className="font-bold text-[#A86445]">
-                              {formatCurrency(venue.pricing.startingPrice, venue.pricing.currency)} {venue.pricing.priceUnit}
-                            </span>
-                          </div>
+                          <span className="text-[10px] font-bold text-[#26343D] leading-tight line-clamp-1 max-w-[90%]">
+                            {venue.name || 'Venue'}
+                          </span>
+                          <span className="text-[9px] text-[#66737A]">No photo</span>
                         </div>
-                      </div>
+                      )}
 
-                      {/* Card Action Buttons */}
-                      <div className="flex flex-wrap items-center gap-2 shrink-0">
-                        {onToggleVenuePublishStatus && (
-                          <button
-                            type="button"
-                            onClick={() => onToggleVenuePublishStatus(venue.id, isDraft ? 'draft' : 'published')}
-                            className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div>
+                          <h4 className="text-base font-bold text-[#26343D] leading-snug break-words">
+                            {venue.name}
+                          </h4>
+                          <p className="text-xs text-[#66737A] flex items-center gap-1.5 mt-0.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
+                            <span className="truncate">{formatLocation(venue.location)}</span>
+                          </p>
+                        </div>
+
+                        {/* Status & Quality Badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
                               isDraft
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                                : 'bg-white text-[#66737A] border-[#DDD8CF] hover:text-[#26343D]'
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             }`}
                           >
-                            {isDraft ? 'Publish Venue' : 'Unpublish'}
-                          </button>
-                        )}
-
-                        {onOpenOnboardingModal && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenOnboardingModal(venue, venue.organisationId)}
-                            className="px-3.5 py-2 bg-white text-[#26343D] hover:bg-[#F4F1EA] border border-[#DDD8CF] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-[#A86445]" />
-                            <span>Edit Spaces & Details</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => onInspectVenue(venue)}
-                          className="px-3.5 py-2 bg-[#26343D] text-white hover:bg-[#1E2930] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>View Public Page</span>
-                        </button>
+                            {isDraft ? 'Draft (Unpublished)' : 'Live on Marketplace'}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${tier.bg} ${tier.color} ${tier.border}`}>
+                            {tier.label} ({comp.score}%)
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Spaces & Layouts Chips within the card */}
-                    {venue.spaces && venue.spaces.length > 0 && (
-                      <div className="pt-3 border-t border-[#DDD8CF]/60 bg-[#FDFCF7] p-3 rounded-xl space-y-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#66737A] block">
-                          Configured Rooms & Spaces:
+                    {/* Compact 2x2 Portfolio Metadata Grid */}
+                    <div className="grid grid-cols-2 gap-2.5 p-3 bg-[#FDFCF7] rounded-xl border border-[#DDD8CF]/70 text-xs">
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A] block truncate">
+                          Spaces & Rooms
                         </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                          {venue.spaces.map((sp) => (
-                            <div key={sp.id} className="bg-white p-2.5 rounded-lg border border-[#DDD8CF] space-y-1">
-                              <div className="flex items-center justify-between text-xs font-bold text-[#26343D]">
-                                <span className="truncate">{sp.name}</span>
-                                <span className="text-[10px] text-[#A86445] bg-[#F3E7DF] px-1.5 py-0.5 rounded">
-                                  {(() => {
-                                    const cap = sp.maxCapacity || sp.standingCapacity || sp.seatedCapacity || sp.theatreCapacity || 0;
-                                    return cap > 0 ? `Max ${cap}` : 'Flexible';
-                                  })()}
+                        <span className="font-semibold text-[#26343D] block truncate">
+                          {spacesCount} {spacesCount === 1 ? 'Space / Room' : 'Spaces / Rooms'}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A] block truncate">
+                          Configurations
+                        </span>
+                        <span className="font-semibold text-[#26343D] block truncate">
+                          {layoutsTotal} {layoutsTotal === 1 ? 'Layout' : 'Configured Layouts'}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A] block truncate">
+                          Maximum Capacity
+                        </span>
+                        <span className="font-semibold text-[#26343D] block truncate">
+                          {maxGuestsText}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A] block truncate">
+                          Starting Price
+                        </span>
+                        <span className="font-bold text-[#A86445] block truncate">
+                          {formatCurrency(venue.pricing.startingPrice, venue.pricing.currency)} {venue.pricing.priceUnit}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {onToggleVenuePublishStatus && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleVenuePublishStatus(venue.id, isDraft ? 'draft' : 'published')}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                            isDraft
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-white text-[#66737A] border-[#DDD8CF] hover:text-[#26343D] hover:bg-[#F4F1EA]'
+                          }`}
+                        >
+                          {isDraft ? 'Publish Venue' : 'Unpublish'}
+                        </button>
+                      )}
+
+                      {onOpenOnboardingModal && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenOnboardingModal(venue, venue.organisationId)}
+                          className="px-3 py-2 bg-white text-[#26343D] hover:bg-[#F4F1EA] border border-[#DDD8CF] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
+                          <span>Edit Spaces & Details</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => onInspectVenue(venue)}
+                        className="px-3.5 py-2 bg-[#26343D] text-white hover:bg-[#1E2930] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs"
+                      >
+                        <Eye className="w-3.5 h-3.5 shrink-0" />
+                        <span>View Public Page</span>
+                      </button>
+                    </div>
+
+                    {/* Configured Rooms & Spaces Section (Stacked single-column) */}
+                    {venue.spaces && venue.spaces.length > 0 && (
+                      <div className="pt-3 border-t border-[#DDD8CF]/70 space-y-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#66737A] block">
+                          Configured Rooms & Spaces
+                        </span>
+                        <div className="space-y-2">
+                          {venue.spaces.map((sp) => {
+                            const cap = sp.maxCapacity || sp.standingCapacity || sp.seatedCapacity || sp.theatreCapacity || 0;
+                            const capText = cap > 0 ? `Max ${cap}` : 'Flexible';
+                            const layoutsCount = sp.layouts?.length || 0;
+                            const layoutText = `${layoutsCount} ${layoutsCount === 1 ? 'layout' : 'layouts'}`;
+                            const floorText = sp.floorLocation || 'Ground Floor';
+
+                            return (
+                              <div
+                                key={sp.id}
+                                className="bg-[#FDFCF7] hover:bg-[#F9F7F0] p-2.5 rounded-xl border border-[#DDD8CF] flex items-center justify-between gap-3 transition-colors"
+                              >
+                                <div className="min-w-0 space-y-0.5">
+                                  <div className="text-xs font-bold text-[#26343D] truncate">
+                                    {sp.name}
+                                  </div>
+                                  <div className="text-[11px] text-[#66737A] truncate">
+                                    {layoutText} · {floorText}
+                                  </div>
+                                </div>
+                                <span className="text-[10px] sm:text-[11px] font-bold text-[#A86445] bg-[#F3E7DF] px-2 py-0.5 rounded-md shrink-0">
+                                  {capText}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-[#66737A] truncate">
-                                {sp.layouts?.length || 0} Layouts · {sp.floorLocation || 'Ground Floor'}
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
