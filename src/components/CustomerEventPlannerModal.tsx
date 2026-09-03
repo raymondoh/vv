@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
-import { VenueBooking, ChecklistItem, MarketplaceConfig } from '../types';
+import { Venue, VenueBooking, ChecklistItem, MarketplaceConfig } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
 import { formatCurrency, formatDateDisplay } from '../utils/formatters';
 
@@ -30,6 +30,8 @@ interface CustomerEventPlannerModalProps {
   onOpenDepositModal: (booking: VenueBooking) => void;
   onExploreWalkthrough: (venueId: string) => void;
   marketplaceConfig?: MarketplaceConfig;
+  venue?: Venue;
+  venues?: Venue[];
 }
 
 export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps> = ({
@@ -40,6 +42,8 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
   onOpenDepositModal,
   onExploreWalkthrough,
   marketplaceConfig,
+  venue,
+  venues,
 }) => {
   const [checklist, setChecklist] = useState<ChecklistItem[]>(booking.checklist || []);
   const [personalNotes, setPersonalNotes] = useState<string>(booking.personalNotes || '');
@@ -150,6 +154,13 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
   const completedCount = checklist.filter((i) => i.completed).length;
   const progressPercent = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : 0;
 
+  const targetVenue = venue || venues?.find((v) => v.id === booking.venueId);
+  const hasRecordedWalkthrough = Boolean(
+    targetVenue &&
+    Array.isArray(targetVenue.walkthroughClips) &&
+    targetVenue.walkthroughClips.length > 0
+  );
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="relative w-full max-w-3xl bg-white border border-[#DDD8CF] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
@@ -169,7 +180,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                 </span>
               </div>
               <p className="text-xs text-[#66737A]">
-                {booking.venueName} • {booking.eventDate} ({booking.guestCount} guests)
+                {booking.venueName} • {formatDateDisplay(booking.eventDate, 'readable')} ({booking.guestCount} guests)
               </p>
             </div>
           </div>
@@ -217,16 +228,19 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
             </button>
           </div>
 
-          <button
-            onClick={() => {
-              onClose();
-              onExploreWalkthrough(booking.venueId);
-            }}
-            className="hidden sm:flex items-center gap-1.5 text-xs text-[#A86445] hover:text-[#8F5439] font-medium bg-white px-2.5 py-1 rounded-lg border border-[#DDD8CF] shadow-xs"
-          >
-            <Video className="w-3.5 h-3.5" />
-            <span>Open 4K Walkthrough</span>
-          </button>
+          {hasRecordedWalkthrough && (
+            <button
+              id="planner-open-walkthrough-btn"
+              onClick={() => {
+                onClose();
+                onExploreWalkthrough(booking.venueId);
+              }}
+              className="hidden sm:flex items-center gap-1.5 text-xs text-[#A86445] hover:text-[#8F5439] font-medium bg-white px-2.5 py-1 rounded-lg border border-[#DDD8CF] shadow-xs"
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>Open 4K Walkthrough</span>
+            </button>
+          )}
         </div>
 
         {/* Modal Body */}
@@ -400,7 +414,7 @@ export const CustomerEventPlannerModal: React.FC<CustomerEventPlannerModalProps>
                   <span className="font-bold text-[#26343D] block">Space & Logistics</span>
                   <div className="space-y-1 text-[#66737A]">
                     <div>Location: <strong className="text-[#26343D]">{booking.venueLocation}</strong></div>
-                    <div>Event Date: <strong className="text-[#26343D]">{booking.eventDate}</strong></div>
+                    <div>Event Date: <strong className="text-[#26343D]">{formatDateDisplay(booking.eventDate, 'readable')}</strong></div>
                     <div>Timing: <strong className="text-[#26343D]">{booking.startTime} – {booking.endTime}</strong></div>
                     <div>Layout: <strong className="text-[#26343D]">{booking.selectedLayout}</strong></div>
                     <div>Guest Count: <strong className="text-[#26343D]">{booking.guestCount} guests</strong></div>

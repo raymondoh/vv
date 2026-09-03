@@ -679,13 +679,72 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
         {/* TAB 0: MY VENUES & SPACES PORTFOLIO */}
         {activeTab === 'venues' && (
           <div className="space-y-6">
-            {/* Prominent Deposit Received / Booking Confirmed Alert Cards */}
+            {/* Prominent Lifecycle Milestone Alert Cards */}
             {(() => {
+              const fullyPaidBookings = venueBookings.filter((b) => b.status === 'fully_paid');
               const confirmedBookings = venueBookings.filter((b) => b.status === 'confirmed');
-              if (confirmedBookings.length === 0) return null;
+              const completedBookings = venueBookings.filter((b) => b.status === 'completed');
+
+              if (fullyPaidBookings.length === 0 && confirmedBookings.length === 0 && completedBookings.length === 0) {
+                return null;
+              }
 
               return (
                 <div className="space-y-3">
+                  {/* 1. Final Payment Received / Fully Paid Alert Cards */}
+                  {fullyPaidBookings.map((b) => {
+                    const bCurrency = b.currency || 'GBP';
+                    const finalAmount = b.finalBalance || (b.grossAmount - b.depositAmount);
+                    return (
+                      <div
+                        key={b.id}
+                        id={`final-payment-received-highlight-${b.id}`}
+                        className="bg-emerald-50/90 border-2 border-emerald-600/30 rounded-2xl p-5 sm:p-6 shadow-xs transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-700 text-white">
+                                  Final payment received — booking fully paid
+                                </span>
+                                <span className="text-xs font-mono text-[#66737A]">{b.bookingNumber}</span>
+                              </div>
+                              <h3 className="text-base font-bold text-[#26343D]">
+                                {b.venueName} · {b.clientName} {b.clientCompany ? `(${b.clientCompany})` : ''}
+                              </h3>
+                              <p className="text-xs text-[#26343D] flex flex-wrap items-center gap-1.5">
+                                <strong className="text-emerald-800 font-bold">
+                                  {formatCurrency(finalAmount, bCurrency)} received · {formatCurrency(0, bCurrency)} balance remaining
+                                </strong>
+                                <span>·</span>
+                                <strong className="text-[#26343D]">
+                                  {formatDateDisplay(b.eventDate, 'readable')} fully paid
+                                </strong>
+                                <span className="text-[#66737A]">
+                                  (Ready for event execution · {b.startTime} – {b.endTime} · {b.guestCount} guests · {b.selectedLayout})
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            id={`view-fully-paid-booking-btn-${b.id}`}
+                            onClick={() => handleNavigateToBooking(b.id)}
+                            className="px-4 py-2.5 bg-[#26343D] hover:bg-[#1E2930] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0 active:scale-95"
+                          >
+                            <span>View booking</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* 2. Deposit Received / Booking Confirmed Alert Cards */}
                   {confirmedBookings.map((b) => {
                     const bCurrency = b.currency || 'GBP';
                     return (
@@ -736,6 +795,57 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                       </div>
                     );
                   })}
+
+                  {/* 3. Completed Event Updates (Calm Milestone) */}
+                  {completedBookings.map((b) => {
+                    return (
+                      <div
+                        key={b.id}
+                        id={`event-completed-highlight-${b.id}`}
+                        className="bg-[#FDFCF7] border border-[#DDD8CF] rounded-2xl p-5 sm:p-6 shadow-xs transition-all"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-xl bg-[#26343D] text-white flex items-center justify-center shrink-0 shadow-xs">
+                              <CheckCircle2 className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#26343D] text-white">
+                                  Event completed
+                                </span>
+                                <span className="text-xs font-mono text-[#66737A]">{b.bookingNumber}</span>
+                              </div>
+                              <h3 className="text-base font-bold text-[#26343D]">
+                                {b.venueName} · {b.clientName} {b.clientCompany ? `(${b.clientCompany})` : ''}
+                              </h3>
+                              <p className="text-xs text-[#26343D] flex flex-wrap items-center gap-1.5">
+                                <strong className="text-[#26343D]">
+                                  {formatDateDisplay(b.eventDate, 'readable')}
+                                </strong>
+                                <span>·</span>
+                                <span className="text-[#66737A] font-semibold">
+                                  Booking lifecycle complete
+                                </span>
+                                <span className="text-[#66737A]">
+                                  ({b.guestCount} guests · {b.selectedLayout})
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            id={`view-completed-booking-btn-${b.id}`}
+                            onClick={() => handleNavigateToBooking(b.id)}
+                            className="px-4 py-2.5 bg-white hover:bg-[#F4F1EA] text-[#26343D] border border-[#DDD8CF] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-all shrink-0 active:scale-95"
+                          >
+                            <span>View booking</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -772,6 +882,22 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                     {recentActivityBookings.map((b) => {
                       const bCurrency = b.currency || 'GBP';
                       const statusInfo = getStatusDisplay(b.status);
+
+                      let activitySubtitle = `Hire: ${formatCurrency(b.grossAmount, bCurrency)}`;
+                      if (b.status === 'fully_paid') {
+                        const finalAmount = b.finalBalance || (b.grossAmount - b.depositAmount);
+                        activitySubtitle = `${formatCurrency(finalAmount, bCurrency)} final payment received · ${formatCurrency(0, bCurrency)} balance remaining`;
+                      } else if (b.status === 'confirmed') {
+                        activitySubtitle = `${formatCurrency(b.depositAmount, bCurrency)} deposit paid`;
+                      } else if (b.status === 'final_payment_due') {
+                        const finalAmount = b.finalBalance || (b.grossAmount - b.depositAmount);
+                        activitySubtitle = `${formatCurrency(finalAmount, bCurrency)} final payment due`;
+                      } else if (b.status === 'deposit_due') {
+                        activitySubtitle = `${formatCurrency(b.depositAmount, bCurrency)} deposit requested`;
+                      } else if (b.status === 'completed') {
+                        activitySubtitle = `Event completed · Booking lifecycle complete`;
+                      }
+
                       return (
                         <div
                           key={b.id}
@@ -788,7 +914,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                               {b.venueName} · {b.clientName}
                             </div>
                             <div className="text-[11px] text-[#66737A]">
-                              {formatDateDisplay(b.eventDate, 'short')} · {b.status === 'confirmed' ? `${formatCurrency(b.depositAmount, bCurrency)} deposit paid` : `Hire: ${formatCurrency(b.grossAmount, bCurrency)}`}
+                              {formatDateDisplay(b.eventDate, 'short')} · {activitySubtitle}
                             </div>
                           </div>
                           <button

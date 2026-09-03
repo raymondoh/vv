@@ -668,6 +668,8 @@ export default function App() {
             }
           }}
           marketplaceConfig={marketplaceConfig}
+          venue={venues.find((v) => v.id === plannerBooking.venueId)}
+          venues={venues}
         />
       )}
 
