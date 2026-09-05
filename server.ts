@@ -7,6 +7,7 @@ import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
 import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
 import { resolveBookingConfiguration } from './src/utils/venueConfigurationHelpers.ts';
+import { isSlotInFuture } from './src/utils/walkthroughAvailabilityHelpers.ts';
 
 const app = express();
 const PORT = 3000;
@@ -723,6 +724,52 @@ app.post('/api/walkthroughs/book', (req, res) => {
     return res.status(400).json({ success: false, error: 'Draft venues cannot receive walkthrough bookings until published' });
   }
 
+  // Authoritative validation of live walkthrough slot availability
+  const timezone = venue.location?.timezone || 'Europe/London';
+  if (!isSlotInFuture(scheduledDate, scheduledTime, timezone)) {
+    return res.status(400).json({
+      success: false,
+      error: 'The requested live walkthrough slot is in the past. Please select a future date and time.',
+    });
+  }
+
+  const daySlot = venue.availableSlots?.find((s) => s.date === scheduledDate);
+  if (!daySlot) {
+    return res.status(409).json({
+      success: false,
+      error: 'This live walkthrough slot is no longer available. Please choose another time.',
+    });
+  }
+
+  const timeItem = daySlot.times?.find(
+    (t) => t.time.trim().toLowerCase() === scheduledTime.trim().toLowerCase()
+  );
+  if (!timeItem || timeItem.available === false) {
+    return res.status(409).json({
+      success: false,
+      error: 'This live walkthrough slot is no longer available. Please choose another time.',
+    });
+  }
+
+  // Verify against confirmed appointments
+  const existingAppointment = bookingsStore.find(
+    (b) =>
+      b.venueId === venue.id &&
+      b.scheduledDate === scheduledDate &&
+      b.scheduledTime.trim().toLowerCase() === scheduledTime.trim().toLowerCase() &&
+      b.status !== 'cancelled'
+  );
+  if (existingAppointment) {
+    timeItem.available = false;
+    return res.status(409).json({
+      success: false,
+      error: 'This live walkthrough slot is no longer available. Please choose another time.',
+    });
+  }
+
+  // Consume the slot so it cannot be double-booked
+  timeItem.available = false;
+
   const bookingId = `vtour-${Date.now().toString().slice(-6)}`;
   const meetingCode = `VTR-${Math.floor(1000 + Math.random() * 9000)}`;
   const meetingUrl = `https://meet.venuestream.live/room/${bookingId}`;
@@ -755,6 +802,7 @@ app.post('/api/walkthroughs/book', (req, res) => {
   res.status(201).json({
     success: true,
     booking: newBooking,
+    venue,
     message: `Live walkthrough confirmed with ${venue.host?.name || venue.businessName || 'the venue team'} on ${scheduledDate} at ${scheduledTime}`,
   });
 });

@@ -20,7 +20,7 @@ import { VenueOwnerDashboard } from './components/VenueOwnerDashboard';
 import { PlatformAdminDashboard } from './components/PlatformAdminDashboard';
 import { PlatformAdminSettingsModal } from './components/PlatformAdminSettingsModal';
 import { VenueOnboardingModal } from './components/onboarding/VenueOnboardingModal';
-import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig, BusinessOrganisation } from './types';
+import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig, BusinessOrganisation, AvailableDaySlot } from './types';
 import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
 import { VENUES } from './data/venues';
 import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight, LayoutDashboard, Sliders } from 'lucide-react';
@@ -361,6 +361,40 @@ export default function App() {
     }
   };
 
+  const handleUpdateVenueAvailability = async (venueId: string, updatedSlots: AvailableDaySlot[]) => {
+    try {
+      const targetVenue = venues.find((v) => v.id === venueId);
+      if (targetVenue) {
+        const updatedVenue = {
+          ...targetVenue,
+          availableSlots: updatedSlots,
+        };
+
+        const res = await fetch(`/api/venues/${venueId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedVenue),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const savedVenue = data.venue || data;
+          setVenues((prev) => prev.map((v) => (v.id === venueId ? savedVenue : v)));
+          if (selectedVenue?.id === venueId) {
+            setSelectedVenue(savedVenue);
+          }
+        } else {
+          setVenues((prev) => prev.map((v) => (v.id === venueId ? updatedVenue : v)));
+          if (selectedVenue?.id === venueId) {
+            setSelectedVenue(updatedVenue);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update venue availability:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] flex flex-col font-sans selection:bg-[#A86445] selection:text-white">
       {/* Top Navigation */}
@@ -431,6 +465,7 @@ export default function App() {
             onOpenAdminSettings={() => setIsAdminSettingsOpen(true)}
             onOpenOnboardingModal={handleOpenOnboardingModal}
             onToggleVenuePublishStatus={handleToggleVenuePublishStatus}
+            onUpdateVenueAvailability={handleUpdateVenueAvailability}
           />
         ) : currentView === 'my_events' ? (
           /* Dedicated Full-Page Customer Dashboard */

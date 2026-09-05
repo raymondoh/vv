@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
   X,
@@ -15,14 +15,17 @@ import {
   ChevronRight,
   Shield,
   Radio,
+  Info,
 } from 'lucide-react';
 import { Venue, WalkthroughBooking } from '../types';
+import { getBookableLiveTourSlots } from '../utils/walkthroughAvailabilityHelpers';
+import { formatDateDisplay } from '../utils/formatters';
 
 interface BookWalkthroughModalProps {
   venue: Venue;
   isOpen: boolean;
   onClose: () => void;
-  onBookingConfirmed: (booking: WalkthroughBooking) => void;
+  onBookingConfirmed: (booking: WalkthroughBooking, updatedVenue?: Venue) => void;
   onOpenLiveSimulator: (booking: WalkthroughBooking) => void;
 }
 
@@ -34,14 +37,37 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
   onOpenLiveSimulator,
 }) => {
   const [step, setStep] = useState<'schedule' | 'confirmed'>('schedule');
+
+  // Compute genuine future bookable slots only
+  const bookableSlots = useMemo(() => getBookableLiveTourSlots(venue), [venue]);
+
   const [selectedDate, setSelectedDate] = useState<string>(
-    venue.availableSlots?.[0]?.date || ''
+    bookableSlots[0]?.date || ''
   );
   const [selectedTime, setSelectedTime] = useState<string>(
-    venue.availableSlots?.[0]?.times?.[0]?.time || ''
+    bookableSlots[0]?.times?.[0]?.time || ''
   );
   const [walkthroughType, setWalkthroughType] = useState<'private-director' | 'group-preview' | 'technical-av'>('private-director');
   
+  // Keep selection synchronized with genuinely bookable slots
+  useEffect(() => {
+    if (bookableSlots.length > 0) {
+      const dateExists = bookableSlots.some((s) => s.date === selectedDate);
+      const activeDate = dateExists ? selectedDate : bookableSlots[0].date;
+      if (!dateExists) {
+        setSelectedDate(activeDate);
+      }
+      const daySlot = bookableSlots.find((s) => s.date === activeDate);
+      const timeExists = daySlot?.times.some((t) => t.time === selectedTime && t.available);
+      if (!timeExists && daySlot && daySlot.times.length > 0) {
+        setSelectedTime(daySlot.times[0].time);
+      }
+    } else {
+      setSelectedDate('');
+      setSelectedTime('');
+    }
+  }, [bookableSlots, selectedDate, selectedTime]);
+
   // Form fields
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -57,10 +83,14 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentSlot = venue.availableSlots?.find((s) => s.date === selectedDate) || venue.availableSlots?.[0];
+  const currentSlot = bookableSlots.find((s) => s.date === selectedDate) || bookableSlots[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedDate || !selectedTime) {
+      setError('Please select an available live walkthrough date and time slot.');
+      return;
+    }
     if (!clientName || !clientEmail) {
       setError('Please provide your name and email address.');
       return;
@@ -91,7 +121,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
       const data = await response.json();
       if (data.success && data.booking) {
         setConfirmedBooking(data.booking);
-        onBookingConfirmed(data.booking);
+        onBookingConfirmed(data.booking, data.venue);
         setStep('confirmed');
 
         // Trigger celebratory confetti
@@ -205,19 +235,25 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
 
             {/* Date & Time Slot Selection */}
             <div className="space-y-3">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-[#26343D]">
-                2. Select Date & Time Slot
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[#26343D]">
+                  2. Select Date & Time Slot
+                </label>
+                <span className="text-[11px] text-[#66737A] flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[#A86445]" />
+                  <span>Times shown in UK local time ({venue.location?.timezone || 'Europe/London'})</span>
+                </span>
+              </div>
 
-              {venue.availableSlots && venue.availableSlots.length > 0 ? (
+              {bookableSlots.length > 0 ? (
                 <>
                   {/* Date Tabs */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {venue.availableSlots.map((slot) => {
+                    {bookableSlots.map((slot) => {
                       const isSelected = slot.date === selectedDate;
                       const dateObj = new Date(slot.date + 'T00:00:00');
-                      const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                      const monthDay = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      const weekday = dateObj.toLocaleDateString('en-GB', { weekday: 'short' });
+                      const monthDay = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
                       return (
                         <button
@@ -265,8 +301,8 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                   </div>
                 </>
               ) : (
-                <div className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-xs text-[#66737A] text-center italic">
-                  Live tour availability has not been added yet. Please provide your event details below to request a tailored appointment.
+                <div className="p-4 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-xs text-[#66737A] text-center">
+                  Live walkthrough availability has not been added yet.
                 </div>
               )}
             </div>
@@ -309,12 +345,12 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] text-[#66737A] mb-1">Phone (SMS reminders)</label>
+                  <label className="block text-[11px] text-[#66737A] mb-1">Phone Number</label>
                   <div className="relative">
                     <Phone className="w-3.5 h-3.5 text-[#66737A] absolute left-3 top-3" />
                     <input
                       type="tel"
-                      placeholder="+1 (555) 000-0000"
+                      placeholder="+44 7700 900000"
                       value={clientPhone}
                       onChange={(e) => setClientPhone(e.target.value)}
                       className="w-full bg-[#F4F1EA] text-[#26343D] text-xs pl-9 pr-3 py-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#A86445]"
@@ -377,11 +413,13 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || bookableSlots.length === 0 || !selectedDate || !selectedTime}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#A86445] text-white font-semibold text-sm shadow-sm hover:bg-[#8F5439] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <span>Scheduling Walkthrough...</span>
+                ) : bookableSlots.length === 0 ? (
+                  <span>Live Walkthrough Unavailable</span>
                 ) : (
                   <>
                     <Calendar className="w-4 h-4" />
@@ -404,7 +442,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 Live Walkthrough Confirmed!
               </h3>
               <p className="text-xs text-[#66737A] max-w-md mx-auto">
-                A calendar invitation and video link have been sent to <strong className="text-[#26343D]">{confirmedBooking.clientEmail}</strong>.
+                Your live walkthrough is confirmed. Your meeting details are available below.
               </p>
             </div>
 
@@ -413,7 +451,12 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
               <div className="flex items-center justify-between border-b border-[#DDD8CF] pb-3">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#A86445]">Scheduled Date & Time</span>
-                  <p className="text-sm font-bold text-[#26343D]">{confirmedBooking.scheduledDate} at {confirmedBooking.scheduledTime}</p>
+                  <p className="text-sm font-bold text-[#26343D]">
+                    {formatDateDisplay(confirmedBooking.scheduledDate, 'readable')} at {confirmedBooking.scheduledTime}
+                  </p>
+                  <p className="text-[10px] text-[#66737A] mt-0.5">
+                    Times shown in UK local time ({venue.location?.timezone || 'Europe/London'})
+                  </p>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#66737A]">Meeting Room Code</span>
@@ -428,7 +471,9 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] text-[#66737A] block">Target Event Date</span>
-                  <span className="font-semibold text-[#26343D]">{confirmedBooking.targetEventDate || 'TBD'}</span>
+                  <span className="font-semibold text-[#26343D]">
+                    {confirmedBooking.targetEventDate ? formatDateDisplay(confirmedBooking.targetEventDate, 'readable') : 'TBD'}
+                  </span>
                 </div>
               </div>
 

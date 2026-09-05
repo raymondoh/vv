@@ -1,5 +1,14 @@
 import { Venue } from '../types';
 
+export function getRelativeDateStr(daysAhead: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export const VENUES: Venue[] = [
   {
     id: 'the-somerset-conservatory-london',
@@ -208,7 +217,7 @@ export const VENUES: Venue[] = [
     },
     availableSlots: [
       {
-        date: '2026-09-01',
+        date: getRelativeDateStr(1),
         times: [
           { time: '10:00 AM', period: 'morning', available: true },
           { time: '1:30 PM', period: 'afternoon', available: true },
@@ -217,7 +226,7 @@ export const VENUES: Venue[] = [
         ],
       },
       {
-        date: '2026-09-02',
+        date: getRelativeDateStr(3),
         times: [
           { time: '11:00 AM', period: 'morning', available: true },
           { time: '2:00 PM', period: 'afternoon', available: true },
@@ -372,11 +381,19 @@ export const VENUES: Venue[] = [
     },
     availableSlots: [
       {
-        date: '2026-09-01',
+        date: getRelativeDateStr(2),
         times: [
           { time: '11:00 AM', period: 'morning', available: true },
           { time: '3:00 PM', period: 'afternoon', available: true },
           { time: '6:00 PM', period: 'sunset', available: true },
+        ],
+      },
+      {
+        date: getRelativeDateStr(4),
+        times: [
+          { time: '10:00 AM', period: 'morning', available: true },
+          { time: '2:30 PM', period: 'afternoon', available: true },
+          { time: '5:00 PM', period: 'sunset', available: true },
         ],
       },
     ],
@@ -505,11 +522,19 @@ export const VENUES: Venue[] = [
     },
     availableSlots: [
       {
-        date: '2026-09-01',
+        date: getRelativeDateStr(1),
         times: [
           { time: '10:00 AM', period: 'morning', available: true },
           { time: '2:00 PM', period: 'afternoon', available: true },
           { time: '5:00 PM', period: 'sunset', available: true },
+        ],
+      },
+      {
+        date: getRelativeDateStr(5),
+        times: [
+          { time: '11:30 AM', period: 'morning', available: true },
+          { time: '3:30 PM', period: 'afternoon', available: true },
+          { time: '6:30 PM (Sunset Tour)', period: 'sunset', available: true },
         ],
       },
     ],
@@ -639,12 +664,20 @@ export const VENUES: Venue[] = [
     },
     availableSlots: [
       {
-        date: '2026-09-01',
+        date: getRelativeDateStr(2),
         times: [
           { time: '10:00 AM', period: 'morning', available: true },
           { time: '1:30 PM', period: 'afternoon', available: true },
           { time: '4:00 PM', period: 'afternoon', available: false },
           { time: '6:30 PM (Golden Hour Tour)', period: 'sunset', available: true },
+        ],
+      },
+      {
+        date: getRelativeDateStr(6),
+        times: [
+          { time: '11:00 AM', period: 'morning', available: true },
+          { time: '3:00 PM', period: 'afternoon', available: true },
+          { time: '5:30 PM (Sunset Tour)', period: 'sunset', available: true },
         ],
       },
     ],
@@ -744,14 +777,6 @@ export const VENUES: Venue[] = [
       totalToursConducted: 289,
       bio: 'Former hospitality lead at three-star Michelin establishments, Julian ensures seamless estate orchestration.',
     },
-    availableSlots: [
-      {
-        date: '2026-09-01',
-        times: [
-          { time: '11:30 AM', period: 'morning', available: true },
-          { time: '3:00 PM', period: 'afternoon', available: true },
-        ],
-      },
-    ],
+    availableSlots: [],
   },
 ];

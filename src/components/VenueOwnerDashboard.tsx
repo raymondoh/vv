@@ -30,10 +30,11 @@ import {
   Globe,
   ImageIcon,
 } from 'lucide-react';
-import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus, BusinessOrganisation, VenueSpace } from '../types';
+import { Venue, VenueBooking, WalkthroughBooking, MarketplaceConfig, VenueBookingStatus, BusinessOrganisation, VenueSpace, AvailableDaySlot } from '../types';
 import { getStatusDisplay } from '../utils/bookingStatus';
 import { calculateCompleteness, getQualityTierBadge } from '../utils/completeness';
 import { formatCurrency, formatLocation, formatDateDisplay } from '../utils/formatters';
+import { VenueWalkthroughAvailabilityManager } from './VenueWalkthroughAvailabilityManager';
 
 interface VenueOwnerDashboardProps {
   venues: Venue[];
@@ -47,6 +48,7 @@ interface VenueOwnerDashboardProps {
     bookingId: string,
     newStatus: VenueBookingStatus
   ) => Promise<{ success: boolean; error?: string; booking?: VenueBooking }> | void;
+  onUpdateVenueAvailability?: (venueId: string, updatedSlots: AvailableDaySlot[]) => Promise<void> | void;
   onOpenLiveSimulator: (booking: WalkthroughBooking) => void;
   onInspectVenue: (venue: Venue) => void;
   onSwitchToCustomerView: () => void;
@@ -62,6 +64,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   onOpenOnboardingModal,
   onToggleVenuePublishStatus,
   onUpdateBookingStatus,
+  onUpdateVenueAvailability,
   onOpenLiveSimulator,
   onInspectVenue,
   onSwitchToCustomerView,
@@ -78,6 +81,24 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
   const selectedVenue = venues.find((v) => v.id === selectedVenueId) || venues[0];
 
   const commissionRate = marketplaceConfig.commissionPercentage ?? 12;
+
+  const handleSaveVenueAvailability = async (venueId: string, updatedSlots: AvailableDaySlot[]) => {
+    if (onUpdateVenueAvailability) {
+      await onUpdateVenueAvailability(venueId, updatedSlots);
+    } else {
+      const target = venues.find((v) => v.id === venueId);
+      if (target) {
+        await fetch(`/api/venues/${venueId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...target,
+            availableSlots: updatedSlots,
+          }),
+        });
+      }
+    }
+  };
 
   const handleHostAction = async (bookingId: string, newStatus: VenueBookingStatus) => {
     if (processingBookingId === bookingId) return; // Prevent duplicate submissions
@@ -1408,63 +1429,80 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
 
         {/* TAB 2: SCHEDULED WALKTHROUGHS */}
         {activeTab === 'walkthroughs' && (
-          <div className="space-y-4">
-            {filteredWalkthroughs.length === 0 ? (
-              <div className="py-16 text-center bg-white rounded-2xl border border-[#DDD8CF] p-8 space-y-3">
-                <Video className="w-10 h-10 text-[#A86445] mx-auto" />
-                <h4 className="text-base font-bold text-[#26343D]">No Live Walkthroughs Scheduled</h4>
-                <p className="text-xs text-[#66737A]">
-                  When clients schedule a live virtual walkthrough, appointments will appear here.
-                </p>
+          <div className="space-y-6">
+            {/* Live Walkthrough Availability Configuration */}
+            <VenueWalkthroughAvailabilityManager
+              venues={venues}
+              selectedVenueId={selectedVenueId === 'all' ? venues[0]?.id : selectedVenueId}
+              walkthroughBookings={walkthroughBookings}
+              onUpdateAvailability={handleSaveVenueAvailability}
+            />
+
+            {/* Confirmed Appointments Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D]">
+                  Confirmed Walkthrough Appointments ({filteredWalkthroughs.length})
+                </h3>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredWalkthroughs.map((tour) => (
-                  <div
-                    key={tour.id}
-                    className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-3.5 shadow-xs"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-mono text-[#66737A]">{tour.meetingCode}</span>
-                        <h4 className="text-sm font-bold text-[#26343D]">{tour.clientName}</h4>
-                        <p className="text-xs text-[#66737A]">{tour.clientEmail} • {tour.clientPhone}</p>
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        Confirmed Tour
-                      </span>
-                    </div>
 
-                    <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] space-y-1 text-xs">
-                      <div className="flex items-center justify-between text-[#26343D]">
-                        <span className="text-[#66737A]">Tour Date:</span>
-                        <strong>{formatDateDisplay(tour.scheduledDate, 'readable')} • {tour.scheduledTime}</strong>
+              {filteredWalkthroughs.length === 0 ? (
+                <div className="py-12 text-center bg-white rounded-2xl border border-[#DDD8CF] p-8 space-y-3 shadow-xs">
+                  <Video className="w-10 h-10 text-[#A86445] mx-auto" />
+                  <h4 className="text-base font-bold text-[#26343D]">No Live Walkthroughs Scheduled Yet</h4>
+                  <p className="text-xs text-[#66737A]">
+                    When clients book an available slot, appointments will appear here with one-click host video stream access.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredWalkthroughs.map((tour) => (
+                    <div
+                      key={tour.id}
+                      className="bg-white border border-[#DDD8CF] rounded-2xl p-5 space-y-3.5 shadow-xs"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-mono text-[#66737A]">{tour.meetingCode}</span>
+                          <h4 className="text-sm font-bold text-[#26343D]">{tour.clientName}</h4>
+                          <p className="text-xs text-[#66737A]">{tour.clientEmail} • {tour.clientPhone}</p>
+                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Confirmed Tour
+                        </span>
                       </div>
-                      <div className="flex items-center justify-between text-[#26343D]">
-                        <span className="text-[#66737A]">Event Type & Guests:</span>
-                        <span>{tour.eventType} • {tour.estimatedGuests} guests</span>
+
+                      <div className="bg-[#F4F1EA] p-3 rounded-xl border border-[#DDD8CF] space-y-1 text-xs">
+                        <div className="flex items-center justify-between text-[#26343D]">
+                          <span className="text-[#66737A]">Tour Date:</span>
+                          <strong>{formatDateDisplay(tour.scheduledDate, 'readable')} • {tour.scheduledTime}</strong>
+                        </div>
+                        <div className="flex items-center justify-between text-[#26343D]">
+                          <span className="text-[#66737A]">Event Type & Guests:</span>
+                          <span>{tour.eventType} • {tour.estimatedGuests} guests</span>
+                        </div>
+                      </div>
+
+                      {tour.specialRequests && (
+                        <p className="text-xs text-[#66737A] italic bg-white p-2.5 rounded-lg border border-[#DDD8CF]">
+                          "{tour.specialRequests}"
+                        </p>
+                      )}
+
+                      <div className="pt-1 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => onOpenLiveSimulator(tour)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-[#26343D] text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-[#1E2930] active:scale-95 transition-all"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Launch Host Video Stream</span>
+                        </button>
                       </div>
                     </div>
-
-                    {tour.specialRequests && (
-                      <p className="text-xs text-[#66737A] italic bg-white p-2.5 rounded-lg border border-[#DDD8CF]">
-                        "{tour.specialRequests}"
-                      </p>
-                    )}
-
-                    <div className="pt-1 flex items-center justify-between gap-2">
-                      <button
-                        onClick={() => onOpenLiveSimulator(tour)}
-                        className="w-full py-2.5 px-3 rounded-xl bg-[#26343D] text-xs font-semibold text-white flex items-center justify-center gap-1.5 shadow-xs hover:bg-[#1E2930] active:scale-95 transition-all"
-                      >
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Launch Host Video Stream</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

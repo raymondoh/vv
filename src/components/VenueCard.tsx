@@ -3,6 +3,7 @@ import { Play, Video, Users, MapPin, Star, Calendar, Heart, ImageIcon } from 'lu
 import { Venue } from '../types';
 import { formatCurrency } from '../utils/formatters';
 import { getVenueSpaces, getTotalConfiguredLayouts, getVenueLayoutChips } from '../utils/venueConfigurationHelpers';
+import { hasBookableLiveTourSlots } from '../utils/walkthroughAvailabilityHelpers';
 
 interface VenueCardProps {
   venue: Venue;
@@ -23,7 +24,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const hasRecordedWalkthrough = Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0;
-  const hasLiveTours = Boolean(venue.availableSlots && venue.availableSlots.length > 0);
+  const hasLiveTours = hasBookableLiveTourSlots(venue);
   const hasPhotos = Boolean(venue.heroImage || (venue.galleryImages && venue.galleryImages.length > 0));
   const heroImageSrc = venue.heroImage || (venue.galleryImages && venue.galleryImages[0]) || '';
   const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);

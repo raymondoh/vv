@@ -38,6 +38,7 @@ import {
   hasGenuineFloorPlan,
   hasGenuine360Media,
 } from '../utils/venueConfigurationHelpers';
+import { hasBookableLiveTourSlots } from '../utils/walkthroughAvailabilityHelpers';
 
 interface VenueDetailViewProps {
   venue: Venue;
@@ -253,7 +254,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     0;
 
   const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);
-  const hasLiveTours = Boolean(venue.availableSlots && venue.availableSlots.length > 0);
+  const hasLiveTours = hasBookableLiveTourSlots(venue);
 
   return (
     <div className="min-h-screen bg-[#F4F1EA] text-[#26343D] pb-20">
@@ -1130,7 +1131,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   <span>Request to Book Space</span>
                 </button>
 
-                {venue.availableSlots && venue.availableSlots.length > 0 ? (
+                {hasLiveTours ? (
                   <button
                     id="sidebar-book-live-tour-btn"
                     onClick={() => onBookWalkthrough(venue)}
@@ -1141,7 +1142,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                   </button>
                 ) : (
                   <div className="w-full py-2.5 px-3 rounded-xl bg-[#F4F1EA] border border-[#DDD8CF] text-[#66737A] text-[11px] text-center italic">
-                    Live tour availability has not been added yet.
+                    Live walkthrough availability has not been added yet.
                   </div>
                 )}
               </div>
