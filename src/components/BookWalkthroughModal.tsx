@@ -241,7 +241,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                 </label>
                 <span className="text-[11px] text-[#66737A] flex items-center gap-1">
                   <Clock className="w-3 h-3 text-[#A86445]" />
-                  <span>Times shown in UK local time ({venue.location?.timezone || 'Europe/London'})</span>
+                  <span>Times shown in venue local time — {venue.location?.timezone || 'Europe/London'}</span>
                 </span>
               </div>
 
@@ -455,7 +455,7 @@ export const BookWalkthroughModal: React.FC<BookWalkthroughModalProps> = ({
                     {formatDateDisplay(confirmedBooking.scheduledDate, 'readable')} at {confirmedBooking.scheduledTime}
                   </p>
                   <p className="text-[10px] text-[#66737A] mt-0.5">
-                    Times shown in UK local time ({venue.location?.timezone || 'Europe/London'})
+                    Times shown in venue local time — {venue.location?.timezone || 'Europe/London'}
                   </p>
                 </div>
                 <div className="text-right">

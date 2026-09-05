@@ -4,7 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { VENUES } from './src/data/venues.ts';
 import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
-import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem } from './src/types.ts';
+import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem, AvailableDaySlot } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
 import { resolveBookingConfiguration } from './src/utils/venueConfigurationHelpers.ts';
 import { isSlotInFuture } from './src/utils/walkthroughAvailabilityHelpers.ts';
@@ -432,9 +432,40 @@ app.put('/api/venues/:id', (req, res) => {
     return res.status(404).json({ success: false, error: 'Venue not found' });
   }
 
+  let availableSlots = req.body.availableSlots !== undefined ? req.body.availableSlots : venuesStore[index].availableSlots;
+  if (req.body.availableSlots && Array.isArray(req.body.availableSlots)) {
+    // Preserve consumed/booked slot state - never reopen a slot that has a confirmed WalkthroughBooking or was previously consumed
+    availableSlots = req.body.availableSlots.map((daySlot: AvailableDaySlot) => ({
+      ...daySlot,
+      times: (daySlot.times || []).map((t: any) => {
+        const hasConfirmedBooking = bookingsStore.some(
+          (b) =>
+            b.venueId === id &&
+            b.scheduledDate === daySlot.date &&
+            b.status !== 'cancelled' &&
+            (b.scheduledTime.trim().toLowerCase() === t.time.trim().toLowerCase() ||
+              b.scheduledTime.includes(t.time) ||
+              t.time.includes(b.scheduledTime))
+        );
+
+        const existingDay = venuesStore[index].availableSlots?.find((d) => d.date === daySlot.date);
+        const existingTime = existingDay?.times?.find(
+          (et) => et.time.trim().toLowerCase() === t.time.trim().toLowerCase()
+        );
+        const wasConsumed = existingTime && existingTime.available === false;
+
+        return {
+          ...t,
+          available: hasConfirmedBooking || wasConsumed ? false : Boolean(t.available !== false),
+        };
+      }),
+    }));
+  }
+
   const updatedVenue: Venue = {
     ...venuesStore[index],
     ...req.body,
+    availableSlots,
     id, // preserve ID
   };
 

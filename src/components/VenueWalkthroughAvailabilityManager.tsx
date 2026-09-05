@@ -90,6 +90,24 @@ export const VenueWalkthroughAvailabilityManager: React.FC<VenueWalkthroughAvail
       return;
     }
 
+    // Ensure slot does not overwrite an existing confirmed walkthrough booking
+    const hasExistingBooking = walkthroughBookings.some(
+      (b) =>
+        b.venueId === currentVenue.id &&
+        b.scheduledDate === newDate &&
+        b.status !== 'cancelled' &&
+        (b.scheduledTime.trim().toLowerCase() === formattedTime.toLowerCase() ||
+          formatTimeToDisplay(b.scheduledTime) === formattedTime)
+    );
+
+    if (hasExistingBooking) {
+      setFeedback({
+        type: 'error',
+        message: `${formattedTime} on ${formatDateDisplay(newDate, 'readable')} has a confirmed walkthrough booking and cannot be overwritten.`,
+      });
+      return;
+    }
+
     const currentSlots: AvailableDaySlot[] = currentVenue.availableSlots ? [...currentVenue.availableSlots] : [];
     const dayIndex = currentSlots.findIndex((s) => s.date === newDate);
 
@@ -143,9 +161,27 @@ export const VenueWalkthroughAvailabilityManager: React.FC<VenueWalkthroughAvail
     // Sort days chronologically
     currentSlots.sort((a, b) => a.date.localeCompare(b.date));
 
+    // Preserve all confirmed/consumed slot states so booked slots are never reopened
+    const preservedSlots = currentSlots.map((day) => ({
+      ...day,
+      times: (day.times || []).map((t) => {
+        const isBooked =
+          t.available === false ||
+          walkthroughBookings.some(
+            (b) =>
+              b.venueId === currentVenue.id &&
+              b.scheduledDate === day.date &&
+              b.status !== 'cancelled' &&
+              (b.scheduledTime.trim().toLowerCase() === t.time.trim().toLowerCase() ||
+                formatTimeToDisplay(b.scheduledTime) === formatTimeToDisplay(t.time))
+          );
+        return isBooked ? { ...t, available: false } : t;
+      }),
+    }));
+
     try {
       setIsSubmitting(true);
-      await onUpdateAvailability(currentVenue.id, currentSlots);
+      await onUpdateAvailability(currentVenue.id, preservedSlots);
       setFeedback({
         type: 'success',
         message: `Added ${formattedTime} on ${formatDateDisplay(newDate, 'readable')}.`,
@@ -186,9 +222,27 @@ export const VenueWalkthroughAvailabilityManager: React.FC<VenueWalkthroughAvail
       };
     }
 
+    // Preserve all confirmed/consumed slot states so booked slots are never reopened
+    const preservedSlots = currentSlots.map((day) => ({
+      ...day,
+      times: (day.times || []).map((t) => {
+        const isBooked =
+          t.available === false ||
+          walkthroughBookings.some(
+            (b) =>
+              b.venueId === currentVenue.id &&
+              b.scheduledDate === day.date &&
+              b.status !== 'cancelled' &&
+              (b.scheduledTime.trim().toLowerCase() === t.time.trim().toLowerCase() ||
+                formatTimeToDisplay(b.scheduledTime) === formatTimeToDisplay(t.time))
+          );
+        return isBooked ? { ...t, available: false } : t;
+      }),
+    }));
+
     try {
       setIsSubmitting(true);
-      await onUpdateAvailability(currentVenue.id, currentSlots);
+      await onUpdateAvailability(currentVenue.id, preservedSlots);
       setFeedback({
         type: 'success',
         message: `Removed ${timeStr} on ${formatDateDisplay(dateStr, 'readable')}.`,

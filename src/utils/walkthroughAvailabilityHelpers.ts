@@ -149,6 +149,8 @@ export function hasBookableLiveTourSlots(venue?: Venue | null): boolean {
 /**
  * Returns all future slots for a venue (including booked/unavailable times).
  * Used by the Venue Host to view, add, and remove availability.
+ * Filters out times that have already passed (including same-day past times),
+ * while retaining both available and booked/unavailable future times.
  */
 export function getHostFutureSlots(venue?: Venue | null): AvailableDaySlot[] {
   if (!venue || !Array.isArray(venue.availableSlots) || venue.availableSlots.length === 0) {
@@ -158,7 +160,21 @@ export function getHostFutureSlots(venue?: Venue | null): AvailableDaySlot[] {
   const tz = venue.location?.timezone || 'Europe/London';
   const todayStr = getVenueTodayDateString(tz);
 
-  return venue.availableSlots
-    .filter((slot) => slot && slot.date && slot.date >= todayStr)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const futureDays: AvailableDaySlot[] = [];
+
+  for (const slot of venue.availableSlots) {
+    if (!slot || !slot.date || slot.date < todayStr || !Array.isArray(slot.times)) continue;
+
+    // Filter out past same-day times, retaining both available and unavailable future times
+    const validTimes = slot.times.filter((t) => isSlotInFuture(slot.date, t.time, tz));
+
+    if (validTimes.length > 0) {
+      futureDays.push({
+        date: slot.date,
+        times: validTimes,
+      });
+    }
+  }
+
+  return futureDays.sort((a, b) => a.date.localeCompare(b.date));
 }

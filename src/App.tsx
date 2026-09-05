@@ -239,8 +239,13 @@ export default function App() {
     setIsAiMatcherOpen(true);
   };
 
-  const handleWalkthroughConfirmed = (newBooking: WalkthroughBooking) => {
+  const handleWalkthroughConfirmed = (newBooking: WalkthroughBooking, updatedVenue?: Venue) => {
     setWalkthroughBookings((prev) => [newBooking, ...prev]);
+    if (updatedVenue) {
+      setVenues((prev) => prev.map((v) => (v.id === updatedVenue.id ? updatedVenue : v)));
+      setSelectedVenue((prev) => (prev && prev.id === updatedVenue.id ? updatedVenue : prev));
+      setWalkthroughBookingVenue((prev) => (prev && prev.id === updatedVenue.id ? updatedVenue : prev));
+    }
   };
 
   const handleVenueBookingSubmitted = (newBooking: VenueBooking) => {
@@ -362,37 +367,34 @@ export default function App() {
   };
 
   const handleUpdateVenueAvailability = async (venueId: string, updatedSlots: AvailableDaySlot[]) => {
-    try {
-      const targetVenue = venues.find((v) => v.id === venueId);
-      if (targetVenue) {
-        const updatedVenue = {
-          ...targetVenue,
-          availableSlots: updatedSlots,
-        };
-
-        const res = await fetch(`/api/venues/${venueId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedVenue),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const savedVenue = data.venue || data;
-          setVenues((prev) => prev.map((v) => (v.id === venueId ? savedVenue : v)));
-          if (selectedVenue?.id === venueId) {
-            setSelectedVenue(savedVenue);
-          }
-        } else {
-          setVenues((prev) => prev.map((v) => (v.id === venueId ? updatedVenue : v)));
-          if (selectedVenue?.id === venueId) {
-            setSelectedVenue(updatedVenue);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to update venue availability:', err);
+    const targetVenue = venues.find((v) => v.id === venueId);
+    if (!targetVenue) {
+      throw new Error('Venue not found');
     }
+
+    const payload = {
+      ...targetVenue,
+      availableSlots: updatedSlots,
+    };
+
+    const res = await fetch(`/api/venues/${venueId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.success) {
+      const errorMsg = data.error || `Failed to update availability (HTTP ${res.status})`;
+      console.error('Failed to update venue availability on server:', errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    const savedVenue: Venue = data.venue || { ...targetVenue, availableSlots: updatedSlots };
+    setVenues((prev) => prev.map((v) => (v.id === venueId ? savedVenue : v)));
+    setSelectedVenue((prev) => (prev && prev.id === venueId ? savedVenue : prev));
+    setWalkthroughBookingVenue((prev) => (prev && prev.id === venueId ? savedVenue : prev));
   };
 
   return (
