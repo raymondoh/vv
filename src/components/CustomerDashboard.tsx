@@ -6,6 +6,7 @@ import {
   CreditCard,
   FileText,
   Building2,
+  Building,
   Users,
   CheckCircle2,
   AlertCircle,
@@ -26,6 +27,7 @@ import {
 import { VenueBooking, WalkthroughBooking, Venue, VenueBookingStatus } from '../types';
 import { getStatusDisplay, getDepositStatusDisplay, getFinalBalanceStatusDisplay } from '../utils/bookingStatus';
 import { formatCurrency, formatDateDisplay, formatLocation } from '../utils/formatters';
+import { resolveBookingConfiguration } from '../utils/venueConfigurationHelpers';
 
 interface CustomerDashboardProps {
   venueBookings: VenueBooking[];
@@ -535,7 +537,24 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
 
                 const isPaidOrConfirmed = isConfirmed || isFullyPaid || isCompleted;
                 const venueObj = venues.find((v) => v.id === booking.venueId);
-                const hasWalkthrough = Boolean(venueObj && venueObj.walkthroughClips && venueObj.walkthroughClips.length > 0);
+                const resolvedConfig = venueObj
+                  ? resolveBookingConfiguration(
+                      venueObj,
+                      booking.selectedSpaceId,
+                      booking.selectedLayoutId,
+                      booking.selectedLayout
+                    )
+                  : null;
+
+                const hasWalkthrough = Boolean(
+                  resolvedConfig?.hasWalkthrough ||
+                  (booking.associatedWalkthroughId &&
+                    venueObj?.walkthroughClips?.some(
+                      (c) =>
+                        c.id === booking.associatedWalkthroughId &&
+                        (!c.layoutId || c.layoutId === resolvedConfig?.layout?.id)
+                    ))
+                );
                 const bookingCurrency = booking.currency || venueObj?.pricing?.currency || 'GBP';
 
                 return (
@@ -760,19 +779,20 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </button>
                         )}
 
-                        {/* Gated Inspect 4K Tour / View Venue Details */}
+                        {/* Configuration-aware Walkthrough / View Venue Details CTA */}
                         <button
+                          id={`customer-explore-venue-btn-${booking.id}`}
                           onClick={() => onExploreVenue(booking.venueId)}
                           className="px-3 py-2 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center gap-1.5 transition-colors shadow-xs"
                         >
                           {hasWalkthrough ? (
                             <>
                               <Video className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Inspect 4K Tour</span>
+                              <span className="hidden sm:inline">View Recorded Walkthrough</span>
                             </>
                           ) : (
                             <>
-                              <Building2 className="w-3.5 h-3.5" />
+                              <Building className="w-3.5 h-3.5" />
                               <span className="hidden sm:inline">View Venue Details</span>
                             </>
                           )}
