@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image as ImageIcon, Video, FileText, Sparkles, Plus, Trash2, CheckCircle2, Circle, Info, Eye, Layers } from 'lucide-react';
 import { Venue, WalkthroughClip, MediaAsset, VenueSpace, SpaceLayout } from '../../../types';
-import { mapLayoutTypeToCategory } from '../../../utils/venueConfigurationHelpers';
+import { mapLayoutTypeToCategory, getWalkthroughForLayout } from '../../../utils/venueConfigurationHelpers';
 
 interface MediaWalkthroughStepProps {
   venue: Partial<Venue>;
@@ -28,6 +28,12 @@ export const MediaWalkthroughStep: React.FC<MediaWalkthroughStepProps> = ({
   const gallery = venue.galleryImages || [];
   const clips = venue.walkthroughClips || [];
   const spaces = venue.spaces || [];
+
+  const venueForResolution = {
+    ...venue,
+    walkthroughClips: clips,
+    spaces: spaces,
+  } as Venue;
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(spaces[0]?.id || '');
   const activeSpace = spaces.find((s) => s.id === selectedSpaceId) || spaces[0];
@@ -349,10 +355,11 @@ export const MediaWalkthroughStep: React.FC<MediaWalkthroughStepProps> = ({
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {spaceLayouts.map((layout) => {
-                          const attachedClip = clips.find(
-                            (c) =>
-                              c.layoutId === layout.id ||
-                              (c.spaceId === space.id && c.layoutCategory.toLowerCase() === layout.layoutType.toLowerCase())
+                          const attachedClip = getWalkthroughForLayout(
+                            venueForResolution,
+                            layout.id,
+                            space.id,
+                            layout.layoutType
                           );
 
                           return (
