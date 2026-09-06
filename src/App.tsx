@@ -23,6 +23,7 @@ import { VenueOnboardingModal } from './components/onboarding/VenueOnboardingMod
 import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig, BusinessOrganisation, AvailableDaySlot } from './types';
 import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
 import { VENUES } from './data/venues';
+import { venueCanAccommodateGuests, getVenueMaximumCapacity } from './utils/venueConfigurationHelpers';
 import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight, LayoutDashboard, Sliders } from 'lucide-react';
 
 export default function App() {
@@ -170,22 +171,20 @@ export default function App() {
     }
 
     if (filters.location !== 'all') {
-      const loc = filters.location.toLowerCase();
+      const loc = filters.location.toLowerCase().trim();
       list = list.filter(
         (v) =>
-          v.location.city.toLowerCase().includes(loc) ||
-          (v.location.state && v.location.state.toLowerCase().includes(loc)) ||
+          (v.location.city && v.location.city.toLowerCase().includes(loc)) ||
           (v.location.region && v.location.region.toLowerCase().includes(loc)) ||
-          (v.location.country && v.location.country.toLowerCase().includes(loc))
+          (v.location.state && v.location.state.toLowerCase().includes(loc)) ||
+          (v.location.country && v.location.country.toLowerCase().includes(loc)) ||
+          (v.location.neighborhood && v.location.neighborhood.toLowerCase().includes(loc)) ||
+          (v.location.postalCode && v.location.postalCode.toLowerCase().includes(loc))
       );
     }
 
     if (filters.minCapacity > 0) {
-      list = list.filter(
-        (v) =>
-          v.capacity.cocktail >= filters.minCapacity ||
-          v.capacity.seatedBanquet >= filters.minCapacity
-      );
+      list = list.filter((v) => venueCanAccommodateGuests(v, filters.minCapacity));
     }
 
     if (filters.maxBudget < 10000) {
@@ -193,13 +192,18 @@ export default function App() {
     }
 
     if (filters.searchQuery.trim()) {
-      const q = filters.searchQuery.toLowerCase();
+      const q = filters.searchQuery.toLowerCase().trim();
       list = list.filter(
         (v) =>
           v.name.toLowerCase().includes(q) ||
           v.description.toLowerCase().includes(q) ||
-          v.location.city.toLowerCase().includes(q) ||
-          v.aesthetic.toLowerCase().includes(q)
+          (v.location.city && v.location.city.toLowerCase().includes(q)) ||
+          (v.location.neighborhood && v.location.neighborhood.toLowerCase().includes(q)) ||
+          (v.location.region && v.location.region.toLowerCase().includes(q)) ||
+          (v.location.state && v.location.state.toLowerCase().includes(q)) ||
+          (v.location.country && v.location.country.toLowerCase().includes(q)) ||
+          (v.location.postalCode && v.location.postalCode.toLowerCase().includes(q)) ||
+          (v.aesthetic && v.aesthetic.toLowerCase().includes(q))
       );
     }
 
@@ -209,7 +213,7 @@ export default function App() {
     } else if (filters.sortBy === 'price-desc') {
       list.sort((a, b) => b.pricing.startingPrice - a.pricing.startingPrice);
     } else if (filters.sortBy === 'capacity-desc') {
-      list.sort((a, b) => b.capacity.seatedBanquet - a.capacity.seatedBanquet);
+      list.sort((a, b) => getVenueMaximumCapacity(b) - getVenueMaximumCapacity(a));
     } else if (filters.sortBy === 'rating-desc') {
       list.sort((a, b) => b.rating - a.rating);
     }

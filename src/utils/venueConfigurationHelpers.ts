@@ -1,4 +1,5 @@
 import { Venue, VenueSpace, SpaceLayout, WalkthroughClip, LayoutCategory, SpaceLayoutType } from '../types';
+import { hasBookableLiveTourSlots } from './walkthroughAvailabilityHelpers';
 
 export interface FlattenedLayout {
   space: VenueSpace;
@@ -419,4 +420,336 @@ export function resolveBookingConfiguration(
     hasFloorPlan,
   };
 }
+
+/**
+ * Returns the maximum guest capacity supported by any configured space or layout in the venue.
+ * Priority: Canonical spaces/layouts first -> legacy top-level capacity second.
+ */
+export function getVenueMaximumCapacity(venue: Venue): number {
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    let maxCap = 0;
+    for (const space of spaces) {
+      if (space.maxCapacity) maxCap = Math.max(maxCap, space.maxCapacity);
+      if (space.standingCapacity) maxCap = Math.max(maxCap, space.standingCapacity);
+      if (space.seatedCapacity) maxCap = Math.max(maxCap, space.seatedCapacity);
+      if (space.theatreCapacity) maxCap = Math.max(maxCap, space.theatreCapacity);
+      if (Array.isArray(space.layouts)) {
+        for (const layout of space.layouts) {
+          if (layout.capacity) maxCap = Math.max(maxCap, layout.capacity);
+        }
+      }
+    }
+    if (maxCap > 0) return maxCap;
+  }
+
+  // Fallback to legacy top-level capacity
+  return Math.max(
+    venue.capacity?.cocktail || 0,
+    venue.capacity?.seatedBanquet || 0,
+    venue.capacity?.theater || 0
+  );
+}
+
+/**
+ * Returns the maximum seated banquet/dining capacity supported by any configured space or layout.
+ */
+export function getVenueMaximumSeatedCapacity(venue: Venue): number {
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    let maxSeated = 0;
+    for (const space of spaces) {
+      if (space.seatedCapacity) maxSeated = Math.max(maxSeated, space.seatedCapacity);
+      if (Array.isArray(space.layouts)) {
+        for (const layout of space.layouts) {
+          const t = layout.layoutType;
+          if (t === 'Banquet' || t === 'Boardroom' || t === 'Classroom' || t === 'Private Dining') {
+            if (layout.capacity) maxSeated = Math.max(maxSeated, layout.capacity);
+          }
+        }
+      }
+    }
+    if (maxSeated > 0) return maxSeated;
+  }
+
+  return venue.capacity?.seatedBanquet || 0;
+}
+
+/**
+ * Returns the maximum standing cocktail capacity supported by any configured space or layout.
+ */
+export function getVenueMaximumStandingCapacity(venue: Venue): number {
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    let maxStanding = 0;
+    for (const space of spaces) {
+      if (space.standingCapacity) maxStanding = Math.max(maxStanding, space.standingCapacity);
+      if (Array.isArray(space.layouts)) {
+        for (const layout of space.layouts) {
+          if (layout.layoutType === 'Cocktail' && layout.capacity) {
+            maxStanding = Math.max(maxStanding, layout.capacity);
+          }
+        }
+      }
+    }
+    if (maxStanding > 0) return maxStanding;
+  }
+
+  return venue.capacity?.cocktail || 0;
+}
+
+/**
+ * Returns the maximum theatre capacity supported by any configured space or layout.
+ */
+export function getVenueMaximumTheatreCapacity(venue: Venue): number {
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    let maxTheatre = 0;
+    for (const space of spaces) {
+      if (space.theatreCapacity) maxTheatre = Math.max(maxTheatre, space.theatreCapacity);
+      if (Array.isArray(space.layouts)) {
+        for (const layout of space.layouts) {
+          if (layout.layoutType === 'Theatre' && layout.capacity) {
+            maxTheatre = Math.max(maxTheatre, layout.capacity);
+          }
+        }
+      }
+    }
+    if (maxTheatre > 0) return maxTheatre;
+  }
+
+  return venue.capacity?.theater || 0;
+}
+
+/**
+ * Verifies if at least one genuine space or configured layout can accommodate the requested guest count.
+ * Do not reject newly onboarded venues if legacy capacity is missing.
+ * Do not claim a venue supports a capacity that no actual configured space/layout supports.
+ */
+export function venueCanAccommodateGuests(
+  venue: Venue,
+  guestCount: number,
+  format: 'seated' | 'standing' | 'theatre' | 'any' = 'any'
+): boolean {
+  if (guestCount <= 0) return true;
+
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    return spaces.some((space) => {
+      if (format === 'seated') {
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        return (space.layouts || []).some(
+          (l) =>
+            (l.layoutType === 'Banquet' ||
+              l.layoutType === 'Boardroom' ||
+              l.layoutType === 'Classroom' ||
+              l.layoutType === 'Private Dining') &&
+            l.capacity >= guestCount
+        );
+      }
+      if (format === 'standing') {
+        if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+        return (space.layouts || []).some(
+          (l) => l.layoutType === 'Cocktail' && l.capacity >= guestCount
+        );
+      }
+      if (format === 'theatre') {
+        if (space.theatreCapacity && space.theatreCapacity >= guestCount) return true;
+        return (space.layouts || []).some(
+          (l) => l.layoutType === 'Theatre' && l.capacity >= guestCount
+        );
+      }
+
+      // 'any' format: check if any space capacity or layout capacity accommodates the count
+      if (space.maxCapacity && space.maxCapacity >= guestCount) return true;
+      if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+      if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+      if (space.theatreCapacity && space.theatreCapacity >= guestCount) return true;
+      if (Array.isArray(space.layouts) && space.layouts.some((l) => l.capacity && l.capacity >= guestCount)) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  // Fallback to legacy top-level capacity if no spaces configured
+  if (format === 'seated') {
+    return (venue.capacity?.seatedBanquet || 0) >= guestCount;
+  }
+  if (format === 'standing') {
+    return (venue.capacity?.cocktail || 0) >= guestCount;
+  }
+  if (format === 'theatre') {
+    return (venue.capacity?.theater || 0) >= guestCount;
+  }
+
+  return (
+    (venue.capacity?.cocktail || 0) >= guestCount ||
+    (venue.capacity?.seatedBanquet || 0) >= guestCount ||
+    (venue.capacity?.theater || 0) >= guestCount
+  );
+}
+
+/**
+ * Returns a truthful, concise customer-facing capacity display string.
+ * Example: '120 seated · 220 standing' or 'Up to 220 guests'
+ */
+export function getVenueCapacityDisplay(venue: Venue): string {
+  const seated = getVenueMaximumSeatedCapacity(venue);
+  const standing = getVenueMaximumStandingCapacity(venue);
+  const theatre = getVenueMaximumTheatreCapacity(venue);
+  const max = getVenueMaximumCapacity(venue);
+
+  if (seated > 0 && standing > 0) {
+    return `${seated} seated · ${standing} standing`;
+  }
+  if (standing > 0) {
+    return `Up to ${standing} standing`;
+  }
+  if (seated > 0) {
+    return `Up to ${seated} seated`;
+  }
+  if (theatre > 0) {
+    return `Up to ${theatre} theatre`;
+  }
+  if (max > 0) {
+    return `Up to ${max} guests`;
+  }
+  return 'Capacity on request';
+}
+
+export interface VenueAiLayoutSummary {
+  id: string;
+  title: string;
+  layoutType: SpaceLayoutType;
+  capacity: number;
+  hasRecordedWalkthrough: boolean;
+  walkthroughTitle?: string;
+}
+
+export interface VenueAiSpaceSummary {
+  id: string;
+  name: string;
+  maxCapacity: number;
+  seatedCapacity?: number;
+  standingCapacity?: number;
+  theatreCapacity?: number;
+  layouts: VenueAiLayoutSummary[];
+}
+
+export interface VenueAiCatalogSummary {
+  id: string;
+  name: string;
+  location: {
+    city: string;
+    region?: string;
+    state?: string;
+    country?: string;
+    neighborhood?: string;
+    postalCode?: string;
+  };
+  eventTypes: string[];
+  aesthetic: string;
+  startingPrice: number;
+  currency: string;
+  priceUnit: string;
+  hourlyRate?: number;
+  minimumSpend?: number;
+  overallCapacity: {
+    max: number;
+    seated: number;
+    standing: number;
+    theatre: number;
+  };
+  liveTourAvailable: boolean;
+  spaces: VenueAiSpaceSummary[];
+  allConfiguredLayouts: {
+    spaceId: string;
+    spaceName: string;
+    layoutId: string;
+    layoutTitle: string;
+    layoutType: SpaceLayoutType;
+    capacity: number;
+    hasRecordedWalkthrough: boolean;
+  }[];
+}
+
+/**
+ * Builds a canonical, truthful summary of a venue for AI matcher consumption.
+ * Built directly from spaces and layouts, treating recorded walkthroughs as layout attributes.
+ */
+export function getVenueAiCatalogSummary(venue: Venue): VenueAiCatalogSummary {
+  const spaces = getVenueSpaces(venue);
+  const maxCap = getVenueMaximumCapacity(venue);
+  const seatedCap = getVenueMaximumSeatedCapacity(venue);
+  const standingCap = getVenueMaximumStandingCapacity(venue);
+  const theatreCap = getVenueMaximumTheatreCapacity(venue);
+  const liveTourAvailable = hasBookableLiveTourSlots(venue);
+
+  const spacesSummary: VenueAiSpaceSummary[] = spaces.map((space) => {
+    const layoutsSummary: VenueAiLayoutSummary[] = (space.layouts || []).map((layout) => {
+      const clip = getWalkthroughForLayout(venue, layout.id, space.id, layout.layoutType);
+      return {
+        id: layout.id,
+        title: layout.title || `${layout.layoutType} Setup`,
+        layoutType: layout.layoutType,
+        capacity: layout.capacity,
+        hasRecordedWalkthrough: Boolean(clip),
+        walkthroughTitle: clip?.title,
+      };
+    });
+
+    return {
+      id: space.id,
+      name: space.name,
+      maxCapacity: space.maxCapacity || Math.max(0, ...(space.layouts || []).map((l) => l.capacity || 0)),
+      seatedCapacity: space.seatedCapacity,
+      standingCapacity: space.standingCapacity,
+      theatreCapacity: space.theatreCapacity,
+      layouts: layoutsSummary,
+    };
+  });
+
+  const allConfiguredLayouts = spacesSummary.flatMap((s) =>
+    s.layouts.map((l) => ({
+      spaceId: s.id,
+      spaceName: s.name,
+      layoutId: l.id,
+      layoutTitle: l.title,
+      layoutType: l.layoutType,
+      capacity: l.capacity,
+      hasRecordedWalkthrough: l.hasRecordedWalkthrough,
+    }))
+  );
+
+  return {
+    id: venue.id,
+    name: venue.name,
+    location: {
+      city: venue.location?.city || '',
+      region: venue.location?.region || venue.location?.state || '',
+      state: venue.location?.state || '',
+      country: venue.location?.country || '',
+      neighborhood: venue.location?.neighborhood || '',
+      postalCode: venue.location?.postalCode || venue.location?.zipCode || '',
+    },
+    eventTypes: venue.eventTypes || [],
+    aesthetic: venue.aesthetic || '',
+    startingPrice: venue.pricing?.startingPrice || 0,
+    currency: venue.pricing?.currency || 'GBP',
+    priceUnit: venue.pricing?.priceUnit || 'per day',
+    hourlyRate: venue.pricing?.hourlyRate,
+    minimumSpend: venue.pricing?.minimumSpend,
+    overallCapacity: {
+      max: maxCap,
+      seated: seatedCap,
+      standing: standingCap,
+      theatre: theatreCap,
+    },
+    liveTourAvailable,
+    spaces: spacesSummary,
+    allConfiguredLayouts,
+  };
+}
+
 

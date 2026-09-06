@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Send, ArrowRight, CheckCircle2, Building2, MapPin, Users, DollarSign, X, RefreshCw } from 'lucide-react';
 import { Venue, AiMatchResponse } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
 interface AiVenueMatcherProps {
   isOpen: boolean;
@@ -11,11 +12,11 @@ interface AiVenueMatcherProps {
 }
 
 const SAMPLE_PROMPTS = [
-  'Executive meeting space for 40 in New York with high-speed fiber and sky terrace',
-  'Daylight glasshouse in Chicago for a 120-person training workshop under $5,500',
-  'Private dinner and wine cellar tasting setting for 60 guests in Napa Valley',
-  'Auditorium or historic hall for a 250-attendee conference and reception in San Francisco',
-  'Industrial space with loading dock and high ceilings for product showcase in Seattle',
+  'Central London boardroom for 30 guests with daylight and presentation AV under £3,500',
+  'Manchester conference space for 200 attendees with breakout areas and live walkthrough',
+  'Riverside glasshouse in London for a 150-person banquet dinner under £6,000',
+  'Industrial event hall with high ceilings for product launch exhibition',
+  'Intimate private dining room for 40 guests in Central London',
 ];
 
 export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
@@ -114,7 +115,7 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
               <textarea
                 id="ai-matcher-input"
                 rows={3}
-                placeholder="e.g. 'Looking for a daylight conference space in Chicago for 120 guests with breakout zones under $6,000'..."
+                placeholder="e.g. 'Looking for a daylight conference space in London for 120 guests with breakout zones under £6,000'..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
@@ -233,7 +234,7 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
                     <div className="text-right">
                       <span className="text-[10px] text-stone-300 block">Starting from</span>
                       <span className="text-sm font-bold text-white">
-                        ${topVenue.pricing.startingPrice.toLocaleString()}
+                        {formatCurrency(topVenue.pricing.startingPrice, topVenue.pricing.currency || 'GBP')}
                       </span>
                     </div>
                   </div>

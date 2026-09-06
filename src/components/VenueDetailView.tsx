@@ -37,6 +37,10 @@ import {
   getWalkthroughForLayout,
   hasGenuineFloorPlan,
   hasGenuine360Media,
+  getVenueCapacityDisplay,
+  getVenueMaximumCapacity,
+  getVenueMaximumSeatedCapacity,
+  getVenueMaximumStandingCapacity,
 } from '../utils/venueConfigurationHelpers';
 import { hasBookableLiveTourSlots } from '../utils/walkthroughAvailabilityHelpers';
 
@@ -146,10 +150,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     }
   };
 
-  // Pricing calculator state
-  const [calcGuests, setCalcGuests] = useState<number>(120);
-  const [calcEventType, setCalcEventType] = useState<'weekend-peak' | 'weekday' | 'off-season'>('weekend-peak');
-
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -213,26 +213,6 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
   const currency = venue.pricing?.currency || 'GBP';
 
-  // Pricing calculation
-  const getCalculatedPrice = () => {
-    let base = venue.pricing?.startingPrice || 0;
-    if (calcEventType === 'weekend-peak') {
-      base = Math.round(base * (venue.pricing?.peakSeasonMultiplier || 1.25));
-    } else if (calcEventType === 'off-season') {
-      base = Math.round(base * 0.85);
-    }
-    const cleaning = venue.pricing?.cleaningFee || 0;
-    const estFoodDrink = calcGuests * 95;
-    return {
-      venueRental: base,
-      cleaningFee: cleaning,
-      estimatedHospitality: estFoodDrink,
-      totalEstimated: base + cleaning + estFoodDrink,
-    };
-  };
-
-  const calcPricing = getCalculatedPrice();
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -244,14 +224,9 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
     ...(venue.galleryImages || []),
   ].filter((img, idx, self) => self.indexOf(img) === idx);
 
-  const derivedSeated =
-    venue.capacity?.seatedBanquet ||
-    (venue.spaces?.reduce((max, s) => Math.max(max, s.seatedCapacity || 0), 0)) ||
-    0;
-  const derivedCocktail =
-    venue.capacity?.cocktail ||
-    (venue.spaces?.reduce((max, s) => Math.max(max, s.standingCapacity || s.maxCapacity || 0), 0)) ||
-    0;
+  const maxSeated = getVenueMaximumSeatedCapacity(venue);
+  const maxStanding = getVenueMaximumStandingCapacity(venue);
+  const capacityDisplay = getVenueCapacityDisplay(venue);
 
   const hasReviews = Boolean(venue.reviewCount && venue.reviewCount > 0 && venue.rating && venue.rating > 0);
   const hasLiveTours = hasBookableLiveTourSlots(venue);
@@ -389,13 +364,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
               <div>
                 <span className="text-[10px] uppercase font-semibold text-[#66737A] block">Capacity</span>
                 <span className="text-sm font-semibold text-[#26343D]">
-                  {derivedSeated > 0 && derivedCocktail > 0
-                    ? `${derivedSeated} seated / ${derivedCocktail} cocktail`
-                    : derivedCocktail > 0
-                    ? `Max ${derivedCocktail} guests`
-                    : derivedSeated > 0
-                    ? `${derivedSeated} seated`
-                    : 'Capacity on Request'}
+                  {capacityDisplay}
                 </span>
               </div>
             </div>
@@ -1208,72 +1177,67 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
 
                 {!venue.specs?.curfew && !venue.specs?.parking && !venue.specs?.cateringPolicy && !venue.specs?.alcoholPolicy && !venue.specs?.powerSupply && (
                   <p className="text-[#66737A] text-xs italic">
-                    Standard commercial event guidelines apply. Specific policies confirmed during walkthrough.
+                    No operating restrictions or custom policies specified by host.
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Estimated Event Investment Calculator */}
+            {/* Commercial Pricing & Rates */}
             <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D] border-b border-[#DDD8CF] pb-2 flex items-center justify-between">
-                <span>Budget & Package Estimator</span>
-                <span className="text-[#A86445] font-mono text-[11px] font-semibold">Instant Estimate</span>
+                <span>Commercial Pricing & Rates</span>
+                <span className="text-[#A86445] font-mono text-[11px] font-semibold">Published Rates</span>
               </h3>
 
-              {/* Guest Count Slider */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-[#66737A]">
-                  <span>Guest Count:</span>
-                  <span className="font-bold text-[#A86445]">{calcGuests} Guests</span>
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between py-1.5 border-b border-[#DDD8CF]/60">
+                  <span className="text-[#66737A]">Starting Hire Rate:</span>
+                  <span className="font-bold text-[#26343D]">
+                    {formatCurrency(venue.pricing?.startingPrice || 0, currency)}
+                    <span className="text-[11px] font-normal text-[#66737A]"> /{venue.pricing?.priceUnit?.replace('per ', '') || 'day'}</span>
+                  </span>
                 </div>
-                <input
-                  type="range"
-                  min="20"
-                  max={Math.max(venue.capacity.cocktail, 100)}
-                  step="10"
-                  value={calcGuests}
-                  onChange={(e) => setCalcGuests(Number(e.target.value))}
-                  className="w-full h-1.5 bg-[#DDD8CF] rounded-lg appearance-none cursor-pointer accent-[#A86445]"
-                />
+
+                {Boolean(venue.pricing?.hourlyRate && venue.pricing.hourlyRate > 0) && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-[#DDD8CF]/60">
+                    <span className="text-[#66737A]">Hourly Hire Rate:</span>
+                    <span className="font-semibold text-[#26343D]">
+                      {formatCurrency(venue.pricing!.hourlyRate!, currency)} / hour
+                    </span>
+                  </div>
+                )}
+
+                {Boolean(venue.pricing?.minimumSpend && venue.pricing.minimumSpend > 0) && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-[#DDD8CF]/60">
+                    <span className="text-[#66737A]">Minimum Spend:</span>
+                    <span className="font-semibold text-[#26343D]">
+                      {formatCurrency(venue.pricing!.minimumSpend!, currency)}
+                    </span>
+                  </div>
+                )}
+
+                {Boolean(venue.pricing?.cleaningFee && venue.pricing.cleaningFee > 0) && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-[#DDD8CF]/60">
+                    <span className="text-[#66737A]">Cleaning & Preparation Fee:</span>
+                    <span className="font-semibold text-[#26343D]">
+                      {formatCurrency(venue.pricing!.cleaningFee!, currency)}
+                    </span>
+                  </div>
+                )}
+
+                {Boolean(venue.pricing?.securityDeposit && venue.pricing.securityDeposit > 0) && (
+                  <div className="flex items-center justify-between py-1.5 border-b border-[#DDD8CF]/60">
+                    <span className="text-[#66737A]">Security Deposit:</span>
+                    <span className="font-semibold text-[#26343D]">
+                      {formatCurrency(venue.pricing!.securityDeposit!, currency)}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Date Season selector */}
-              <div className="space-y-1.5">
-                <label className="block text-xs text-[#66737A]">Target Season & Timing</label>
-                <select
-                  value={calcEventType}
-                  onChange={(e) => setCalcEventType(e.target.value as any)}
-                  className="w-full bg-[#F4F1EA] text-[#26343D] text-xs p-2.5 rounded-xl border border-[#DDD8CF] focus:bg-white focus:outline-none focus:border-[#A86445]"
-                >
-                  <option value="weekend-peak">Weekend Peak Season (Fri/Sat)</option>
-                  <option value="weekday">Weekday Rate (Mon-Thu)</option>
-                  <option value="off-season">Off-Peak Season Special Rate</option>
-                </select>
-              </div>
-
-              {/* Cost Breakdown */}
-              <div className="bg-[#F4F1EA] rounded-xl p-3.5 space-y-2 text-xs border border-[#DDD8CF]">
-                <div className="flex items-center justify-between text-[#66737A]">
-                  <span>Venue Rental:</span>
-                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.venueRental, currency)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[#66737A]">
-                  <span>Cleaning & Prep:</span>
-                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.cleaningFee, currency)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[#66737A]">
-                  <span>Est. Catering / Bar Base:</span>
-                  <span className="font-medium text-[#26343D]">{formatCurrency(calcPricing.estimatedHospitality, currency)}</span>
-                </div>
-                <div className="pt-2 border-t border-[#DDD8CF] flex items-center justify-between font-bold text-sm text-[#26343D]">
-                  <span>Estimated Total:</span>
-                  <span className="text-[#A86445]">{formatCurrency(calcPricing.totalEstimated, currency)}</span>
-                </div>
-              </div>
-
-              <p className="text-[10px] text-[#66737A] text-center">
-                *Official proposals are confirmed after live walkthrough consultation.
+              <p className="text-[10px] text-[#66737A] text-center pt-1">
+                Official commercial proposals and payment schedules are finalized upon booking.
               </p>
             </div>
           </div>

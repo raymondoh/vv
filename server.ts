@@ -6,8 +6,19 @@ import { VENUES } from './src/data/venues.ts';
 import { INITIAL_ORGANISATIONS } from './src/data/organisations.ts';
 import { WalkthroughBooking, AiMatchResponse, VenueBooking, MarketplaceConfig, BusinessOrganisation, Venue, ChecklistItem, AvailableDaySlot } from './src/types.ts';
 import { DEFAULT_MARKETPLACE_CONFIG } from './src/config/marketplaceConfig.ts';
-import { resolveBookingConfiguration } from './src/utils/venueConfigurationHelpers.ts';
-import { isSlotInFuture } from './src/utils/walkthroughAvailabilityHelpers.ts';
+import {
+  resolveBookingConfiguration,
+  getVenueSpaces,
+  getVenueLayouts,
+  getWalkthroughForLayout,
+  getVenueMaximumCapacity,
+  getVenueMaximumSeatedCapacity,
+  getVenueMaximumStandingCapacity,
+  getVenueMaximumTheatreCapacity,
+  venueCanAccommodateGuests,
+  getVenueAiCatalogSummary,
+} from './src/utils/venueConfigurationHelpers.ts';
+import { isSlotInFuture, hasBookableLiveTourSlots } from './src/utils/walkthroughAvailabilityHelpers.ts';
 
 const app = express();
 const PORT = 3000;
@@ -287,20 +298,22 @@ app.get('/api/venues', (req, res) => {
   }
 
   if (location && location !== 'all') {
-    const locLower = (location as string).toLowerCase();
+    const locLower = (location as string).toLowerCase().trim();
     results = results.filter(
       (v) =>
-        v.location.city.toLowerCase().includes(locLower) ||
-        (v.location.state && v.location.state.toLowerCase().includes(locLower)) ||
+        (v.location.city && v.location.city.toLowerCase().includes(locLower)) ||
         (v.location.region && v.location.region.toLowerCase().includes(locLower)) ||
-        (v.location.country && v.location.country.toLowerCase().includes(locLower))
+        (v.location.state && v.location.state.toLowerCase().includes(locLower)) ||
+        (v.location.country && v.location.country.toLowerCase().includes(locLower)) ||
+        (v.location.neighborhood && v.location.neighborhood.toLowerCase().includes(locLower)) ||
+        (v.location.postalCode && v.location.postalCode.toLowerCase().includes(locLower))
     );
   }
 
   if (minCapacity) {
     const capNum = Number(minCapacity);
     if (!isNaN(capNum)) {
-      results = results.filter((v) => v.capacity.cocktail >= capNum || v.capacity.seatedBanquet >= capNum);
+      results = results.filter((v) => venueCanAccommodateGuests(v, capNum));
     }
   }
 
@@ -312,13 +325,18 @@ app.get('/api/venues', (req, res) => {
   }
 
   if (search) {
-    const s = (search as string).toLowerCase();
+    const s = (search as string).toLowerCase().trim();
     results = results.filter(
       (v) =>
         v.name.toLowerCase().includes(s) ||
         v.description.toLowerCase().includes(s) ||
-        v.location.city.toLowerCase().includes(s) ||
-        v.aesthetic.toLowerCase().includes(s)
+        (v.location.city && v.location.city.toLowerCase().includes(s)) ||
+        (v.location.neighborhood && v.location.neighborhood.toLowerCase().includes(s)) ||
+        (v.location.region && v.location.region.toLowerCase().includes(s)) ||
+        (v.location.state && v.location.state.toLowerCase().includes(s)) ||
+        (v.location.country && v.location.country.toLowerCase().includes(s)) ||
+        (v.location.postalCode && v.location.postalCode.toLowerCase().includes(s)) ||
+        (v.aesthetic && v.aesthetic.toLowerCase().includes(s))
     );
   }
 
@@ -512,7 +530,7 @@ app.post('/api/gemini/match', async (req, res) => {
     });
   }
 
-  // Fallback intelligent matching heuristic
+  // Fallback intelligent matching heuristic using canonical spaces and layouts
   const fallbackMatch = (): AiMatchResponse => {
     const q = query.toLowerCase();
     const catalogToMatch = publishedVenues;
@@ -522,46 +540,74 @@ app.post('/api/gemini/match', async (req, res) => {
       const reasons: string[] = [];
       const currSymbol = v.pricing.currencySymbol || (v.pricing.currency === 'GBP' ? '£' : v.pricing.currency === 'EUR' ? '€' : '$');
 
-      // Location match
-      if (q.includes(v.location.city.toLowerCase()) || (v.location.state && q.includes(v.location.state.toLowerCase()))) {
+      // 1. Location match
+      const city = (v.location.city || '').toLowerCase();
+      const state = (v.location.state || '').toLowerCase();
+      const region = (v.location.region || '').toLowerCase();
+      const country = (v.location.country || '').toLowerCase();
+      const neighborhood = (v.location.neighborhood || '').toLowerCase();
+      if (
+        (city && q.includes(city)) ||
+        (region && q.includes(region)) ||
+        (state && q.includes(state)) ||
+        (country && q.includes(country)) ||
+        (neighborhood && q.includes(neighborhood))
+      ) {
         score += 35;
-        reasons.push(`Located directly in ${v.location.city}, ${v.location.state || ''}`);
+        reasons.push(`Located in ${v.location.city}${v.location.region && v.location.region !== v.location.city ? `, ${v.location.region}` : ''}`);
       }
 
-      // Aesthetic match
-      const aestheticWords = v.aesthetic.toLowerCase().split(/\s+/);
-      aestheticWords.forEach((word) => {
-        if (word.length > 3 && q.includes(word)) {
-          score += 15;
-          reasons.push(`Matches your requested "${word}" aesthetic`);
-        }
-      });
+      // 2. Aesthetic match
+      if (v.aesthetic) {
+        const aestheticWords = v.aesthetic.toLowerCase().split(/\s+/);
+        aestheticWords.forEach((word) => {
+          if (word.length > 3 && q.includes(word)) {
+            score += 15;
+            reasons.push(`Matches your requested "${word}" aesthetic`);
+          }
+        });
+      }
 
-      // Capacity extraction
+      // 3. Canonical Capacity extraction and evaluation
       const numMatch = q.match(/(\d+)\s*(people|guests|pax|person|attendees)?/);
       if (numMatch) {
         const guests = parseInt(numMatch[1], 10);
-        if (guests <= v.capacity.seatedBanquet) {
+        const maxCap = getVenueMaximumCapacity(v);
+        const maxSeated = getVenueMaximumSeatedCapacity(v);
+        const maxStanding = getVenueMaximumStandingCapacity(v);
+        const maxTheatre = getVenueMaximumTheatreCapacity(v);
+
+        const isSeatedEvent = q.includes('dinner') || q.includes('dining') || q.includes('banquet') || q.includes('seated');
+        const isConference = q.includes('conference') || q.includes('keynote') || q.includes('summit') || q.includes('theatre') || q.includes('theater');
+
+        if (isSeatedEvent && maxSeated >= guests) {
+          score += 30;
+          reasons.push(`Accommodates ${guests} seated guests (maximum seated capacity: ${maxSeated})`);
+        } else if (isConference && (maxTheatre >= guests || maxSeated >= guests)) {
+          score += 30;
+          const confCap = Math.max(maxTheatre, maxSeated);
+          reasons.push(`Accommodates ${guests} conference attendees (theatre/seated capacity: ${confCap})`);
+        } else if (venueCanAccommodateGuests(v, guests)) {
           score += 25;
-          reasons.push(`Comfortably accommodates ${guests} guests (max seated: ${v.capacity.seatedBanquet})`);
-        } else if (guests <= v.capacity.cocktail) {
-          score += 18;
-          reasons.push(`Accommodates ${guests} guests in cocktail/mingling format`);
+          reasons.push(`Accommodates ${guests} guests within configured space capacity (maximum: ${maxCap})`);
+        } else {
+          // Penalty if requested guest count cannot be accommodated in any space or layout
+          score -= 40;
         }
       }
 
-      // Budget extraction
+      // 4. Budget extraction
       const budgetMatch = q.match(/[\$£€]?(\d+[\d,]*)\s*(budget|max|under|[\$£€]|k)?/);
       if (budgetMatch) {
         let budget = parseInt(budgetMatch[1].replace(/,/g, ''), 10);
         if (budget < 100 && q.includes('k')) budget *= 1000;
         if (v.pricing.startingPrice <= budget) {
           score += 20;
-          reasons.push(`Starting rate (${currSymbol}${v.pricing.startingPrice.toLocaleString()}) fits within your budget`);
+          reasons.push(`Starting hire rate (${currSymbol}${v.pricing.startingPrice.toLocaleString()}) fits within your budget`);
         }
       }
 
-      // Event type match
+      // 5. Event type match
       if (q.includes('wedding') && v.eventTypes.includes('wedding' as any)) {
         score += 15;
         reasons.push('Curated for wedding ceremonies, receptions, and celebratory banquets');
@@ -585,6 +631,11 @@ app.post('/api/gemini/match', async (req, res) => {
         }
       }
 
+      // 6. Live tour availability (truthful)
+      if (hasBookableLiveTourSlots(v)) {
+        reasons.push('Live host walkthrough appointments available');
+      }
+
       return { venue: v, score, reasons };
     });
 
@@ -592,6 +643,49 @@ app.post('/api/gemini/match', async (req, res) => {
     const top = scores[0]?.venue || catalogToMatch[0];
     const topReasons = scores[0]?.reasons.length ? scores[0].reasons : ['Strong match for spatial capacity, layout flexibility, and aesthetic requirements'];
     const topCurrSymbol = top.pricing.currencySymbol || (top.pricing.currency === 'GBP' ? '£' : top.pricing.currency === 'EUR' ? '€' : '$');
+
+    // Resolve recommended layout truthfully from top venue's canonical spaces and layouts
+    let recommendedLayout = 'Configuration to be confirmed with venue';
+    const topSpaces = getVenueSpaces(top);
+    if (topSpaces.length > 0) {
+      const allLayouts = topSpaces.flatMap((s) =>
+        (s.layouts || []).map((l) => ({ space: s, layout: l }))
+      );
+
+      if (allLayouts.length > 0) {
+        const numMatch = q.match(/(\d+)\s*(people|guests|pax|person|attendees)?/);
+        const guests = numMatch ? parseInt(numMatch[1], 10) : 0;
+
+        let matchingLayout = allLayouts.find((item) => {
+          if (guests > 0 && item.layout.capacity < guests) return false;
+          if (q.includes('dinner') || q.includes('dining') || q.includes('banquet')) {
+            return item.layout.layoutType === 'Banquet' || item.layout.layoutType === 'Private Dining';
+          }
+          if (q.includes('conference') || q.includes('theatre') || q.includes('theater') || q.includes('keynote')) {
+            return item.layout.layoutType === 'Theatre' || item.layout.layoutType === 'Classroom';
+          }
+          if (q.includes('cocktail') || q.includes('party') || q.includes('reception')) {
+            return item.layout.layoutType === 'Cocktail';
+          }
+          return true;
+        });
+
+        if (!matchingLayout && guests > 0) {
+          matchingLayout = allLayouts.find((item) => item.layout.capacity >= guests);
+        }
+        if (!matchingLayout) {
+          matchingLayout = allLayouts[0];
+        }
+
+        if (matchingLayout) {
+          recommendedLayout = matchingLayout.layout.title || `${matchingLayout.space.name} — ${matchingLayout.layout.layoutType} Setup`;
+          const clip = getWalkthroughForLayout(top, matchingLayout.layout.id, matchingLayout.space.id, matchingLayout.layout.layoutType);
+          if (clip) {
+            topReasons.push(`Recorded walkthrough available for ${recommendedLayout}`);
+          }
+        }
+      }
+    }
 
     const matchedIds = scores.filter((s) => s.score > 20).map((s) => s.venue.id);
     const finalIds = matchedIds.length > 0 ? matchedIds : [top.id, catalogToMatch[1]?.id || catalogToMatch[0]?.id].filter(Boolean);
@@ -601,16 +695,15 @@ app.post('/api/gemini/match', async (req, res) => {
       matchedVenueIds: finalIds,
       topPickVenueId: top.id,
       confidenceScore: Math.min(98, Math.max(82, scores[0]?.score ? 70 + scores[0].score : 88)),
-      recommendedLayout: top.walkthroughClips[0]?.title || (top.spaces && top.spaces[0]?.layouts[0]?.title) || 'Standard Event Layout',
-      aiExplanation: `Based on your request "${query}", ${top.name} in ${top.location.city} is the recommended space. It offers ${top.aesthetic.toLowerCase()} architecture, versatile floor plans, and ideal capacity for your group.`,
-      keyMatchFactors: topReasons,
-      estimatedBudgetNote: `Starting at ${topCurrSymbol}${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit} with verified specifications and remote inspection capabilities.`,
+      recommendedLayout,
+      aiExplanation: `Based on your request "${query}", ${top.name} in ${top.location.city} is the recommended space. It offers ${top.aesthetic.toLowerCase()} architecture, versatile floor plans, and verified capacity for your event.`,
+      keyMatchFactors: topReasons.slice(0, 4),
+      estimatedBudgetNote: `Starting at ${topCurrSymbol}${top.pricing.startingPrice.toLocaleString()} ${top.pricing.priceUnit || 'per day'} with verified specifications and remote inspection capabilities.`,
     };
   };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-    // Return heuristic response directly if API key is not configured
     return res.json({ success: true, match: fallbackMatch() });
   }
 
@@ -625,37 +718,28 @@ app.post('/api/gemini/match', async (req, res) => {
     });
 
     const catalogToMatch = publishedVenues;
+    // Canonical summary built using getVenueAiCatalogSummary
+    const venueCatalogSummary = catalogToMatch.map((v) => getVenueAiCatalogSummary(v));
 
-    const venueCatalogSummary = catalogToMatch.map((v) => ({
-      id: v.id,
-      name: v.name,
-      city: v.location.city,
-      state: v.location.state,
-      aesthetic: v.aesthetic,
-      eventTypes: v.eventTypes,
-      seatedCapacity: v.capacity.seatedBanquet,
-      cocktailCapacity: v.capacity.cocktail,
-      startingPrice: v.pricing.startingPrice,
-      currency: v.pricing.currency || 'GBP',
-      amenityHighlights: v.amenities.slice(0, 4).map((a) => a.name),
-      layouts: v.walkthroughClips.map((c) => c.title),
-      spaces: (v.spaces || []).map((s) => s.name),
-    }));
-
-    const prompt = `You are the AI Venue Matcher for VenueStream, a broad venue discovery, remote inspection, and booking marketplace for meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and other events.
-Catalog of available venues:
+    const prompt = `You are the AI Venue Matcher for VenueStream, a venue discovery, remote inspection, and booking marketplace for meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and events.
+Catalog of available venues (with canonical space layouts and truthful capacity):
 ${JSON.stringify(venueCatalogSummary, null, 2)}
 
 User request: "${query}"
 
-Analyze the user's requirements (desired location, aesthetic style, guest count, event type, budget if specified, and key features).
-Return a structured JSON object selecting the best matches from the catalog in straightforward, professional language.`;
+Analyze the user's requirements (desired location, aesthetic style, guest count, event type, budget if specified, and spatial features).
+Match strictly against the venue catalog data:
+1. Check that the venue's canonical capacity (spaces and layouts) can genuinely accommodate the requested guest count.
+2. Select the single best venue ID and best matching venue IDs.
+3. For recommendedLayout, choose the EXACT layout title from the venue's configured layouts. If no specific configuration fits, return "Configuration to be confirmed with venue". NEVER invent layout names like "Standard Event Layout" and NEVER use walkthrough clip titles as layout names.
+4. For keyMatchFactors, only claim a recorded walkthrough exists if that layout has hasRecordedWalkthrough === true.
+Return a structured JSON object.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: 'You are an intelligent spatial planner and venue matcher for VenueStream. VenueStream is a broad venue discovery, remote inspection, and booking marketplace for business meetings, conferences, weddings, parties, training workshops, private dining, exhibitions, and other events. Match user requirements against the venue catalog precisely and return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance. Use straightforward, modern, and professional language.',
+        systemInstruction: 'You are an intelligent spatial planner and venue matcher for VenueStream. Match user requirements against the venue catalog truthfully and accurately. CAPACITY TRUTHFULNESS: Only recommend a venue if its configured spaces and layouts genuinely support the user requested guest count. LAYOUT SPECIFICITY: For recommendedLayout, you MUST select an exact title from that venue\'s configured layouts list. If none fits, use "Configuration to be confirmed with venue". MEDIA TRUTHFULNESS: Never claim walkthroughs or 3D tours exist unless verified in the venue data. Return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -675,7 +759,7 @@ Return a structured JSON object selecting the best matches from the catalog in s
             },
             recommendedLayout: {
               type: Type.STRING,
-              description: 'Recommended layout setup title for their event style',
+              description: 'Exact title of the configured layout from the venue data, or "Configuration to be confirmed with venue"',
             },
             aiExplanation: {
               type: Type.STRING,
@@ -684,7 +768,7 @@ Return a structured JSON object selecting the best matches from the catalog in s
             keyMatchFactors: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: '3-4 bullet points highlighting specific matches (capacity, aesthetic, budget, city)',
+              description: '3-4 bullet points highlighting specific verified matches (capacity, aesthetic, budget, city)',
             },
             estimatedBudgetNote: {
               type: Type.STRING,
@@ -705,15 +789,38 @@ Return a structured JSON object selecting the best matches from the catalog in s
     });
 
     const parsed = JSON.parse(response.text || '{}');
+    const topVenueId = parsed.topPickVenueId || catalogToMatch[0].id;
+    const topVenue = catalogToMatch.find((v) => v.id === topVenueId) || catalogToMatch[0];
+
+    // Validate recommendedLayout against topVenue's actual configured layouts
+    const topSpaces = getVenueSpaces(topVenue);
+    const configuredLayouts = topSpaces.flatMap((s) => s.layouts || []);
+    let validatedLayout = 'Configuration to be confirmed with venue';
+
+    if (parsed.recommendedLayout && typeof parsed.recommendedLayout === 'string') {
+      const match = configuredLayouts.find(
+        (l) =>
+          l.title.toLowerCase().trim() === parsed.recommendedLayout.toLowerCase().trim() ||
+          parsed.recommendedLayout.toLowerCase().includes(l.title.toLowerCase())
+      );
+      if (match) {
+        validatedLayout = match.title;
+      } else if (configuredLayouts.length > 0) {
+        validatedLayout = configuredLayouts[0].title;
+      }
+    } else if (configuredLayouts.length > 0) {
+      validatedLayout = configuredLayouts[0].title;
+    }
+
     const finalResponse: AiMatchResponse = {
       query,
-      matchedVenueIds: Array.isArray(parsed.matchedVenueIds) && parsed.matchedVenueIds.length > 0 ? parsed.matchedVenueIds : [catalogToMatch[0].id],
-      topPickVenueId: parsed.topPickVenueId || catalogToMatch[0].id,
+      matchedVenueIds: Array.isArray(parsed.matchedVenueIds) && parsed.matchedVenueIds.length > 0 ? parsed.matchedVenueIds : [topVenue.id],
+      topPickVenueId: topVenue.id,
       confidenceScore: parsed.confidenceScore || 94,
-      recommendedLayout: parsed.recommendedLayout || 'Standard Event Layout',
-      aiExplanation: parsed.aiExplanation || `Based on your request "${query}", our top recommendation is ${catalogToMatch[0].name}.`,
-      keyMatchFactors: parsed.keyMatchFactors || ['Capacity match', 'Aesthetic alignment', 'Prime location'],
-      estimatedBudgetNote: parsed.estimatedBudgetNote || 'Pricing accommodates custom walkthrough arrangements.',
+      recommendedLayout: validatedLayout,
+      aiExplanation: parsed.aiExplanation || `Based on your request "${query}", our top recommendation is ${topVenue.name}.`,
+      keyMatchFactors: Array.isArray(parsed.keyMatchFactors) && parsed.keyMatchFactors.length > 0 ? parsed.keyMatchFactors : ['Capacity match', 'Aesthetic alignment', 'Prime location'],
+      estimatedBudgetNote: parsed.estimatedBudgetNote || `Starting at ${topVenue.pricing.currencySymbol || '£'}${topVenue.pricing.startingPrice.toLocaleString()} ${topVenue.pricing.priceUnit || 'per day'}.`,
     };
 
     res.json({ success: true, match: finalResponse });

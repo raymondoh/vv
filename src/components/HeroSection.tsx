@@ -12,14 +12,16 @@ interface HeroSectionProps {
 
 const CITIES = [
   { label: 'All Locations', value: 'all' },
+  { label: 'London', value: 'london' },
+  { label: 'Greater London', value: 'greater london' },
+  { label: 'Manchester', value: 'manchester' },
+  { label: 'Birmingham', value: 'birmingham' },
+  { label: 'Edinburgh', value: 'edinburgh' },
+  { label: 'Leeds', value: 'leeds' },
+  { label: 'Glasgow', value: 'glasgow' },
   { label: 'Chicago, IL', value: 'chicago' },
   { label: 'Napa Valley, CA', value: 'napa' },
   { label: 'New York, NY', value: 'new york' },
-  { label: 'Austin, TX', value: 'austin' },
-  { label: 'Seattle, WA', value: 'seattle' },
-  { label: 'Miami, FL', value: 'miami' },
-  { label: 'Aspen, CO', value: 'aspen' },
-  { label: 'San Francisco, CA', value: 'san francisco' },
 ];
 
 const EVENT_TYPE_TABS: { label: string; value: EventType }[] = [
@@ -33,11 +35,11 @@ const EVENT_TYPE_TABS: { label: string; value: EventType }[] = [
 ];
 
 const QUICK_INSPIRATION = [
-  { label: 'Executive Board Summit (NYC)', prompt: 'Modern skyline venue for an executive summit of 40 guests in New York with terrace access' },
-  { label: 'Daylight Workshop (Chicago)', prompt: 'High-ceiling glasshouse with daylight and breakout seating for 120 people in Chicago' },
-  { label: 'Private Wine Dinner (Napa)', prompt: 'Intimate private dining and barrel cellar setting for 60 guests in Napa Valley' },
-  { label: 'Tech Conference Hall (SF)', prompt: 'Auditorium with 300+ theater capacity, stage projection, and high-density fiber in San Francisco' },
-  { label: 'Product Exhibition (Seattle)', prompt: 'Historic industrial space with ground loading dock and 3-phase power in Seattle' },
+  { label: 'London Riverside Glasshouse', prompt: 'Neoclassical glasshouse with botanical conservatory for a 200-person banquet along the Thames in London' },
+  { label: 'Manchester Tech Summit', prompt: 'Large event space with 400 theatre capacity and presentation AV in Manchester' },
+  { label: 'Central London Boardroom', prompt: 'Executive boardroom in London for 30 guests with private dining under £4,000' },
+  { label: 'Daylight Workshop Space', prompt: 'Sun-filled training hall for 80 attendees with breakout areas' },
+  { label: 'Private Dining & Tasting', prompt: 'Atmospheric private dining room for 40 guests' },
 ];
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -75,7 +77,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </h1>
 
           <p className="text-sm sm:text-base text-[#66737A] max-w-2xl mx-auto leading-relaxed">
-            High-definition recorded walkthroughs, interactive floor plans, and layout simulations for conferences, meetings, weddings, workshops, private dining, and events.
+            Recorded video walkthroughs, interactive floor plans, and layout simulations for conferences, meetings, weddings, workshops, private dining, and events.
           </p>
 
           {/* Core Platform Capabilities Strip */}
@@ -83,8 +85,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             <div className="p-3 bg-white rounded-xl border border-[#DDD8CF] shadow-xs flex items-start gap-2.5">
               <Video className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
               <div>
-                <span className="text-xs font-bold text-[#26343D] block">4K Walkthroughs</span>
-                <span className="text-[11px] text-[#66737A] leading-tight block">Continuous spatial video tours</span>
+                <span className="text-xs font-bold text-[#26343D] block">Recorded Walkthroughs</span>
+                <span className="text-[11px] text-[#66737A] leading-tight block">Continuous video tours</span>
               </div>
             </div>
             <div className="p-3 bg-white rounded-xl border border-[#DDD8CF] shadow-xs flex items-start gap-2.5">

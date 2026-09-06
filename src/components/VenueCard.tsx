@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Play, Video, Users, MapPin, Star, Calendar, Heart, ImageIcon } from 'lucide-react';
 import { Venue } from '../types';
 import { formatCurrency } from '../utils/formatters';
-import { getVenueSpaces, getTotalConfiguredLayouts, getVenueLayoutChips } from '../utils/venueConfigurationHelpers';
+import { getVenueSpaces, getTotalConfiguredLayouts, getVenueLayoutChips, getVenueCapacityDisplay } from '../utils/venueConfigurationHelpers';
 import { hasBookableLiveTourSlots } from '../utils/walkthroughAvailabilityHelpers';
 
 interface VenueCardProps {
@@ -32,15 +32,6 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   const spaces = getVenueSpaces(venue);
   const totalLayouts = getTotalConfiguredLayouts(venue);
   const layoutChips = getVenueLayoutChips(venue, 3);
-
-  const derivedSeated =
-    venue.capacity?.seatedBanquet ||
-    (venue.spaces?.reduce((max, s) => Math.max(max, s.seatedCapacity || 0), 0)) ||
-    0;
-  const derivedCocktail =
-    venue.capacity?.cocktail ||
-    (venue.spaces?.reduce((max, s) => Math.max(max, s.standingCapacity || s.maxCapacity || 0), 0)) ||
-    0;
 
   return (
     <div
@@ -205,15 +196,9 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           <div className="space-y-0.5">
             <span className="text-[10px] uppercase font-semibold text-[#66737A]">Capacity</span>
             <div className="flex items-center gap-1 text-[#26343D] font-medium">
-              <Users className="w-3.5 h-3.5 text-[#A86445]" />
-              <span>
-                {derivedSeated > 0 && derivedCocktail > 0
-                  ? `${derivedSeated} seated / ${derivedCocktail} cocktail`
-                  : derivedCocktail > 0
-                  ? `Max ${derivedCocktail} guests`
-                  : derivedSeated > 0
-                  ? `${derivedSeated} seated`
-                  : 'Capacity on Request'}
+              <Users className="w-3.5 h-3.5 text-[#A86445] shrink-0" />
+              <span className="truncate">
+                {getVenueCapacityDisplay(venue)}
               </span>
             </div>
           </div>
