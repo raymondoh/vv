@@ -30,6 +30,7 @@ export default function App() {
   const [venues, setVenues] = useState<Venue[]>(VENUES);
   const [organisations, setOrganisations] = useState<BusinessOrganisation[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
+  const [aiPreselectedLayoutTitle, setAiPreselectedLayoutTitle] = useState<string | undefined>(undefined);
   const [currentView, setCurrentView] = useState<'customer_discovery' | 'my_events' | 'venue_portal' | 'platform_admin'>('customer_discovery');
 
   // Modals & Drawers
@@ -465,6 +466,7 @@ export default function App() {
             onOpenLiveSimulator={(booking) => setActiveLiveSimulatorBooking(booking)}
             onInspectVenue={(venue) => {
               setSelectedVenue(venue);
+              setAiPreselectedLayoutTitle(undefined);
               setCurrentView('customer_discovery');
             }}
             onSwitchToCustomerView={() => setCurrentView('customer_discovery')}
@@ -487,11 +489,13 @@ export default function App() {
               const v = venues.find((x) => x.id === venueId);
               if (v) {
                 setSelectedVenue(v);
+                setAiPreselectedLayoutTitle(undefined);
                 setCurrentView('customer_discovery');
               }
             }}
             onBrowseVenues={() => {
               setSelectedVenue(null);
+              setAiPreselectedLayoutTitle(undefined);
               setCurrentView('customer_discovery');
             }}
             onOpenAiMatcher={() => {
@@ -510,7 +514,11 @@ export default function App() {
           /* Dedicated Venue Detail & Video Page */
           <VenueDetailView
             venue={selectedVenue}
-            onBack={() => setSelectedVenue(null)}
+            initialLayoutTitle={aiPreselectedLayoutTitle}
+            onBack={() => {
+              setSelectedVenue(null);
+              setAiPreselectedLayoutTitle(undefined);
+            }}
             onBookWalkthrough={(venue) => setWalkthroughBookingVenue(venue)}
             onRequestToBook={(venue, preselectedLayout, preselectedSpaceId, preselectedLayoutId) => {
               setRequestBookingVenue(venue);
@@ -606,7 +614,10 @@ export default function App() {
                     <VenueCard
                       key={venue.id}
                       venue={venue}
-                      onSelectVenue={(v) => setSelectedVenue(v)}
+                      onSelectVenue={(v) => {
+                        setSelectedVenue(v);
+                        setAiPreselectedLayoutTitle(undefined);
+                      }}
                       onBookWalkthrough={(v) => setWalkthroughBookingVenue(v)}
                       isFavorited={favorites.includes(venue.id)}
                       onToggleFavorite={handleToggleFavorite}
@@ -626,8 +637,9 @@ export default function App() {
         onClose={() => setIsAiMatcherOpen(false)}
         venues={publishedVenues}
         initialPrompt={aiInitialPrompt}
-        onSelectVenue={(venue) => {
+        onSelectVenue={(venue, recommendedLayoutTitle) => {
           setSelectedVenue(venue);
+          setAiPreselectedLayoutTitle(recommendedLayoutTitle);
           setAiMatchedVenueIds([venue.id]);
         }}
       />
@@ -691,6 +703,7 @@ export default function App() {
           const v = venues.find((x) => x.id === venueId);
           if (v) {
             setSelectedVenue(v);
+            setAiPreselectedLayoutTitle(undefined);
             setCurrentView('customer_discovery');
           }
         }}
@@ -726,6 +739,7 @@ export default function App() {
             const v = venues.find((x) => x.id === venueId);
             if (v) {
               setSelectedVenue(v);
+              setAiPreselectedLayoutTitle(undefined);
               setCurrentView('customer_discovery');
             }
           }}

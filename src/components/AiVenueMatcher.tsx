@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Sparkles, Send, ArrowRight, CheckCircle2, Building2, MapPin, Users, DollarSign, X, RefreshCw } from 'lucide-react';
 import { Venue, AiMatchResponse } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { getVenueLayouts, getWalkthroughForLayout } from '../utils/venueConfigurationHelpers';
 
 interface AiVenueMatcherProps {
   isOpen: boolean;
   onClose: () => void;
   venues: Venue[];
-  onSelectVenue: (venue: Venue, layoutCategory?: string) => void;
+  onSelectVenue: (venue: Venue, recommendedLayoutTitle?: string) => void;
   initialPrompt?: string;
 }
 
@@ -75,6 +76,26 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
   const topVenue = (matchResult && matchResult.topPickVenueId)
     ? venues.find((v) => v.id === matchResult.topPickVenueId) || null
     : null;
+
+  // Resolve configuration-specific walkthrough status for the recommended layout
+  const recommendedLayoutTitle = matchResult?.recommendedLayout || '';
+  const topVenueLayouts = topVenue ? getVenueLayouts(topVenue) : [];
+  const resolvedRecommendedLayout =
+    recommendedLayoutTitle && recommendedLayoutTitle !== 'Configuration to be confirmed with venue'
+      ? topVenueLayouts.find(
+          (item) => item.layout.title.toLowerCase().trim() === recommendedLayoutTitle.toLowerCase().trim()
+        )
+      : null;
+  const hasWalkthroughForRecommended = Boolean(
+    topVenue &&
+    resolvedRecommendedLayout &&
+    getWalkthroughForLayout(
+      topVenue,
+      resolvedRecommendedLayout.layout.id,
+      resolvedRecommendedLayout.space.id,
+      resolvedRecommendedLayout.layout.layoutType
+    )
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -262,14 +283,18 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
                     </div>
                   </div>
 
-                  {/* Recommended Layout Tag */}
-                  <div className="flex items-center justify-between text-xs pt-2 border-t border-[#DDD8CF]">
+                  {/* Recommended Layout Tag & Configuration-Specific Walkthrough Badge */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs pt-2 border-t border-[#DDD8CF]">
                     <span className="text-[#66737A]">
                       Recommended Layout: <strong className="text-[#26343D]">{matchResult.recommendedLayout}</strong>
                     </span>
-                    {topVenue.walkthroughClips && topVenue.walkthroughClips.length > 0 && (
-                      <span className="text-emerald-700 text-[11px] font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {topVenue.walkthroughClips.length} {topVenue.walkthroughClips.length === 1 ? 'Walkthrough Video' : 'Walkthrough Videos'}
+                    {hasWalkthroughForRecommended ? (
+                      <span className="text-emerald-700 text-[11px] font-medium bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 self-start sm:self-auto">
+                        Walkthrough available
+                      </span>
+                    ) : (
+                      <span className="text-[#66737A] text-[11px] font-medium bg-[#F4F1EA] px-2 py-0.5 rounded border border-[#DDD8CF] self-start sm:self-auto">
+                        No walkthrough for this configuration
                       </span>
                     )}
                   </div>
@@ -281,7 +306,7 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
                 <button
                   id="view-ai-matched-venue-btn"
                   onClick={() => {
-                    onSelectVenue(topVenue);
+                    onSelectVenue(topVenue, matchResult.recommendedLayout);
                     onClose();
                   }}
                   className="flex-1 py-3 px-4 bg-[#A86445] text-white font-semibold text-xs sm:text-sm rounded-xl hover:bg-[#8F5439] shadow-xs transition-all flex items-center justify-center gap-2 active:scale-95"

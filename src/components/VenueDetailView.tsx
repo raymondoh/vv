@@ -51,6 +51,7 @@ interface VenueDetailViewProps {
   onRequestToBook: (venue: Venue, preselectedLayout?: string, preselectedSpaceId?: string, preselectedLayoutId?: string) => void;
   isFavorited: boolean;
   onToggleFavorite: (venueId: string) => void;
+  initialLayoutTitle?: string;
 }
 
 export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
@@ -60,6 +61,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   onRequestToBook,
   isFavorited,
   onToggleFavorite,
+  initialLayoutTitle,
 }) => {
   const hasRecordedWalkthrough = Boolean(
     Array.isArray(venue.walkthroughClips) && venue.walkthroughClips.length > 0
@@ -68,16 +70,39 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   const spaces = getVenueSpaces(venue);
   const allLayouts = getVenueLayouts(venue);
 
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(spaces[0]?.id || '');
+  // Exact resolution of initial layout title if provided and not generic
+  const matchedInitial = React.useMemo(() => {
+    if (!initialLayoutTitle || initialLayoutTitle === 'Configuration to be confirmed with venue') {
+      return null;
+    }
+    const cleanTitle = initialLayoutTitle.toLowerCase().trim();
+    return (
+      allLayouts.find(
+        (item) => item.layout.title.toLowerCase().trim() === cleanTitle
+      ) || null
+    );
+  }, [allLayouts, initialLayoutTitle]);
+
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(() => {
+    if (matchedInitial) {
+      return matchedInitial.space.id;
+    }
+    return spaces[0]?.id || '';
+  });
   const activeSpace = spaces.find((s) => s.id === selectedSpaceId) || spaces[0];
   const activeLayouts = activeSpace?.layouts || [];
 
-  // Default selected layout: choose one with a walkthrough if available, or first layout
+  // Default selected layout: honor matchedInitial, or choose one with a walkthrough if available, or first layout
   const [selectedLayoutId, setSelectedLayoutId] = useState<string>(() => {
-    const layoutWithClip = activeLayouts.find((l) =>
-      Boolean(getWalkthroughForLayout(venue, l.id, activeSpace?.id, l.layoutType))
+    if (matchedInitial) {
+      return matchedInitial.layout.id;
+    }
+    const defaultSpace = spaces[0];
+    const defaultLayouts = defaultSpace?.layouts || [];
+    const layoutWithClip = defaultLayouts.find((l) =>
+      Boolean(getWalkthroughForLayout(venue, l.id, defaultSpace?.id, l.layoutType))
     );
-    return layoutWithClip?.id || activeLayouts[0]?.id || '';
+    return layoutWithClip?.id || defaultLayouts[0]?.id || '';
   });
 
   const activeLayout = activeLayouts.find((l) => l.id === selectedLayoutId) || activeLayouts[0];
@@ -96,8 +121,31 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'video' | 'floorplan' | '360' | 'gallery'>(() => {
+    if (matchedInitial) {
+      const clip = getWalkthroughForLayout(
+        venue,
+        matchedInitial.layout.id,
+        matchedInitial.space.id,
+        matchedInitial.layout.layoutType
+      );
+      return clip ? 'video' : 'gallery';
+    }
     return hasClipForActiveLayout ? 'video' : 'gallery';
   });
+
+  useEffect(() => {
+    if (matchedInitial) {
+      setSelectedSpaceId(matchedInitial.space.id);
+      setSelectedLayoutId(matchedInitial.layout.id);
+      const clip = getWalkthroughForLayout(
+        venue,
+        matchedInitial.layout.id,
+        matchedInitial.space.id,
+        matchedInitial.layout.layoutType
+      );
+      setViewMode(clip ? 'video' : 'gallery');
+    }
+  }, [matchedInitial, venue]);
   const [selectedCameraAngle, setSelectedCameraAngle] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string>(
