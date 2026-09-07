@@ -506,31 +506,56 @@ app.patch('/api/venues/:id/status', (req, res) => {
   res.json({ success: true, venue, message: `Venue status set to ${status}` });
 });
 
-function extractBudgetFromQuery(query: string): number | null {
+interface ExtractedBudget {
+  amount: number;
+  currency: 'GBP' | 'USD' | 'EUR';
+}
+
+function extractBudgetFromQuery(query: string): ExtractedBudget | null {
   const q = query.toLowerCase();
 
+  // Determine explicit or default currency (UK-first prototype defaults to GBP)
+  let defaultCurrency: 'GBP' | 'USD' | 'EUR' = 'GBP';
+  if (query.includes('£') || q.includes('gbp') || q.includes('pound')) {
+    defaultCurrency = 'GBP';
+  } else if (query.includes('$') || q.includes('usd') || q.includes('dollar')) {
+    defaultCurrency = 'USD';
+  } else if (query.includes('€') || q.includes('eur') || q.includes('euro')) {
+    defaultCurrency = 'EUR';
+  }
+
   // Pattern A: Keyword before monetary amount or number (under £5,000, max £4,000, budget of £5k, up to 6000)
-  const kwBefore = q.match(/(?:under|budget(?:\s+of)?|max(?:imum)?|up\s+to|less\s+than|capped\s+at)\s+[£$€]?\s*(\d+[\d,]*)\s*(k|thousand)?(?!\s*(-|\s)?(person|people|guest|pax|attendee|delegate))/i);
+  const kwBefore = q.match(/(?:under|budget(?:\s+of)?|max(?:imum)?|up\s+to|less\s+than|capped\s+at)\s+([£$€])?\s*(\d+[\d,]*)\s*(k|thousand)?(?!\s*(-|\s)?(person|people|guest|pax|attendee|delegate))/i);
   if (kwBefore) {
-    let val = parseInt(kwBefore[1].replace(/,/g, ''), 10);
-    if (kwBefore[2] && (kwBefore[2].toLowerCase().startsWith('k') || kwBefore[2].toLowerCase().startsWith('thousand'))) {
+    let curr = defaultCurrency;
+    if (kwBefore[1] === '£') curr = 'GBP';
+    else if (kwBefore[1] === '$') curr = 'USD';
+    else if (kwBefore[1] === '€') curr = 'EUR';
+
+    let val = parseInt(kwBefore[2].replace(/,/g, ''), 10);
+    if (kwBefore[3] && (kwBefore[3].toLowerCase().startsWith('k') || kwBefore[3].toLowerCase().startsWith('thousand'))) {
       val *= 1000;
-    } else if (val < 100 && (kwBefore[1].toLowerCase().includes('k') || q.includes(`${kwBefore[1]}k`))) {
+    } else if (val < 100 && (kwBefore[2].toLowerCase().includes('k') || q.includes(`${kwBefore[2]}k`))) {
       val *= 1000;
     }
-    return isNaN(val) ? null : val;
+    if (!isNaN(val)) return { amount: val, currency: curr };
   }
 
   // Pattern B: Explicit currency symbol directly attached or preceding number (£5,000, £5k, $4000)
-  const currBefore = q.match(/[£$€]\s*(\d+[\d,]*)\s*(k|thousand)?(?!\s*(-|\s)?(person|people|guest|pax|attendee|delegate))/i);
+  const currBefore = q.match(/([£$€])\s*(\d+[\d,]*)\s*(k|thousand)?(?!\s*(-|\s)?(person|people|guest|pax|attendee|delegate))/i);
   if (currBefore) {
-    let val = parseInt(currBefore[1].replace(/,/g, ''), 10);
-    if (currBefore[2] && (currBefore[2].toLowerCase().startsWith('k') || currBefore[2].toLowerCase().startsWith('thousand'))) {
+    let curr = defaultCurrency;
+    if (currBefore[1] === '£') curr = 'GBP';
+    else if (currBefore[1] === '$') curr = 'USD';
+    else if (currBefore[1] === '€') curr = 'EUR';
+
+    let val = parseInt(currBefore[2].replace(/,/g, ''), 10);
+    if (currBefore[3] && (currBefore[3].toLowerCase().startsWith('k') || currBefore[3].toLowerCase().startsWith('thousand'))) {
       val *= 1000;
-    } else if (val < 100 && (currBefore[1].toLowerCase().includes('k') || q.includes(`${currBefore[1]}k`))) {
+    } else if (val < 100 && (currBefore[2].toLowerCase().includes('k') || q.includes(`${currBefore[2]}k`))) {
       val *= 1000;
     }
-    return isNaN(val) ? null : val;
+    if (!isNaN(val)) return { amount: val, currency: curr };
   }
 
   // Pattern C: Number followed by budget keyword (5000 budget, 5k max)
@@ -542,10 +567,180 @@ function extractBudgetFromQuery(query: string): number | null {
     } else if (val < 100 && (kwAfter[1].toLowerCase().includes('k') || q.includes(`${kwAfter[1]}k`))) {
       val *= 1000;
     }
-    return isNaN(val) ? null : val;
+    if (!isNaN(val)) return { amount: val, currency: defaultCurrency };
   }
 
   return null;
+}
+
+function venueSatisfiesBudget(v: Venue, budget: ExtractedBudget): boolean {
+  // Currency compatibility check: venue currency MUST match requested budget currency (no cross-currency numeric comparison)
+  if (v.pricing.currency !== budget.currency) {
+    return false;
+  }
+  return v.pricing.startingPrice <= budget.amount;
+}
+
+function extractExplicitLocationFromQuery(query: string, catalog: Venue[]): string | null {
+  const q = query.toLowerCase();
+
+  // Gather distinct cities, regions, and states from catalog
+  const locationSet = new Set<string>();
+  for (const v of catalog) {
+    if (v.location.city) locationSet.add(v.location.city.toLowerCase().trim());
+    if (v.location.region) locationSet.add(v.location.region.toLowerCase().trim());
+    if (v.location.state) locationSet.add(v.location.state.toLowerCase().trim());
+  }
+
+  // Exclude overly generic geography terms
+  const excludedLocations = new Set([
+    'uk', 'united kingdom', 'great britain', 'gb', 'england',
+    'united states', 'us', 'usa', 'france',
+    'central', 'riverside', 'downtown', 'north', 'south', 'east', 'west'
+  ]);
+
+  const candidateLocations = Array.from(locationSet)
+    .filter((loc) => loc.length > 2 && !excludedLocations.has(loc))
+    .sort((a, b) => b.length - a.length);
+
+  for (const loc of candidateLocations) {
+    const regex = new RegExp(`\\b${loc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (regex.test(q)) {
+      return loc;
+    }
+  }
+
+  return null;
+}
+
+function venueMatchesLocation(v: Venue, targetLocation: string): boolean {
+  const loc = targetLocation.toLowerCase().trim();
+  const city = (v.location.city || '').toLowerCase().trim();
+  const region = (v.location.region || '').toLowerCase().trim();
+  const state = (v.location.state || '').toLowerCase().trim();
+  const neighborhood = (v.location.neighborhood || '').toLowerCase().trim();
+  const postalCode = (v.location.postalCode || v.location.zipCode || '').toLowerCase().trim();
+
+  // Match against structured location fields
+  if (city === loc || city.includes(loc) || loc.includes(city)) return true;
+  if (region === loc || region.includes(loc) || loc.includes(region)) return true;
+  if (state === loc || state.includes(loc) || loc.includes(state)) return true;
+  if (neighborhood && (neighborhood.includes(loc) || loc.includes(neighborhood))) return true;
+  if (postalCode && postalCode.includes(loc)) return true;
+
+  // Specific canonical regional aliases
+  if (loc === 'london' && (city === 'london' || region.includes('london') || state.includes('london'))) return true;
+  if (loc === 'manchester' && (city === 'manchester' || region.includes('manchester') || state.includes('manchester'))) return true;
+
+  return false;
+}
+
+function buildZeroMatchDetails(
+  query: string,
+  catalog: Venue[],
+  requestedLocation: string | null,
+  requestedGuests: number | null,
+  requestedBudget: ExtractedBudget | null
+): { aiExplanation: string; keyMatchFactors: string[]; estimatedBudgetNote: string } {
+  const currSymbol = requestedBudget
+    ? (requestedBudget.currency === 'GBP' ? '£' : requestedBudget.currency === 'EUR' ? '€' : '$')
+    : '£';
+  const formattedBudget = requestedBudget ? `${currSymbol}${requestedBudget.amount.toLocaleString()}` : '';
+  const formattedGuests = requestedGuests !== null ? requestedGuests.toLocaleString() : '';
+  const capitalizedLocation = requestedLocation
+    ? requestedLocation.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    : '';
+
+  const locationMatches = requestedLocation ? catalog.filter((v) => venueMatchesLocation(v, requestedLocation)) : catalog;
+  const capacityMatches = requestedGuests !== null ? catalog.filter((v) => venueCanAccommodateGuests(v, requestedGuests)) : catalog;
+  const budgetMatches = requestedBudget !== null ? catalog.filter((v) => venueSatisfiesBudget(v, requestedBudget)) : catalog;
+
+  // Case 1: Location was specified, but no published catalog venues exist in this location at all
+  if (requestedLocation && locationMatches.length === 0) {
+    return {
+      aiExplanation: `No qualifying venues were found in ${capitalizedLocation}.`,
+      keyMatchFactors: [`No published venues currently listed in ${capitalizedLocation}`],
+      estimatedBudgetNote: 'Our catalog currently features spaces across London, Greater Manchester, Bristol, Chicago, and Bordeaux.',
+    };
+  }
+
+  // Case 2: Location was specified, and no venue in that location can hold requestedGuests
+  if (requestedLocation && requestedGuests !== null) {
+    const locCapMatches = locationMatches.filter((v) => venueCanAccommodateGuests(v, requestedGuests));
+    if (locCapMatches.length === 0) {
+      return {
+        aiExplanation: `No published venues in ${capitalizedLocation} can accommodate ${formattedGuests} guests.`,
+        keyMatchFactors: [
+          `Requested capacity of ${formattedGuests} exceeds available venue capacities in ${capitalizedLocation}`,
+        ],
+        estimatedBudgetNote: 'Consider reducing group size or contacting venue hosts directly for multi-room or bespoke hire arrangements.',
+      };
+    }
+  }
+
+  // Case 3: Across entire catalog, no venue can hold requestedGuests
+  if (requestedGuests !== null && capacityMatches.length === 0) {
+    return {
+      aiExplanation: `No published venues can accommodate ${formattedGuests} guests.`,
+      keyMatchFactors: [
+        `Requested capacity of ${formattedGuests} exceeds available venue capacities in our catalog`,
+      ],
+      estimatedBudgetNote: 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
+    };
+  }
+
+  // Case 4: Location was specified, and no venue in that location fits within budget
+  if (requestedLocation && requestedBudget !== null) {
+    const locBudgetMatches = locationMatches.filter((v) => venueSatisfiesBudget(v, requestedBudget));
+    if (locBudgetMatches.length === 0) {
+      return {
+        aiExplanation: `No qualifying venues in ${capitalizedLocation} have a starting rate within ${formattedBudget}.`,
+        keyMatchFactors: [
+          `Starting rates for available venues in ${capitalizedLocation} exceed ${formattedBudget}`,
+        ],
+        estimatedBudgetNote: `Consider increasing budget or requesting bespoke packages for spaces in ${capitalizedLocation}.`,
+      };
+    }
+  }
+
+  // Case 5: Across entire catalog, no venue fits within budget
+  if (requestedBudget !== null && budgetMatches.length === 0) {
+    return {
+      aiExplanation: `No qualifying venues have a starting rate within ${formattedBudget}.`,
+      keyMatchFactors: [
+        `All available catalog venues have starting rates above ${formattedBudget}`,
+      ],
+      estimatedBudgetNote: `Starting rates for catalog venues begin at £3,200 (or equivalent in local currency). Consider increasing budget or requesting bespoke packages.`,
+    };
+  }
+
+  // Case 6: Location + Capacity + Budget jointly eliminate candidates
+  if (requestedLocation && requestedGuests !== null && requestedBudget !== null) {
+    return {
+      aiExplanation: `No published venues in ${capitalizedLocation} meet the requested ${formattedGuests}-guest capacity and ${formattedBudget} starting-budget requirements.`,
+      keyMatchFactors: [
+        `No venues in ${capitalizedLocation} satisfy both ${formattedGuests} guest capacity and ${formattedBudget} budget`,
+      ],
+      estimatedBudgetNote: `Consider adjusting budget or guest count for spaces in ${capitalizedLocation}.`,
+    };
+  }
+
+  // Case 7: Capacity + Budget jointly eliminate candidates
+  if (requestedGuests !== null && requestedBudget !== null) {
+    return {
+      aiExplanation: `No published venues accommodate ${formattedGuests} guests within a starting budget of ${formattedBudget}.`,
+      keyMatchFactors: [
+        `No venues accommodate ${formattedGuests} guests with a starting rate under ${formattedBudget}`,
+      ],
+      estimatedBudgetNote: `Consider increasing budget or reducing group size for bespoke hire arrangements.`,
+    };
+  }
+
+  return {
+    aiExplanation: 'No published venues meet the requested search criteria.',
+    keyMatchFactors: ['No venues matched all specified requirements'],
+    estimatedBudgetNote: 'Consider broadening your search criteria.',
+  };
 }
 
 function extractGuestCountFromQuery(query: string): number | null {
@@ -587,47 +782,31 @@ app.post('/api/gemini/match', async (req, res) => {
   const fallbackMatch = (): AiMatchResponse => {
     const q = query.toLowerCase();
     const catalogToMatch = publishedVenues;
+    const requestedLocation = extractExplicitLocationFromQuery(query, catalogToMatch);
     const requestedGuests = extractGuestCountFromQuery(query);
     const requestedBudget = extractBudgetFromQuery(query);
 
-    // Hard eligibility constraints: capacity and budget
-    if (requestedGuests !== null || requestedBudget !== null) {
-      const qualifyingVenues = catalogToMatch.filter((v) => {
-        if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
-        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
-        return true;
-      });
-
-      if (qualifyingVenues.length === 0) {
-        const reasons: string[] = [];
-        if (requestedGuests !== null && requestedBudget !== null) {
-          reasons.push(`No published venues accommodate ${requestedGuests} guests within a starting budget of £${requestedBudget.toLocaleString()}`);
-        } else if (requestedGuests !== null) {
-          reasons.push(`Requested capacity of ${requestedGuests} exceeds available venue capacities`);
-        } else if (requestedBudget !== null) {
-          reasons.push(`Starting rates for available venues exceed the requested budget of £${requestedBudget.toLocaleString()}`);
-        }
-
-        return {
-          query,
-          matchedVenueIds: [],
-          topPickVenueId: '',
-          confidenceScore: 0,
-          recommendedLayout: 'No layout available',
-          aiExplanation: reasons[0] || 'No venues in our catalog meet the specified criteria.',
-          keyMatchFactors: reasons,
-          estimatedBudgetNote: requestedBudget !== null
-            ? `All available catalog venues have starting rates above £${requestedBudget.toLocaleString()}. Consider increasing budget or contacting venues for bespoke packages.`
-            : 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
-        };
-      }
-    }
-
+    // Hard eligibility constraints: location, capacity, budget
     const eligiblePool = catalogToMatch.filter((v) => {
+      if (requestedLocation !== null && !venueMatchesLocation(v, requestedLocation)) return false;
       if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
-      if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
+      if (requestedBudget !== null && !venueSatisfiesBudget(v, requestedBudget)) return false;
       return true;
     });
+
+    if (eligiblePool.length === 0) {
+      const zeroMatch = buildZeroMatchDetails(query, catalogToMatch, requestedLocation, requestedGuests, requestedBudget);
+      return {
+        query,
+        matchedVenueIds: [],
+        topPickVenueId: '',
+        confidenceScore: 0,
+        recommendedLayout: 'No layout available',
+        aiExplanation: zeroMatch.aiExplanation,
+        keyMatchFactors: zeroMatch.keyMatchFactors,
+        estimatedBudgetNote: zeroMatch.estimatedBudgetNote,
+      };
+    }
 
     let scores = eligiblePool.map((v) => {
       let score = 0;
@@ -635,20 +814,27 @@ app.post('/api/gemini/match', async (req, res) => {
       const currSymbol = v.pricing.currencySymbol || (v.pricing.currency === 'GBP' ? '£' : v.pricing.currency === 'EUR' ? '€' : '$');
 
       // 1. Location match
-      const city = (v.location.city || '').toLowerCase();
-      const state = (v.location.state || '').toLowerCase();
-      const region = (v.location.region || '').toLowerCase();
-      const country = (v.location.country || '').toLowerCase();
-      const neighborhood = (v.location.neighborhood || '').toLowerCase();
-      if (
-        (city && q.includes(city)) ||
-        (region && q.includes(region)) ||
-        (state && q.includes(state)) ||
-        (country && q.includes(country)) ||
-        (neighborhood && q.includes(neighborhood))
-      ) {
-        score += 35;
-        reasons.push(`Located in ${v.location.city}${v.location.region && v.location.region !== v.location.city ? `, ${v.location.region}` : ''}`);
+      if (requestedLocation !== null) {
+        if (venueMatchesLocation(v, requestedLocation)) {
+          score += 35;
+          reasons.push(`Located in ${v.location.city}${v.location.region && v.location.region !== v.location.city ? `, ${v.location.region}` : ''}`);
+        }
+      } else {
+        const city = (v.location.city || '').toLowerCase();
+        const state = (v.location.state || '').toLowerCase();
+        const region = (v.location.region || '').toLowerCase();
+        const country = (v.location.country || '').toLowerCase();
+        const neighborhood = (v.location.neighborhood || '').toLowerCase();
+        if (
+          (city && q.includes(city)) ||
+          (region && q.includes(region)) ||
+          (state && q.includes(state)) ||
+          (country && q.includes(country)) ||
+          (neighborhood && q.includes(neighborhood))
+        ) {
+          score += 35;
+          reasons.push(`Located in ${v.location.city}${v.location.region && v.location.region !== v.location.city ? `, ${v.location.region}` : ''}`);
+        }
       }
 
       // 2. Aesthetic match
@@ -686,7 +872,7 @@ app.post('/api/gemini/match', async (req, res) => {
 
       // 4. Budget evaluation (strict, truthful)
       if (requestedBudget !== null) {
-        if (v.pricing.startingPrice <= requestedBudget) {
+        if (venueSatisfiesBudget(v, requestedBudget)) {
           score += 20;
           reasons.push(`Starting hire rate (${currSymbol}${v.pricing.startingPrice.toLocaleString()}) fits within your budget`);
         } else {
@@ -858,17 +1044,19 @@ User request: "${query}"
 
 Analyze the user's requirements (desired location, aesthetic style, guest count, event type, budget if specified, and spatial features).
 Match strictly against the venue catalog data:
-1. Check that the venue's canonical capacity (spaces and layouts) can genuinely accommodate the requested guest count.
-2. Select the single best venue ID and best matching venue IDs.
-3. For recommendedLayout, choose the EXACT layout title from the venue's configured layouts. If no specific configuration fits, return "Configuration to be confirmed with venue". NEVER invent layout names like "Standard Event Layout" and NEVER use walkthrough clip titles as layout names.
-4. For keyMatchFactors, only claim a recorded walkthrough exists if that layout has hasRecordedWalkthrough === true.
+1. Check that the venue's location matches the requested location (city/region) if explicitly specified.
+2. Check that the venue's canonical capacity (spaces and layouts) can genuinely accommodate the requested guest count.
+3. Check that the venue's pricing currency matches the requested currency and starting hire price is within budget if specified.
+4. Select the single best venue ID and best matching venue IDs that satisfy location, capacity, and budget.
+5. For recommendedLayout, choose the EXACT layout title from the venue's configured layouts. If a guest count is requested, the chosen layout MUST have capacity >= the requested guest count. If no configured layout meets the requested capacity, return "Configuration to be confirmed with venue". NEVER invent layout names and NEVER use walkthrough clip titles as layout names.
+6. For keyMatchFactors, only claim a recorded walkthrough exists if that layout has hasRecordedWalkthrough === true.
 Return a structured JSON object.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: 'You are an intelligent spatial planner and venue matcher for VenueStream. Match user requirements against the venue catalog truthfully and accurately. CAPACITY TRUTHFULNESS: Only recommend a venue if its configured spaces and layouts genuinely support the user requested guest count. LAYOUT SPECIFICITY: For recommendedLayout, you MUST select an exact title from that venue\'s configured layouts list. If none fits, use "Configuration to be confirmed with venue". MEDIA TRUTHFULNESS: Never claim walkthroughs or 3D tours exist unless verified in the venue data. Return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance.',
+        systemInstruction: 'You are an intelligent spatial planner and venue matcher for VenueStream. Match user requirements against the venue catalog truthfully and accurately. LOCATION, CAPACITY & BUDGET TRUTHFULNESS: Only recommend a venue if its location matches any requested city/region, its configured spaces genuinely support the user requested guest count, and its startingPrice (in matching currency) is within any requested budget. LAYOUT SPECIFICITY: For recommendedLayout, you MUST select an exact title from that venue\'s configured layouts list that can accommodate the requested guest count. If none fits or no layout supports that capacity, use "Configuration to be confirmed with venue". MEDIA TRUTHFULNESS: Never claim walkthroughs or 3D tours exist unless verified in the venue data. Return valid JSON with matched venue IDs, top pick, confidence score, recommended layout, explanation, key match factors, and budget guidance.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -918,33 +1106,38 @@ Return a structured JSON object.`;
     });
 
     const parsed = JSON.parse(response.text || '{}');
+    const requestedLocation = extractExplicitLocationFromQuery(query, catalogToMatch);
     const requestedGuests = extractGuestCountFromQuery(query);
     const requestedBudget = extractBudgetFromQuery(query);
 
-    // Filter parsed matched IDs to existing published venues that satisfy BOTH capacity and budget constraints
+    // Filter parsed matched IDs to existing published venues that satisfy ALL explicit constraints (location, capacity, currency-aware budget)
     let validMatchedVenueIds: string[] = [];
     if (Array.isArray(parsed.matchedVenueIds)) {
       validMatchedVenueIds = parsed.matchedVenueIds.filter((id: string) => {
         const v = catalogToMatch.find((item) => item.id === id);
         if (!v) return false;
+        if (requestedLocation !== null && !venueMatchesLocation(v, requestedLocation)) {
+          return false;
+        }
         if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) {
           return false;
         }
-        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) {
+        if (requestedBudget !== null && !venueSatisfiesBudget(v, requestedBudget)) {
           return false;
         }
         return true;
       });
     }
 
-    // Determine top venue by validating against BOTH capacity and budget
+    // Determine top venue by validating against ALL explicit constraints (location, capacity, currency-aware budget)
     let topVenue: Venue | null = null;
     if (parsed.topPickVenueId) {
       const candidate = catalogToMatch.find((v) => v.id === parsed.topPickVenueId);
       if (candidate) {
+        const meetsLocation = requestedLocation === null || venueMatchesLocation(candidate, requestedLocation);
         const meetsCapacity = requestedGuests === null || venueCanAccommodateGuests(candidate, requestedGuests);
-        const meetsBudget = requestedBudget === null || candidate.pricing.startingPrice <= requestedBudget;
-        if (meetsCapacity && meetsBudget) {
+        const meetsBudget = requestedBudget === null || venueSatisfiesBudget(candidate, requestedBudget);
+        if (meetsLocation && meetsCapacity && meetsBudget) {
           topVenue = candidate;
         }
       }
@@ -955,24 +1148,17 @@ Return a structured JSON object.`;
       topVenue = catalogToMatch.find((v) => v.id === validMatchedVenueIds[0]) || null;
     }
 
-    // If still no top venue, but requestedGuests or requestedBudget is specified, check if ANY venue in catalog satisfies constraints
-    if (!topVenue && (requestedGuests !== null || requestedBudget !== null)) {
+    // If still no top venue, but ANY constraint is specified, check if ANY venue in catalog satisfies all constraints
+    if (!topVenue && (requestedLocation !== null || requestedGuests !== null || requestedBudget !== null)) {
       const capableVenues = catalogToMatch.filter((v) => {
+        if (requestedLocation !== null && !venueMatchesLocation(v, requestedLocation)) return false;
         if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
-        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
+        if (requestedBudget !== null && !venueSatisfiesBudget(v, requestedBudget)) return false;
         return true;
       });
       if (capableVenues.length === 0) {
-        // No venue in catalog can satisfy explicit constraints
-        const reasons: string[] = [];
-        if (requestedGuests !== null && requestedBudget !== null) {
-          reasons.push(`No published venues accommodate ${requestedGuests} guests within a starting budget of £${requestedBudget.toLocaleString()}`);
-        } else if (requestedGuests !== null) {
-          reasons.push(`Requested capacity of ${requestedGuests} exceeds available catalog venue capacities`);
-        } else if (requestedBudget !== null) {
-          reasons.push(`Starting rates for available venues exceed the requested budget of £${requestedBudget.toLocaleString()}`);
-        }
-
+        // No venue in catalog satisfies explicit constraints
+        const zeroMatch = buildZeroMatchDetails(query, catalogToMatch, requestedLocation, requestedGuests, requestedBudget);
         return res.json({
           success: true,
           match: {
@@ -981,11 +1167,9 @@ Return a structured JSON object.`;
             topPickVenueId: '',
             confidenceScore: 0,
             recommendedLayout: 'No layout available',
-            aiExplanation: reasons[0] || 'No venues in our catalog meet the specified criteria.',
-            keyMatchFactors: reasons,
-            estimatedBudgetNote: requestedBudget !== null
-              ? `All available catalog venues have starting rates above £${requestedBudget.toLocaleString()}. Consider increasing budget or contacting venues for bespoke packages.`
-              : 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
+            aiExplanation: zeroMatch.aiExplanation,
+            keyMatchFactors: zeroMatch.keyMatchFactors,
+            estimatedBudgetNote: zeroMatch.estimatedBudgetNote,
           },
         });
       } else {
@@ -993,7 +1177,7 @@ Return a structured JSON object.`;
         validMatchedVenueIds = [topVenue.id];
       }
     } else if (!topVenue) {
-      // If neither constraint was active and topVenue wasn't found, pick first catalog venue
+      // If no constraint was active and topVenue wasn't found, pick first catalog venue
       topVenue = catalogToMatch[0];
       if (!validMatchedVenueIds.includes(topVenue.id)) {
         validMatchedVenueIds.unshift(topVenue.id);
