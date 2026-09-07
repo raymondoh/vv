@@ -1118,70 +1118,66 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
             </div>
 
             {/* Real-Time Venue Policies & Specs */}
-            <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D] border-b border-[#DDD8CF] pb-2 flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#A86445]" />
-                Operating Specifications & Rules
-              </h3>
+            {(venue.specs?.curfew || venue.specs?.parking || venue.specs?.cateringPolicy || venue.specs?.alcoholPolicy || venue.specs?.powerSupply) && (
+              <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#26343D] border-b border-[#DDD8CF] pb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-[#A86445]" />
+                  Operating Specifications & Rules
+                </h3>
 
-              <div className="space-y-3.5 text-xs">
-                {venue.specs?.curfew && (
-                  <div className="flex items-start gap-2.5">
-                    <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-[#26343D] block">Curfew & Sound Limits</span>
-                      <p className="text-[#66737A] text-[11px]">{venue.specs.curfew}</p>
+                <div className="space-y-3.5 text-xs">
+                  {venue.specs?.curfew && (
+                    <div className="flex items-start gap-2.5">
+                      <Clock className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#26343D] block">Curfew & Sound Limits</span>
+                        <p className="text-[#66737A] text-[11px]">{venue.specs.curfew}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {venue.specs?.parking && (
-                  <div className="flex items-start gap-2.5">
-                    <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-[#26343D] block">Parking & Valet</span>
-                      <p className="text-[#66737A] text-[11px]">{venue.specs.parking}</p>
+                  {venue.specs?.parking && (
+                    <div className="flex items-start gap-2.5">
+                      <Car className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#26343D] block">Parking & Valet</span>
+                        <p className="text-[#66737A] text-[11px]">{venue.specs.parking}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {venue.specs?.cateringPolicy && (
-                  <div className="flex items-start gap-2.5">
-                    <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-[#26343D] block">Catering Policy</span>
-                      <p className="text-[#66737A] text-[11px]">{venue.specs.cateringPolicy}</p>
+                  {venue.specs?.cateringPolicy && (
+                    <div className="flex items-start gap-2.5">
+                      <Utensils className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#26343D] block">Catering Policy</span>
+                        <p className="text-[#66737A] text-[11px]">{venue.specs.cateringPolicy}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {venue.specs?.alcoholPolicy && (
-                  <div className="flex items-start gap-2.5">
-                    <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-[#26343D] block">Bar & Alcohol Logistics</span>
-                      <p className="text-[#66737A] text-[11px]">{venue.specs.alcoholPolicy}</p>
+                  {venue.specs?.alcoholPolicy && (
+                    <div className="flex items-start gap-2.5">
+                      <Wine className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#26343D] block">Bar & Alcohol Logistics</span>
+                        <p className="text-[#66737A] text-[11px]">{venue.specs.alcoholPolicy}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {venue.specs?.powerSupply && (
-                  <div className="flex items-start gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-[#26343D] block">Dedicated Power Supply</span>
-                      <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
+                  {venue.specs?.powerSupply && (
+                    <div className="flex items-start gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#26343D] block">Dedicated Power Supply</span>
+                        <p className="text-[#66737A] text-[11px]">{venue.specs.powerSupply}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {!venue.specs?.curfew && !venue.specs?.parking && !venue.specs?.cateringPolicy && !venue.specs?.alcoholPolicy && !venue.specs?.powerSupply && (
-                  <p className="text-[#66737A] text-xs italic">
-                    No operating restrictions or custom policies specified by host.
-                  </p>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Commercial Pricing & Rates */}
             <div className="bg-white border border-[#DDD8CF] rounded-2xl p-6 space-y-4 shadow-sm">

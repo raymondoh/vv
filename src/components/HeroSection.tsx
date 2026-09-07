@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, MapPin, Users, DollarSign, X, SlidersHorizontal, Video, Layers, Compass, CalendarCheck } from 'lucide-react';
+import { Search, MapPin, Users, PoundSterling, X, SlidersHorizontal, Video, Layers, Compass, CalendarCheck } from 'lucide-react';
 import { EventType, FilterState } from '../types';
 
 interface HeroSectionProps {
@@ -249,11 +249,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <div className="bg-[#F4F1EA] p-3.5 rounded-xl border border-[#DDD8CF]">
                 <div className="flex items-center justify-between text-xs font-medium text-[#66737A] mb-2">
                   <span className="flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-[#A86445]" />
+                    <PoundSterling className="w-3.5 h-3.5 text-[#A86445]" />
                     Max Starting Rate
                   </span>
                   <span className="text-[#A86445] font-bold">
-                    {filters.maxBudget >= 10000 ? 'No Limit ($10k+)' : `$${filters.maxBudget.toLocaleString()}`}
+                    {filters.maxBudget >= 10000 ? 'No Limit (£10,000+)' : `£${filters.maxBudget.toLocaleString()}`}
                   </span>
                 </div>
                 <input
@@ -267,9 +267,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   className="w-full h-1.5 bg-[#DDD8CF] rounded-lg appearance-none cursor-pointer accent-[#A86445]"
                 />
                 <div className="flex justify-between text-[10px] text-[#66737A] mt-1">
-                  <span>$3,000</span>
-                  <span>$6,500</span>
-                  <span>$10,000+</span>
+                  <span>£3,000</span>
+                  <span>£6,500</span>
+                  <span>£10,000+</span>
                 </div>
               </div>
 

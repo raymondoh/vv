@@ -72,8 +72,8 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
 
   if (!isOpen) return null;
 
-  const topVenue = matchResult
-    ? venues.find((v) => v.id === matchResult.topPickVenueId) || venues[0]
+  const topVenue = (matchResult && matchResult.topPickVenueId)
+    ? venues.find((v) => v.id === matchResult.topPickVenueId) || null
     : null;
 
   return (
@@ -298,6 +298,43 @@ export const AiVenueMatcher: React.FC<AiVenueMatcherProps> = ({
                 >
                   New Search
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* No Match Result State */}
+          {matchResult && !topVenue && !loading && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-[#F4F1EA] border border-[#DDD8CF] rounded-xl p-6 text-center space-y-3">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-white border border-[#DDD8CF] flex items-center justify-center text-[#A86445]">
+                  <Sparkles className="w-5 h-5 text-[#66737A]" />
+                </div>
+                <h3 className="text-sm font-bold text-[#26343D]">No Qualifying Venues Found</h3>
+                <p className="text-xs text-[#66737A] max-w-md mx-auto leading-relaxed">
+                  {matchResult.aiExplanation}
+                </p>
+                {matchResult.keyMatchFactors && matchResult.keyMatchFactors.length > 0 && (
+                  <div className="pt-2 text-xs text-[#66737A] bg-white/70 rounded-lg p-3 border border-[#DDD8CF] max-w-md mx-auto">
+                    {matchResult.keyMatchFactors.map((factor, idx) => (
+                      <p key={idx} className="font-medium text-[#26343D]">{factor}</p>
+                    ))}
+                  </div>
+                )}
+                {matchResult.estimatedBudgetNote && (
+                  <p className="text-[11px] text-[#66737A] italic">
+                    {matchResult.estimatedBudgetNote}
+                  </p>
+                )}
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setMatchResult(null);
+                    }}
+                    className="py-2.5 px-5 bg-[#26343D] text-white font-semibold rounded-xl text-xs hover:bg-[#1E2930] transition-colors"
+                  >
+                    Refine Search Criteria
+                  </button>
+                </div>
               </div>
             </div>
           )}
