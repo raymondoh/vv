@@ -16,6 +16,7 @@ import {
   getVenueMaximumStandingCapacity,
   getVenueMaximumTheatreCapacity,
   venueCanAccommodateGuests,
+  venueCanAccommodateEventGuests,
   getVenueAiCatalogSummary,
 } from './src/utils/venueConfigurationHelpers.ts';
 import { isSlotInFuture, hasBookableLiveTourSlots } from './src/utils/walkthroughAvailabilityHelpers.ts';
@@ -312,15 +313,29 @@ app.get('/api/venues', (req, res) => {
 
   if (minCapacity) {
     const capNum = Number(minCapacity);
-    if (!isNaN(capNum)) {
-      results = results.filter((v) => venueCanAccommodateGuests(v, capNum));
+    if (!isNaN(capNum) && capNum > 0) {
+      if (eventType && eventType !== 'all') {
+        results = results.filter((v) =>
+          venueCanAccommodateEventGuests(v, eventType as string, capNum)
+        );
+      } else {
+        results = results.filter((v) => venueCanAccommodateGuests(v, capNum));
+      }
     }
   }
 
   if (maxBudget) {
     const budgetNum = Number(maxBudget);
     if (!isNaN(budgetNum)) {
-      results = results.filter((v) => v.pricing.startingPrice <= budgetNum);
+      if (budgetNum < 10000) {
+        results = results.filter((v) => {
+          const currency = (v.pricing.currency || 'GBP').toUpperCase();
+          if (currency !== 'GBP') return false;
+          return v.pricing.startingPrice <= budgetNum;
+        });
+      } else {
+        results = results.filter((v) => v.pricing.startingPrice <= budgetNum);
+      }
     }
   }
 

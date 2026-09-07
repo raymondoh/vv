@@ -23,7 +23,11 @@ import { VenueOnboardingModal } from './components/onboarding/VenueOnboardingMod
 import { Venue, FilterState, WalkthroughBooking, VenueBooking, MarketplaceConfig, BusinessOrganisation, AvailableDaySlot } from './types';
 import { DEFAULT_MARKETPLACE_CONFIG } from './config/marketplaceConfig';
 import { VENUES } from './data/venues';
-import { venueCanAccommodateGuests, getVenueMaximumCapacity } from './utils/venueConfigurationHelpers';
+import {
+  venueCanAccommodateGuests,
+  venueCanAccommodateEventGuests,
+  getVenueMaximumCapacity,
+} from './utils/venueConfigurationHelpers';
 import { Sparkles, Building2, Video, Calendar, ShieldCheck, Heart, Filter, ArrowRight, LayoutDashboard, Sliders } from 'lucide-react';
 
 export default function App() {
@@ -185,11 +189,21 @@ export default function App() {
     }
 
     if (filters.minCapacity > 0) {
-      list = list.filter((v) => venueCanAccommodateGuests(v, filters.minCapacity));
+      if (filters.eventType && filters.eventType !== 'all') {
+        list = list.filter((v) =>
+          venueCanAccommodateEventGuests(v, filters.eventType, filters.minCapacity)
+        );
+      } else {
+        list = list.filter((v) => venueCanAccommodateGuests(v, filters.minCapacity));
+      }
     }
 
     if (filters.maxBudget < 10000) {
-      list = list.filter((v) => v.pricing.startingPrice <= filters.maxBudget);
+      list = list.filter((v) => {
+        const currency = (v.pricing.currency || 'GBP').toUpperCase();
+        if (currency !== 'GBP') return false;
+        return v.pricing.startingPrice <= filters.maxBudget;
+      });
     }
 
     if (filters.searchQuery.trim()) {

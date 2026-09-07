@@ -591,6 +591,173 @@ export function venueCanAccommodateGuests(
 }
 
 /**
+ * Verifies if at least one genuine space or configured layout can accommodate the requested guest count
+ * according to the specific event category semantics.
+ * Uses canonical spaces/layouts first, with legacy fallback only when no canonical spaces exist.
+ */
+export function venueCanAccommodateEventGuests(
+  venue: Venue,
+  eventCategory: string,
+  guestCount: number
+): boolean {
+  if (guestCount <= 0) return true;
+
+  const cat = (eventCategory || '').toLowerCase().trim();
+  if (!cat || cat === 'all') {
+    return venueCanAccommodateGuests(venue, guestCount, 'any');
+  }
+
+  const isMeetingsConferences =
+    cat === 'meetings-conferences' ||
+    cat === 'conference' ||
+    cat === 'meetings' ||
+    cat === 'corporate' ||
+    cat === 'meetings & conferences';
+
+  const isTrainingWorkshops =
+    cat === 'training-workshops' ||
+    cat === 'workshop' ||
+    cat === 'training' ||
+    cat === 'training & workshops';
+
+  const isPrivateDining =
+    cat === 'private-dining' ||
+    cat === 'dining' ||
+    cat === 'private dining';
+
+  const isPartiesCelebrations =
+    cat === 'parties-celebrations' ||
+    cat === 'party' ||
+    cat === 'gala' ||
+    cat === 'celebration' ||
+    cat === 'parties & celebrations';
+
+  const isWeddings =
+    cat === 'weddings' ||
+    cat === 'wedding';
+
+  const isExhibitionsEvents =
+    cat === 'exhibitions-events' ||
+    cat === 'exhibition' ||
+    cat === 'exhibitions & events' ||
+    cat === 'exhibitions';
+
+  const spaces = getVenueSpaces(venue);
+  if (spaces.length > 0) {
+    return spaces.some((space) => {
+      const layouts = Array.isArray(space.layouts) ? space.layouts : [];
+
+      if (isMeetingsConferences) {
+        if (space.theatreCapacity && space.theatreCapacity >= guestCount) return true;
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'theatre' || lt === 'classroom' || lt === 'boardroom' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      if (isTrainingWorkshops) {
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        if (space.theatreCapacity && space.theatreCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'classroom' || lt === 'boardroom' || lt === 'theatre' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      if (isPrivateDining) {
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'private dining' || lt === 'banquet' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      if (isPartiesCelebrations) {
+        if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'cocktail' || lt === 'banquet' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      if (isWeddings) {
+        if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+        if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'ceremony' || lt === 'banquet' || lt === 'cocktail' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      if (isExhibitionsEvents) {
+        if (space.maxCapacity && space.maxCapacity >= guestCount) return true;
+        if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+        return layouts.some((l) => {
+          const lt = (l.layoutType || '').toLowerCase().trim();
+          return (
+            (lt === 'exhibition' || lt === 'custom') &&
+            l.capacity >= guestCount
+          );
+        });
+      }
+
+      // Default fallback for any other category: check all space and layout capacities
+      if (space.maxCapacity && space.maxCapacity >= guestCount) return true;
+      if (space.standingCapacity && space.standingCapacity >= guestCount) return true;
+      if (space.seatedCapacity && space.seatedCapacity >= guestCount) return true;
+      if (space.theatreCapacity && space.theatreCapacity >= guestCount) return true;
+      return layouts.some((l) => l.capacity && l.capacity >= guestCount);
+    });
+  }
+
+  // Legacy fallback when no canonical spaces exist
+  if (isMeetingsConferences || isTrainingWorkshops) {
+    return (
+      (venue.capacity?.theater || 0) >= guestCount ||
+      (venue.capacity?.seatedBanquet || 0) >= guestCount
+    );
+  }
+
+  if (isPrivateDining) {
+    return (venue.capacity?.seatedBanquet || 0) >= guestCount;
+  }
+
+  if (isPartiesCelebrations || isWeddings) {
+    return (
+      (venue.capacity?.cocktail || 0) >= guestCount ||
+      (venue.capacity?.seatedBanquet || 0) >= guestCount
+    );
+  }
+
+  if (isExhibitionsEvents) {
+    return (
+      (venue.capacity?.cocktail || 0) >= guestCount ||
+      (venue.capacity?.theater || 0) >= guestCount ||
+      (venue.capacity?.seatedBanquet || 0) >= guestCount
+    );
+  }
+
+  return venueCanAccommodateGuests(venue, guestCount, 'any');
+}
+
+/**
  * Returns a truthful, concise customer-facing capacity display string.
  * Example: '120 seated · 220 standing' or 'Up to 220 guests'
  */
