@@ -590,26 +590,44 @@ app.post('/api/gemini/match', async (req, res) => {
     const requestedGuests = extractGuestCountFromQuery(query);
     const requestedBudget = extractBudgetFromQuery(query);
 
-    // Hard capacity constraint: if explicit guest count is requested, filter immediately
-    if (requestedGuests !== null) {
-      const qualifyingVenues = catalogToMatch.filter((v) => venueCanAccommodateGuests(v, requestedGuests));
+    // Hard eligibility constraints: capacity and budget
+    if (requestedGuests !== null || requestedBudget !== null) {
+      const qualifyingVenues = catalogToMatch.filter((v) => {
+        if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
+        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
+        return true;
+      });
+
       if (qualifyingVenues.length === 0) {
+        const reasons: string[] = [];
+        if (requestedGuests !== null && requestedBudget !== null) {
+          reasons.push(`No published venues accommodate ${requestedGuests} guests within a starting budget of £${requestedBudget.toLocaleString()}`);
+        } else if (requestedGuests !== null) {
+          reasons.push(`Requested capacity of ${requestedGuests} exceeds available venue capacities`);
+        } else if (requestedBudget !== null) {
+          reasons.push(`Starting rates for available venues exceed the requested budget of £${requestedBudget.toLocaleString()}`);
+        }
+
         return {
           query,
           matchedVenueIds: [],
           topPickVenueId: '',
           confidenceScore: 0,
           recommendedLayout: 'No layout available',
-          aiExplanation: `No venues in our catalog can accommodate the requested capacity of ${requestedGuests} guests.`,
-          keyMatchFactors: [`Requested capacity of ${requestedGuests} exceeds available venue capacities`],
-          estimatedBudgetNote: 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
+          aiExplanation: reasons[0] || 'No venues in our catalog meet the specified criteria.',
+          keyMatchFactors: reasons,
+          estimatedBudgetNote: requestedBudget !== null
+            ? `All available catalog venues have starting rates above £${requestedBudget.toLocaleString()}. Consider increasing budget or contacting venues for bespoke packages.`
+            : 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
         };
       }
     }
 
-    const eligiblePool = requestedGuests !== null
-      ? catalogToMatch.filter((v) => venueCanAccommodateGuests(v, requestedGuests))
-      : catalogToMatch;
+    const eligiblePool = catalogToMatch.filter((v) => {
+      if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
+      if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
+      return true;
+    });
 
     let scores = eligiblePool.map((v) => {
       let score = 0;
@@ -736,35 +754,63 @@ app.post('/api/gemini/match', async (req, res) => {
       );
 
       if (allLayouts.length > 0) {
-        // Filter to layouts that can accommodate requested guests if specified
-        const qualifyingLayouts = requestedGuests !== null
-          ? allLayouts.filter((item) => item.layout.capacity >= requestedGuests)
-          : allLayouts;
+        // If requestedGuests is supplied, only consider layouts that meet capacity
+        if (requestedGuests !== null) {
+          const qualifyingLayouts = allLayouts.filter((item) => item.layout.capacity >= requestedGuests);
 
-        const candidateLayouts = qualifyingLayouts.length > 0 ? qualifyingLayouts : allLayouts;
+          if (qualifyingLayouts.length > 0) {
+            const isConference = q.includes('conference') || q.includes('theatre') || q.includes('theater') || q.includes('keynote') || q.includes('summit');
+            const isDining = q.includes('dining') || q.includes('dinner') || q.includes('banquet') || q.includes('feast');
+            const isCocktail = q.includes('cocktail') || q.includes('party') || q.includes('reception') || q.includes('drinks');
+            const isMeeting = q.includes('meeting') || q.includes('boardroom');
 
-        const isConference = q.includes('conference') || q.includes('theatre') || q.includes('theater') || q.includes('keynote') || q.includes('summit');
-        const isDining = q.includes('dining') || q.includes('dinner') || q.includes('banquet') || q.includes('feast');
-        const isCocktail = q.includes('cocktail') || q.includes('party') || q.includes('reception') || q.includes('drinks');
-        const isMeeting = q.includes('meeting') || q.includes('boardroom');
+            let matchingLayout = qualifyingLayouts.find((item) => {
+              if (isConference) return item.layout.layoutType === 'Theatre' || item.layout.layoutType === 'Classroom';
+              if (isDining) return item.layout.layoutType === 'Banquet' || item.layout.layoutType === 'Private Dining';
+              if (isCocktail) return item.layout.layoutType === 'Cocktail';
+              if (isMeeting) return item.layout.layoutType === 'Boardroom';
+              return false;
+            });
 
-        let matchingLayout = candidateLayouts.find((item) => {
-          if (isConference) return item.layout.layoutType === 'Theatre' || item.layout.layoutType === 'Classroom';
-          if (isDining) return item.layout.layoutType === 'Banquet' || item.layout.layoutType === 'Private Dining';
-          if (isCocktail) return item.layout.layoutType === 'Cocktail';
-          if (isMeeting) return item.layout.layoutType === 'Boardroom';
-          return false;
-        });
+            if (!matchingLayout) {
+              matchingLayout = qualifyingLayouts[0];
+            }
 
-        if (!matchingLayout) {
-          matchingLayout = candidateLayouts[0];
-        }
+            if (matchingLayout && matchingLayout.layout && matchingLayout.layout.title) {
+              recommendedLayout = matchingLayout.layout.title;
+              const clip = getWalkthroughForLayout(top, matchingLayout.layout.id, matchingLayout.space.id, matchingLayout.layout.layoutType);
+              if (clip) {
+                topReasons.push(`Recorded walkthrough available for ${matchingLayout.layout.title}`);
+              }
+            }
+          } else {
+            // No configured layout meets the requested capacity
+            recommendedLayout = 'Configuration to be confirmed with venue';
+          }
+        } else {
+          const isConference = q.includes('conference') || q.includes('theatre') || q.includes('theater') || q.includes('keynote') || q.includes('summit');
+          const isDining = q.includes('dining') || q.includes('dinner') || q.includes('banquet') || q.includes('feast');
+          const isCocktail = q.includes('cocktail') || q.includes('party') || q.includes('reception') || q.includes('drinks');
+          const isMeeting = q.includes('meeting') || q.includes('boardroom');
 
-        if (matchingLayout && matchingLayout.layout && matchingLayout.layout.title) {
-          recommendedLayout = matchingLayout.layout.title;
-          const clip = getWalkthroughForLayout(top, matchingLayout.layout.id, matchingLayout.space.id, matchingLayout.layout.layoutType);
-          if (clip) {
-            topReasons.push(`Recorded walkthrough available for ${matchingLayout.layout.title}`);
+          let matchingLayout = allLayouts.find((item) => {
+            if (isConference) return item.layout.layoutType === 'Theatre' || item.layout.layoutType === 'Classroom';
+            if (isDining) return item.layout.layoutType === 'Banquet' || item.layout.layoutType === 'Private Dining';
+            if (isCocktail) return item.layout.layoutType === 'Cocktail';
+            if (isMeeting) return item.layout.layoutType === 'Boardroom';
+            return false;
+          });
+
+          if (!matchingLayout) {
+            matchingLayout = allLayouts[0];
+          }
+
+          if (matchingLayout && matchingLayout.layout && matchingLayout.layout.title) {
+            recommendedLayout = matchingLayout.layout.title;
+            const clip = getWalkthroughForLayout(top, matchingLayout.layout.id, matchingLayout.space.id, matchingLayout.layout.layoutType);
+            if (clip) {
+              topReasons.push(`Recorded walkthrough available for ${matchingLayout.layout.title}`);
+            }
           }
         }
       }
@@ -873,8 +919,9 @@ Return a structured JSON object.`;
 
     const parsed = JSON.parse(response.text || '{}');
     const requestedGuests = extractGuestCountFromQuery(query);
+    const requestedBudget = extractBudgetFromQuery(query);
 
-    // Filter parsed matched IDs to existing published venues that satisfy capacity constraint
+    // Filter parsed matched IDs to existing published venues that satisfy BOTH capacity and budget constraints
     let validMatchedVenueIds: string[] = [];
     if (Array.isArray(parsed.matchedVenueIds)) {
       validMatchedVenueIds = parsed.matchedVenueIds.filter((id: string) => {
@@ -883,31 +930,49 @@ Return a structured JSON object.`;
         if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) {
           return false;
         }
+        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) {
+          return false;
+        }
         return true;
       });
     }
 
-    // Determine top venue by validating against capacity
+    // Determine top venue by validating against BOTH capacity and budget
     let topVenue: Venue | null = null;
     if (parsed.topPickVenueId) {
       const candidate = catalogToMatch.find((v) => v.id === parsed.topPickVenueId);
       if (candidate) {
-        if (requestedGuests === null || venueCanAccommodateGuests(candidate, requestedGuests)) {
+        const meetsCapacity = requestedGuests === null || venueCanAccommodateGuests(candidate, requestedGuests);
+        const meetsBudget = requestedBudget === null || candidate.pricing.startingPrice <= requestedBudget;
+        if (meetsCapacity && meetsBudget) {
           topVenue = candidate;
         }
       }
     }
 
-    // If top venue failed capacity or was not found, fall back to first valid venue in validMatchedVenueIds
+    // If top venue failed constraints or was not found, fall back to first valid venue in validMatchedVenueIds
     if (!topVenue && validMatchedVenueIds.length > 0) {
       topVenue = catalogToMatch.find((v) => v.id === validMatchedVenueIds[0]) || null;
     }
 
-    // If still no top venue, but requestedGuests is specified, check if ANY venue in catalog can accommodate
-    if (!topVenue && requestedGuests !== null) {
-      const capableVenues = catalogToMatch.filter((v) => venueCanAccommodateGuests(v, requestedGuests));
+    // If still no top venue, but requestedGuests or requestedBudget is specified, check if ANY venue in catalog satisfies constraints
+    if (!topVenue && (requestedGuests !== null || requestedBudget !== null)) {
+      const capableVenues = catalogToMatch.filter((v) => {
+        if (requestedGuests !== null && !venueCanAccommodateGuests(v, requestedGuests)) return false;
+        if (requestedBudget !== null && v.pricing.startingPrice > requestedBudget) return false;
+        return true;
+      });
       if (capableVenues.length === 0) {
-        // No venue in catalog can accommodate requested count!
+        // No venue in catalog can satisfy explicit constraints
+        const reasons: string[] = [];
+        if (requestedGuests !== null && requestedBudget !== null) {
+          reasons.push(`No published venues accommodate ${requestedGuests} guests within a starting budget of £${requestedBudget.toLocaleString()}`);
+        } else if (requestedGuests !== null) {
+          reasons.push(`Requested capacity of ${requestedGuests} exceeds available catalog venue capacities`);
+        } else if (requestedBudget !== null) {
+          reasons.push(`Starting rates for available venues exceed the requested budget of £${requestedBudget.toLocaleString()}`);
+        }
+
         return res.json({
           success: true,
           match: {
@@ -916,9 +981,11 @@ Return a structured JSON object.`;
             topPickVenueId: '',
             confidenceScore: 0,
             recommendedLayout: 'No layout available',
-            aiExplanation: `No venues in our catalog can accommodate the requested capacity of ${requestedGuests} guests.`,
-            keyMatchFactors: [`Requested capacity of ${requestedGuests} exceeds available catalog venue capacities`],
-            estimatedBudgetNote: 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
+            aiExplanation: reasons[0] || 'No venues in our catalog meet the specified criteria.',
+            keyMatchFactors: reasons,
+            estimatedBudgetNote: requestedBudget !== null
+              ? `All available catalog venues have starting rates above £${requestedBudget.toLocaleString()}. Consider increasing budget or contacting venues for bespoke packages.`
+              : 'Consider reducing group size or contacting venue hosts directly for bespoke hire arrangements.',
           },
         });
       } else {
@@ -926,7 +993,7 @@ Return a structured JSON object.`;
         validMatchedVenueIds = [topVenue.id];
       }
     } else if (!topVenue) {
-      // If requestedGuests was null and topVenue wasn't found, pick first catalog venue
+      // If neither constraint was active and topVenue wasn't found, pick first catalog venue
       topVenue = catalogToMatch[0];
       if (!validMatchedVenueIds.includes(topVenue.id)) {
         validMatchedVenueIds.unshift(topVenue.id);
@@ -938,7 +1005,7 @@ Return a structured JSON object.`;
       validMatchedVenueIds.unshift(topVenue.id);
     }
 
-    // Validate recommendedLayout against topVenue's actual configured layouts
+    // Validate recommendedLayout against topVenue's actual configured layouts and requested capacity
     const topSpaces = getVenueSpaces(topVenue);
     const configuredLayouts = topSpaces.flatMap((s) => s.layouts || []);
     let validatedLayout = 'Configuration to be confirmed with venue';
@@ -949,7 +1016,11 @@ Return a structured JSON object.`;
         (l) => l.title.trim().toLowerCase() === candidateTitle
       );
       if (exactMatch) {
-        validatedLayout = exactMatch.title;
+        if (requestedGuests === null || exactMatch.capacity >= requestedGuests) {
+          validatedLayout = exactMatch.title;
+        } else {
+          validatedLayout = 'Configuration to be confirmed with venue';
+        }
       }
       // CRITICAL: DO NOT silently substitute configuredLayouts[0].title!
     }
