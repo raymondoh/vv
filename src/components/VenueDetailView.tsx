@@ -1022,7 +1022,7 @@ export const VenueDetailView: React.FC<VenueDetailViewProps> = ({
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#26343D] flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-[#A86445]" />
-                    High-Resolution Gallery ({galleryImages.length} Perspectives)
+                    Photo Gallery ({galleryImages.length} Perspectives)
                   </h3>
                   <span className="text-xs text-[#66737A]">Click to inspect photo</span>
                 </div>

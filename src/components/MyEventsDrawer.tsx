@@ -125,7 +125,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                   </div>
                   <p className="text-sm font-semibold text-[#26343D]">No Venue Bookings Yet</p>
                   <p className="text-xs text-[#66737A] max-w-xs mx-auto leading-relaxed">
-                    Explore our curated venues, inspect 4K layouts, and submit a "Request to Book" to reserve your date.
+                    Explore our curated venues, inspect venue layouts, and submit a "Request to Book" to reserve your date.
                   </p>
                 </div>
               ) : (
@@ -252,7 +252,7 @@ export const MyEventsDrawer: React.FC<MyEventsDrawerProps> = ({
                               className="py-2 px-3 rounded-xl bg-white border border-[#DDD8CF] text-xs font-medium text-[#66737A] hover:text-[#26343D] hover:bg-[#F4F1EA] flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                             >
                               <Video className="w-3.5 h-3.5" />
-                              <span>Inspect 4K Tour</span>
+                              <span>Inspect Walkthrough</span>
                             </button>
                           ) : (
                             <button

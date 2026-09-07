@@ -66,7 +66,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         <div className="text-center max-w-4xl mx-auto space-y-4 mb-9">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#DDD8CF] text-xs font-semibold text-[#26343D] shadow-xs">
             <span className="w-2 h-2 rounded-full bg-[#A86445]" />
-            <span className="text-[#66737A]">Virtual Venue Discovery & Spatial Inspection</span>
+            <span className="text-[#66737A]">Virtual Venue Discovery & Space Exploration</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-[3.25rem] font-bold tracking-tight text-[#26343D] leading-[1.12]">
@@ -107,7 +107,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <CalendarCheck className="w-4 h-4 text-[#A86445] shrink-0 mt-0.5" />
               <div>
                 <span className="text-xs font-bold text-[#26343D] block">Live Remote Tours</span>
-                <span className="text-[11px] text-[#66737A] leading-tight block">Guided host inspections</span>
+                <span className="text-[11px] text-[#66737A] leading-tight block">Guided host walkthroughs</span>
               </div>
             </div>
           </div>

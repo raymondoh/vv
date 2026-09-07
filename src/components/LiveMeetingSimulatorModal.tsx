@@ -36,7 +36,7 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
   const [messages, setMessages] = useState<Array<{ sender: string; text: string; time: string }>>([
     {
       sender: booking.hostName,
-      text: `Hello ${booking.clientName}! Welcome to your live walkthrough for ${booking.venueName}. I have the 3D space open for your ${booking.eventType} vision. Feel free to ask me to switch camera angles or highlight specific catering zones!`,
+      text: `Welcome to your live walkthrough for ${booking.venueName}. Feel free to ask about specific areas, layouts, access points, or event setup.`,
       time: 'Just now',
     },
   ]);
@@ -66,13 +66,13 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
 
     // Host simulated reply after 1s
     setTimeout(() => {
-      let hostReply = `Great question regarding ${userText.toLowerCase().includes('catering') ? 'the prep kitchen' : 'the layout'}! I am rotating the live feed now to show you that exact vantage point.`;
+      let hostReply = `Great question regarding ${userText.toLowerCase().includes('catering') ? 'the prep kitchen' : 'the layout'}! I'll show you the relevant area in this walkthrough demo.`;
       if (userText.toLowerCase().includes('cocktail') || userText.toLowerCase().includes('bar')) {
         setActiveLayout('cocktail');
-        hostReply = 'Switching our shared live view to the Cocktail Hour high-top lounge arrangement!';
+        hostReply = 'Switching the demo view to the Cocktail layout.';
       } else if (userText.toLowerCase().includes('banquet') || userText.toLowerCase().includes('table')) {
         setActiveLayout('banquet');
-        hostReply = 'Switching to the Banquet gala seated view with floral chandelier rigging!';
+        hostReply = 'Switching the demo view to the Banquet layout.';
       }
 
       setMessages((prev) => [
@@ -102,13 +102,15 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
                   ROOM: {booking.meetingCode}
                 </span>
               </div>
-              <p className="text-xs text-[#66737A]">Host: {booking.hostName} (Director of Private Events)</p>
+              <p className="text-xs text-[#66737A]">
+                Host: {booking.hostName}{currentVenue?.host?.title ? ` (${currentVenue.host.title})` : ''}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline-flex text-xs text-[#66737A] px-3 py-1 bg-white rounded-lg border border-[#DDD8CF]">
-              4K Spatial Stream Active (60 FPS)
+              Live Walkthrough Simulator
             </span>
             <button
               onClick={onClose}
@@ -168,7 +170,7 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
                 </div>
 
                 <div className="px-3 py-1.5 bg-black/80 backdrop-blur-md rounded-xl border border-white/20 text-xs text-[#F4F1EA] font-mono">
-                  <span>LIVE PTZ CAM 01 • FOYER NORTH</span>
+                  <span>Venue View • Live Walkthrough Demo</span>
                 </div>
               </div>
             </div>
@@ -181,7 +183,6 @@ export const LiveMeetingSimulatorModal: React.FC<LiveMeetingSimulatorModalProps>
                 <MessageSquare className="w-3.5 h-3.5" />
                 Live Host Consultation Chat
               </span>
-              <span className="text-[#66737A] text-[11px]">2 In Room</span>
             </div>
 
             {/* Chat Messages */}

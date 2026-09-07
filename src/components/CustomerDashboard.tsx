@@ -112,7 +112,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             My Events & Discovery Hub
           </h1>
           <p className="text-xs sm:text-sm text-stone-300 max-w-2xl leading-relaxed">
-            Manage your venue booking requests, track coordinator reviews, pay deposits, collaborate on floor plans, and access scheduled 4K virtual tours.
+            Manage your venue booking requests, track coordinator reviews, pay deposits, collaborate on floor plans, and access scheduled live walkthroughs.
           </p>
         </div>
 
@@ -319,7 +319,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-[#26343D]">No Live Walkthroughs Scheduled</h4>
                 <p className="text-xs text-[#66737A] max-w-sm mx-auto leading-relaxed">
-                  Schedule a real-time virtual walkthrough with venue hosts to inspect floor plans, spatial lighting, and layout options.
+                  Schedule a real-time virtual walkthrough with venue hosts to inspect floor plans, lighting, and layout options.
                 </p>
               </div>
               <button

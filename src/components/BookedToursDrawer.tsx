@@ -129,7 +129,7 @@ export const BookedToursDrawer: React.FC<BookedToursDrawerProps> = ({
 
           {/* Footer */}
           <div className="p-4 border-t border-[#DDD8CF] bg-[#F4F1EA] text-center text-xs text-[#66737A]">
-            VenueStream: High-resolution live tours with interactive pan-tilt-zoom inspection.
+            VenueStream: Live virtual walkthroughs directly with venue hosts.
           </div>
         </div>
       </div>

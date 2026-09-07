@@ -1615,7 +1615,7 @@ export const VenueOwnerDashboard: React.FC<VenueOwnerDashboardProps> = ({
                         Max Capacity: <strong>{clip.maxCapacityForLayout} guests</strong>
                       </span>
                       <span className="text-[11px] text-[#66737A] block">
-                        Duration: {Math.floor(clip.durationSec / 60)}m {clip.durationSec % 60}s • 4K Recorded
+                        Duration: {Math.floor(clip.durationSec / 60)}m {clip.durationSec % 60}s • Recorded Walkthrough
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1">
