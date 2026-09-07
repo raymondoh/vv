@@ -326,16 +326,12 @@ app.get('/api/venues', (req, res) => {
 
   if (maxBudget) {
     const budgetNum = Number(maxBudget);
-    if (!isNaN(budgetNum)) {
-      if (budgetNum < 10000) {
-        results = results.filter((v) => {
-          const currency = (v.pricing.currency || 'GBP').toUpperCase();
-          if (currency !== 'GBP') return false;
-          return v.pricing.startingPrice <= budgetNum;
-        });
-      } else {
-        results = results.filter((v) => v.pricing.startingPrice <= budgetNum);
-      }
+    if (!isNaN(budgetNum) && budgetNum < 10000) {
+      results = results.filter((v) => {
+        const currency = (v.pricing.currency || 'GBP').toUpperCase();
+        if (currency !== 'GBP') return false;
+        return v.pricing.startingPrice <= budgetNum;
+      });
     }
   }
 
