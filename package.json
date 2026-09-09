@@ -1,18 +1,24 @@
 {
-  "name": "react-example",
+  "name": "vv-app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "eslint src/app src/lib/supabase src/proxy.ts next.config.ts postcss.config.mjs eslint.config.mjs",
+    "prototype:dev": "tsx --tsconfig tsconfig.prototype.json server.ts",
+    "prototype:build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "prototype:start": "NODE_ENV=production node dist/server.cjs",
+    "prototype:preview": "vite preview",
+    "prototype:typecheck": "tsc --project tsconfig.prototype.json --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/canvas-confetti": "^1.9.0",
     "@vitejs/plugin-react": "^5.0.4",
@@ -21,19 +27,29 @@
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "next": "^16.3.4",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "server-only": "^0.0.1",
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.4",
     "supabase": "^2.117.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

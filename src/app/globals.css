@@ -1,0 +1,29 @@
+@import "tailwindcss" source(none);
+@source "./";
+@source "../components";
+
+@theme inline {
+  --font-sans: var(--font-jakarta), -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-linen: #F4F1EA;
+  --color-navy: #2C3E50;
+  --color-slate: #26343D;
+  --color-terracotta: #B87333;
+  --color-clay: #A86445;
+}
+
+@layer base {
+  body {
+    background: var(--color-linen);
+    color: var(--color-slate);
+    font-family: var(--font-sans);
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.025em;
+  }
+
+  ::selection {
+    background: #DDD8CF;
+  }
+}
