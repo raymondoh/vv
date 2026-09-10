@@ -1,4 +1,4 @@
-import { selectHeroAsset, selectGalleryAssets, toVenueMedia, toPublicImage, type HeroAsset } from './media';
+import { selectHeroAsset, selectGalleryAssets, toSpaceMedia, type SpaceMediaAttachment, toVenueMedia, toPublicImage, type HeroAsset } from './media';
 import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -166,4 +166,75 @@ test('unsigned gallery objects alone are omitted; detail gets galleries and card
   const discovery = toVenueCard(venue, [], [], now, media.heroImage);
   assert.equal('galleryImages' in discovery, false);
   assert.deepEqual(discovery.heroImage, media.heroImage);
+});
+
+const spaceAttachment: SpaceMediaAttachment = { space_id: 's', media_asset_id: 'hero', purpose: 'hero', sort_order: 0, caption: null };
+
+test('space heroes and galleries are isolated by exact space ID without fallback', () => {
+  const assets = [heroAsset, { ...heroAsset, id: 'a' }, { ...heroAsset, id: 'b' }, { ...heroAsset, id: 'c' }];
+  const attachments = [
+    spaceAttachment,
+    { ...spaceAttachment, media_asset_id: 'c', purpose: 'gallery', sort_order: 2 },
+    { ...spaceAttachment, media_asset_id: 'b', purpose: 'gallery', sort_order: 2, caption: 'Room detail' },
+    { ...spaceAttachment, media_asset_id: 'a', purpose: 'gallery', sort_order: 1 },
+  ];
+  const urls = new Map(assets.map((asset) => [asset.id, `https://example.test/${asset.id}`]));
+  const media = toSpaceMedia('s', attachments, assets, urls);
+  assert.equal(media.heroImage?.id, 'hero');
+  assert.deepEqual(media.galleryImages.map((image) => image.id), ['a', 'b', 'c']);
+  assert.deepEqual(media.galleryImages.map((image) => image.caption), [null, 'Room detail', null]);
+  assert.deepEqual(toSpaceMedia('other', attachments, assets, urls), { heroImage: null, galleryImages: [] });
+  assert.equal(toSpaceMedia('s', attachments.slice(1), assets, urls).heroImage, null);
+  assert.deepEqual(toSpaceMedia('s', [spaceAttachment], assets, urls).galleryImages, []);
+  assert.deepEqual(toSpaceMedia('s', [], assets, urls), { heroImage: null, galleryImages: [] });
+  assert.deepEqual(toSpaceMedia('s', attachments, [], urls), { heroImage: null, galleryImages: [] });
+  for (const purpose of ['floor_plan', 'walkthrough', 'document']) {
+    assert.deepEqual(toSpaceMedia('s', [{ ...spaceAttachment, purpose }], assets, urls), { heroImage: null, galleryImages: [] });
+  }
+});
+
+test('space media eligibility is enforced even with broader operator-visible rows', () => {
+  const attachments = [spaceAttachment, { ...spaceAttachment, purpose: 'gallery' }];
+  const urls = new Map([['hero', 'https://example.test/hero']]);
+  for (const patch of [
+    { status: 'processing' }, { status: 'failed' }, { status: 'archived' },
+    { media_kind: 'video' }, { media_kind: 'document' }, { storage_bucket: 'other' },
+  ]) {
+    assert.deepEqual(toSpaceMedia('s', attachments, [{ ...heroAsset, ...patch }], urls), { heroImage: null, galleryImages: [] });
+  }
+});
+
+test('a missing signed URL omits only that space image and never substitutes other media', () => {
+  const assets = [heroAsset, { ...heroAsset, id: 'a' }, { ...heroAsset, id: 'b' }];
+  const attachments = [spaceAttachment,
+    { ...spaceAttachment, purpose: 'gallery', media_asset_id: 'a', caption: 'Kept' },
+    { ...spaceAttachment, purpose: 'gallery', media_asset_id: 'b' }];
+  // Hero and b signing failed; a is still rendered in its explicit gallery role.
+  const media = toSpaceMedia('s', attachments, assets, new Map([['a', 'https://example.test/a']]));
+  assert.equal(media.heroImage, null);
+  assert.deepEqual(media.galleryImages.map((image) => image.id), ['a']);
+  assert.equal(media.galleryImages[0].caption, 'Kept');
+  assert.equal('storage_path' in media.galleryImages[0], false);
+  assert.equal('storage_bucket' in media.galleryImages[0], false);
+});
+
+test('detail adds exact-space media while preserving pricing, capacities, layouts and discovery', () => {
+  const detailVenue = { ...venue, address_line_1: null, address_line_2: null, postal_code: null, latitude: null, longitude: null, published_at: null };
+  const detailSpace = { ...space, slug: 'room', name: 'Room', description: 'Description', square_meters: 50, seated_capacity: 20, standing_capacity: 30, theatre_capacity: 25 };
+  const layout = { id: 'l', space_id: 's', name: 'Dinner', layout_type: 'banquet', description: null, capacity: 12 };
+  const urls = new Map([['hero', 'https://example.test/hero']]);
+  const media = toSpaceMedia('s', [spaceAttachment, { ...spaceAttachment, purpose: 'gallery', caption: 'Caption' }], [heroAsset], urls);
+  const venueMedia = toVenueMedia('v', [{ ...heroAttachment, sort_order: 0, caption: null }], [heroAsset], urls);
+  const spaces = [detailSpace, { ...detailSpace, id: 's2' }];
+  const before = toVenueDetail(detailVenue, spaces, [layout], [rate], now, venueMedia.heroImage);
+  const after = toVenueDetail(detailVenue, spaces, [layout], [rate], now, venueMedia.heroImage, [], new Map([['s', media]]));
+  assert.deepEqual(after, { ...before, spaces: [{ ...before.spaces[0], ...media }, before.spaces[1]] });
+  assert.equal(after.spaces[1].heroImage, null);
+  assert.deepEqual(after.spaces[1].galleryImages, []);
+  assert.equal(after.spaces[0].basePrice?.amountMinor, 1000);
+  assert.equal(after.spaces[0].layouts[0].capacity, 12);
+  const discovery = toVenueCard(venue, [detailSpace], [rate], now, venueMedia.heroImage);
+  assert.equal('spaces' in discovery, false);
+  assert.equal('galleryImages' in discovery, false);
+  assert.deepEqual(discovery.heroImage, venueMedia.heroImage);
 });

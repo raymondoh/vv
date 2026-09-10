@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getVenueMedia } from './media-query';
+import { createCatalogMediaResolver } from './media-query';
 
 import { createClient } from '../supabase/server';
 import { allRows } from './query';
@@ -31,6 +31,8 @@ export async function getVenueDetail(venueId: string) {
       .in('space_id', ids).order('id').range(from, to)));
   }
   if (!venue.id) throw new Error('Missing public venue ID');
-  const media = (await getVenueMedia(supabase, [venue.id], ['hero', 'gallery'])).get(venue.id);
-  return toVenueDetail(venue, spaces, layouts, rates, new Date(), media?.heroImage ?? null, media?.galleryImages ?? []);
+  const resolver = createCatalogMediaResolver(supabase);
+  const media = (await resolver.getVenueMedia([venue.id], ['hero', 'gallery'])).get(venue.id);
+  const spaceMedia = await resolver.getSpaceMedia(spaces.map((space) => space.id), ['hero', 'gallery']);
+  return toVenueDetail(venue, spaces, layouts, rates, new Date(), media?.heroImage ?? null, media?.galleryImages ?? [], spaceMedia);
 }

@@ -1,4 +1,4 @@
-import type { PublicImage, PublicGalleryImage } from './media';
+import type { PublicImage, PublicGalleryImage, PublicCatalogMedia } from './media';
 import type { Database } from '../supabase/database.types';
 import { selectBasePrice, type VenueCardModel, type RateRow } from './model';
 
@@ -11,6 +11,8 @@ export type VenueDetailModel = {
   city: string | null; region: string | null; postalCode: string | null;
   countryCode: string | null; latitude: number | null; longitude: number | null;
   spaces: {
+    heroImage: PublicImage | null;
+    galleryImages: PublicGalleryImage[];
     id: string; slug: string; name: string; description: string | null;
     squareMeters: number | null;
     seatedCapacity: number | null; standingCapacity: number | null; theatreCapacity: number | null;
@@ -32,7 +34,7 @@ export function canonicalVenueRedirect(venue: Pick<VenueDetailModel, 'id' | 'slu
   return suppliedSlug === venue.slug ? null : venuePath(venue.id, venue.slug);
 }
 
-export function toVenueDetail(venue: DetailVenueRow, spaces: DetailSpaceRow[], layouts: LayoutRow[], rates: RateRow[], now: Date, heroImage: PublicImage | null = null, galleryImages: PublicGalleryImage[] = []): VenueDetailModel {
+export function toVenueDetail(venue: DetailVenueRow, spaces: DetailSpaceRow[], layouts: LayoutRow[], rates: RateRow[], now: Date, heroImage: PublicImage | null = null, galleryImages: PublicGalleryImage[] = [], spaceMedia: ReadonlyMap<string, PublicCatalogMedia> = new Map()): VenueDetailModel {
   const { id, slug, name, timezone, default_currency_code: currency } = venue;
   if (!id || !slug || !name || !timezone || !currency) throw new Error('Incomplete public venue summary');
   return {
@@ -41,6 +43,8 @@ export function toVenueDetail(venue: DetailVenueRow, spaces: DetailSpaceRow[], l
     city: venue.city, region: venue.region, postalCode: venue.postal_code,
     countryCode: venue.country_code, latitude: venue.latitude, longitude: venue.longitude,
     spaces: spaces.filter((space) => space.venue_id === id).map((space) => ({
+      heroImage: spaceMedia.get(space.id)?.heroImage ?? null,
+      galleryImages: spaceMedia.get(space.id)?.galleryImages ?? [],
       id: space.id, slug: space.slug, name: space.name, description: space.description,
       squareMeters: space.square_meters,
       seatedCapacity: space.seated_capacity, standingCapacity: space.standing_capacity, theatreCapacity: space.theatre_capacity,

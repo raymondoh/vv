@@ -42,6 +42,7 @@ export default async function VenuePage({ params }: {
       <div className="mt-6 space-y-8">
         {venue.spaces.map((space) => <article key={space.id} className="space-y-5 rounded-2xl border border-navy/15 bg-white/50 p-6 sm:p-8">
           <h3 className="text-2xl font-semibold text-navy">{space.name}</h3>
+          {space.heroImage && <PublicCatalogImage image={space.heroImage} className="h-48 rounded-xl sm:h-64" />}
           {space.description && <p className="whitespace-pre-line leading-7">{space.description}</p>}
           <dl className="flex flex-wrap gap-6 text-sm">
             {space.squareMeters !== null && <div><dt>Area</dt><dd>{space.squareMeters.toLocaleString('en')} m²</dd></div>}
@@ -49,6 +50,15 @@ export default async function VenuePage({ params }: {
             {space.standingCapacity !== null && <div><dt>Standing capacity</dt><dd>{space.standingCapacity.toLocaleString('en')}</dd></div>}
             {space.theatreCapacity !== null && <div><dt>Theatre capacity</dt><dd>{space.theatreCapacity.toLocaleString('en')}</dd></div>}
           </dl>
+          {space.galleryImages.length > 0 && <section aria-labelledby={`space-gallery-${space.id}`}>
+            <h4 id={`space-gallery-${space.id}`} className="font-semibold text-navy">Space gallery</h4>
+            <div className={`mt-3 grid max-w-3xl gap-4 ${space.galleryImages.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {space.galleryImages.map((image) => <figure key={image.id} className="overflow-hidden rounded-xl border border-navy/10">
+                <PublicCatalogImage image={image} className="h-44 sm:h-52" />
+                {image.caption && <figcaption className="p-3 text-sm leading-6 text-slate/80">{image.caption}</figcaption>}
+              </figure>)}
+            </div>
+          </section>}
           {space.layouts.length > 0 && <section aria-labelledby={`layouts-${space.id}`}>
             <h4 id={`layouts-${space.id}`} className="font-semibold text-navy">Layouts</h4>
             <ul className="mt-3 space-y-4">
