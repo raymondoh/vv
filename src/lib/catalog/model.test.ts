@@ -1,4 +1,4 @@
-import { selectHeroAsset, toPublicImage, type HeroAsset } from './media';
+import { selectHeroAsset, selectGalleryAssets, toVenueMedia, toPublicImage, type HeroAsset } from './media';
 import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -116,4 +116,54 @@ test('resolved image metadata is identical on discovery/detail and does not expo
     toVenueDetail(detailVenue, [], [], [], now, image).heroImage);
   assert.equal(toVenueCard(venue, [], [], now).heroImage, null);
   assert.equal(toVenueDetail(detailVenue, [], [], [], now).heroImage, null);
+});
+
+test('gallery ordering, captions and explicit public eligibility are preserved', () => {
+  const assets = ['a', 'b', 'c'].map((id) => ({ ...heroAsset, id }));
+  const attachment = { venue_id: 'v', purpose: 'gallery', sort_order: 2, caption: null };
+  const attachments = [
+    { ...attachment, media_asset_id: 'c' },
+    { ...attachment, media_asset_id: 'b', caption: 'Real caption' },
+    { ...attachment, media_asset_id: 'a', sort_order: 1 },
+  ];
+  const gallery = selectGalleryAssets('v', attachments, assets);
+  assert.deepEqual(gallery.map(({ asset }) => asset.id), ['a', 'b', 'c']);
+  assert.deepEqual(gallery.map(({ caption }) => caption), [null, 'Real caption', null]);
+  for (const patch of [
+    { status: 'processing' }, { status: 'failed' }, { status: 'archived' },
+    { media_kind: 'video' }, { media_kind: 'document' }, { storage_bucket: 'other' },
+  ]) {
+    assert.deepEqual(selectGalleryAssets('v', attachments, [assets[0], { ...assets[1], ...patch }, assets[2]])
+      .map(({ asset }) => asset.id), ['a', 'c']);
+  }
+  assert.deepEqual(selectGalleryAssets('v', attachments.map((item) => ({ ...item, purpose: 'hero' })), assets), []);
+  assert.deepEqual(selectGalleryAssets('v', [], assets), []);
+  assert.deepEqual(selectGalleryAssets('other', attachments, assets), []);
+  assert.deepEqual(selectGalleryAssets('v', attachments, [assets[0]]).map(({ asset }) => asset.id), ['a']);
+});
+
+test('unsigned gallery objects alone are omitted; detail gets galleries and cards stay hero-only', () => {
+  const assets = [heroAsset, { ...heroAsset, id: 'a' }, { ...heroAsset, id: 'b' }];
+  const attachments = [
+    { ...heroAttachment, sort_order: 0, caption: null },
+    { venue_id: 'v', media_asset_id: 'a', purpose: 'gallery', sort_order: 1, caption: 'Caption' },
+    { venue_id: 'v', media_asset_id: 'b', purpose: 'gallery', sort_order: 2, caption: null },
+  ];
+  // No signed URL for b simulates an isolated Storage signing failure.
+  const media = toVenueMedia('v', attachments, assets, new Map([['hero', 'https://example.test/hero'], ['a', 'https://example.test/a']]));
+  assert.equal(media.heroImage?.id, 'hero');
+  assert.deepEqual(media.galleryImages.map((image) => image.id), ['a']);
+  assert.equal(media.galleryImages[0].caption, 'Caption');
+  assert.deepEqual(toVenueMedia('v', [], assets, new Map()).galleryImages, []);
+  const detailVenue = {
+    ...venue, address_line_1: null, address_line_2: null, postal_code: null,
+    latitude: null, longitude: null, published_at: null,
+  };
+  const detail = toVenueDetail(detailVenue, [], [], [], now, media.heroImage, media.galleryImages);
+  assert.deepEqual(detail.galleryImages, media.galleryImages);
+  assert.deepEqual(detail.heroImage, media.heroImage);
+  assert.deepEqual(toVenueDetail(detailVenue, [], [], [], now).galleryImages, []);
+  const discovery = toVenueCard(venue, [], [], now, media.heroImage);
+  assert.equal('galleryImages' in discovery, false);
+  assert.deepEqual(discovery.heroImage, media.heroImage);
 });

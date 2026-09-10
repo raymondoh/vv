@@ -1,9 +1,10 @@
-import type { PublicImage } from './media';
+import type { PublicImage, PublicGalleryImage } from './media';
 import type { Database } from '../supabase/database.types';
 import { selectBasePrice, type VenueCardModel, type RateRow } from './model';
 
 export type VenueDetailModel = {
   heroImage: PublicImage | null;
+  galleryImages: PublicGalleryImage[];
   id: string; slug: string; name: string; description: string | null;
   timezone: string; currency: string;
   addressLine1: string | null; addressLine2: string | null;
@@ -31,11 +32,11 @@ export function canonicalVenueRedirect(venue: Pick<VenueDetailModel, 'id' | 'slu
   return suppliedSlug === venue.slug ? null : venuePath(venue.id, venue.slug);
 }
 
-export function toVenueDetail(venue: DetailVenueRow, spaces: DetailSpaceRow[], layouts: LayoutRow[], rates: RateRow[], now: Date, heroImage: PublicImage | null = null): VenueDetailModel {
+export function toVenueDetail(venue: DetailVenueRow, spaces: DetailSpaceRow[], layouts: LayoutRow[], rates: RateRow[], now: Date, heroImage: PublicImage | null = null, galleryImages: PublicGalleryImage[] = []): VenueDetailModel {
   const { id, slug, name, timezone, default_currency_code: currency } = venue;
   if (!id || !slug || !name || !timezone || !currency) throw new Error('Incomplete public venue summary');
   return {
-    heroImage, id, slug, name, timezone, currency, description: venue.description,
+    heroImage, galleryImages, id, slug, name, timezone, currency, description: venue.description,
     addressLine1: venue.address_line_1, addressLine2: venue.address_line_2,
     city: venue.city, region: venue.region, postalCode: venue.postal_code,
     countryCode: venue.country_code, latitude: venue.latitude, longitude: venue.longitude,

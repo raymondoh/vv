@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { getVenueHeroes } from './media-query';
+import { getVenueMedia } from './media-query';
 
 import { createClient } from '../supabase/server';
 import { allRows } from './query';
@@ -31,6 +31,6 @@ export async function getVenueDetail(venueId: string) {
       .in('space_id', ids).order('id').range(from, to)));
   }
   if (!venue.id) throw new Error('Missing public venue ID');
-  const heroes = await getVenueHeroes(supabase, [venue.id]);
-  return toVenueDetail(venue, spaces, layouts, rates, new Date(), heroes.get(venue.id) ?? null);
+  const media = (await getVenueMedia(supabase, [venue.id], ['hero', 'gallery'])).get(venue.id);
+  return toVenueDetail(venue, spaces, layouts, rates, new Date(), media?.heroImage ?? null, media?.galleryImages ?? []);
 }
