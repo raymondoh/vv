@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<CatalogSearchParams> }) {
   const search = normalizeCatalogSearch(await searchParams);
-  const searchActive = search.name !== null || search.city !== null;
+  const searchActive = search.name !== null || search.city !== null || search.guests !== null;
   let venues: VenueCardModel[] = [];
   let catalogFailed = false;
   let authenticated = false;
@@ -49,6 +49,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <label htmlFor="city-search" className="block text-sm font-medium text-navy">City</label>
           <input id="city-search" name="city" type="text" defaultValue={search.city ?? ''} maxLength={120} placeholder="London" className="mt-2 w-full rounded-lg border border-navy/20 bg-white/50 px-4 py-3 outline-none focus:border-clay focus:ring-2 focus:ring-clay/20" />
         </div>
+        <div className="flex-1">
+          <label htmlFor="guests-search" className="block text-sm font-medium text-navy">Guests</label>
+          <input id="guests-search" name="guests" type="number" min="1" max="100000" step="1" defaultValue={search.guests ?? ''} placeholder="100" className="mt-2 w-full rounded-lg border border-navy/20 bg-white/50 px-4 py-3 outline-none focus:border-clay focus:ring-2 focus:ring-clay/20" />
+        </div>
         <button type="submit" className="rounded-lg bg-clay px-6 py-3 font-medium text-white hover:bg-clay/90">Search</button>
         {searchActive && <Link href="/" className="py-3 text-sm font-medium text-clay underline">Clear search</Link>}
       </form>
@@ -60,12 +64,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <form action="/" method="get">
             {search.name !== null && <input type="hidden" name="q" value={search.name} />}
             {search.city !== null && <input type="hidden" name="city" value={search.city} />}
+            {search.guests !== null && <input type="hidden" name="guests" value={search.guests} />}
             <button className="mt-4 text-clay underline">Try again</button></form>
         </div> : venues.length ? <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {venues.map((venue) => <VenueCard key={venue.id} venue={venue} />)}
         </div> : searchActive ? <div className="rounded-xl border border-navy/15 p-8">
           <h3 className="text-xl font-semibold text-navy">No venues match your search</h3>
-          <p className="mt-3 text-slate/75">Try a different venue name or city, or clear your search.</p>
+          <p className="mt-3 text-slate/75">Try a different venue name, city, or guest count, or clear your search.</p>
           <Link href="/" className="mt-4 inline-block text-clay underline">Clear search</Link>
         </div> : <div className="rounded-xl border border-navy/15 p-8">
           <h3 className="text-xl font-semibold text-navy">More spaces are on the way</h3>

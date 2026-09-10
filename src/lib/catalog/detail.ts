@@ -20,7 +20,7 @@ export type VenueDetailModel = {
     layouts: { id: string; name: string; layoutType: string; description: string | null; capacity: number | null }[];
   }[];
 };
-export type DetailVenueRow = Database['public']['Views']['catalog_venues']['Row'];
+export type DetailVenueRow = Omit<Database['public']['Views']['catalog_venues']['Row'], 'maximum_capacity'>;
 export type DetailSpaceRow = Pick<Database['public']['Tables']['spaces']['Row'],
   'id' | 'venue_id' | 'slug' | 'name' | 'description' | 'square_meters' | 'seated_capacity' | 'standing_capacity' | 'theatre_capacity'>;
 export type LayoutRow = Pick<Database['public']['Tables']['space_layouts']['Row'],

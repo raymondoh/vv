@@ -17,14 +17,15 @@ export async function allRows<T>(query: (from: number, to: number) => PromiseLik
   }
 }
 
-export async function getCatalog(search: CatalogSearch = { name: null, city: null }) {
+export async function getCatalog(search: CatalogSearch = { name: null, city: null, guests: null }) {
   const supabase = await createClient();
   // A bounded first discovery page; no private venue table or prototype data.
   const patterns = catalogSearchRegex(search);
   let query = supabase.from('catalog_venues')
-    .select('id, slug, name, description, city, region, country_code, default_currency_code, timezone');
+    .select('id, slug, name, description, city, region, country_code, default_currency_code, timezone, maximum_capacity');
   if (patterns.name !== null) query = query.filter('name', 'imatch', patterns.name);
   if (patterns.city !== null) query = query.filter('city', 'imatch', patterns.city);
+  if (search.guests !== null) query = query.gte('maximum_capacity', search.guests);
   const { data: venues, error } = await query
     .order('published_at', { ascending: false }).order('id').limit(24);
   if (error || !venues) throw new Error('Public catalog query failed');

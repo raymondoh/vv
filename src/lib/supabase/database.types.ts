@@ -2270,6 +2270,7 @@ export type Database = {
           id: string | null
           latitude: number | null
           longitude: number | null
+          maximum_capacity: number | null
           name: string | null
           postal_code: string | null
           published_at: string | null

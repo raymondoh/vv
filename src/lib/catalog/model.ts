@@ -16,7 +16,7 @@ export type VenueCardModel = {
 };
 
 export type VenueRow = Pick<Database['public']['Views']['catalog_venues']['Row'],
-  'id' | 'slug' | 'name' | 'description' | 'city' | 'region' | 'country_code' | 'default_currency_code' | 'timezone'>;
+  'id' | 'slug' | 'name' | 'description' | 'city' | 'region' | 'country_code' | 'default_currency_code' | 'timezone' | 'maximum_capacity'>;
 export type SpaceRow = Pick<Database['public']['Tables']['spaces']['Row'],
   'id' | 'venue_id' | 'seated_capacity' | 'standing_capacity' | 'theatre_capacity'>;
 export type RateRow = Pick<Database['public']['Views']['catalog_space_rate_plans']['Row'],
@@ -26,8 +26,6 @@ export function toVenueCard(venue: VenueRow, spaces: SpaceRow[], rates: RateRow[
   const { id, slug, name, default_currency_code: currency, timezone } = venue;
   if (!id || !slug || !name || !currency || !timezone) throw new Error('Incomplete public venue summary');
   const publicSpaces = spaces.filter((space) => space.venue_id === id);
-  const capacities = publicSpaces.flatMap((space) => [space.seated_capacity, space.standing_capacity, space.theatre_capacity])
-    .filter((value): value is number => value !== null && Number.isSafeInteger(value) && value >= 0);
   const candidates: NonNullable<VenueCardModel['startingPrice']>[] = [];
   for (const space of publicSpaces) {
     const price = selectBasePrice(space.id, currency, timezone, rates, now);
@@ -39,7 +37,8 @@ export function toVenueCard(venue: VenueRow, spaces: SpaceRow[], rates: RateRow[
   return {
     heroImage, id, slug, name, description: venue.description, city: venue.city, region: venue.region,
     countryCode: venue.country_code, currency,
-    maximumCapacity: capacities.length ? Math.max(...capacities) : null,
+    maximumCapacity: venue.maximum_capacity !== null && Number.isSafeInteger(venue.maximum_capacity) && venue.maximum_capacity >= 0
+      ? venue.maximum_capacity : null,
     startingPrice,
   };
 }

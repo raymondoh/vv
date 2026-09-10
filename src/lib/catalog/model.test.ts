@@ -8,7 +8,7 @@ import { formatMoney } from './money';
 
 const venue: VenueRow = {
   id: 'v', slug: 'venue', name: 'Venue', description: null, city: null, region: null,
-  country_code: 'US', default_currency_code: 'USD', timezone: 'America/Los_Angeles',
+  maximum_capacity: null, country_code: 'US', default_currency_code: 'USD', timezone: 'America/Los_Angeles',
 };
 const space: SpaceRow = { id: 's', venue_id: 'v', seated_capacity: null, standing_capacity: null, theatre_capacity: null };
 const rate: RateRow = {
@@ -38,14 +38,13 @@ test('priority wins, ties are ambiguous, and different billing units are not com
   assert.equal(card([rate, { ...rate, id: 'r2', space_id: 's2', unit_amount_minor: 500 }], [space, second]).startingPrice?.amountMinor, 500);
 });
 
-test('capacity preserves unknown and zero, takes the maximum, and excludes other venues', () => {
-  assert.equal(card([]).maximumCapacity, null);
-  assert.equal(card([], [{ ...space, seated_capacity: 0 }]).maximumCapacity, 0);
-  assert.equal(card([], [
-    { ...space, seated_capacity: 20, theatre_capacity: 80 },
-    { ...space, id: 's2', standing_capacity: 100 },
-    { ...space, id: 'private', venue_id: 'other', standing_capacity: 900 },
-  ]).maximumCapacity, 100);
+test('discovery capacity uses the database value, preserving null and zero defensively', () => {
+  for (const maximum_capacity of [null, 0, 120]) {
+    assert.equal(toVenueCard({ ...venue, maximum_capacity }, [{ ...space, standing_capacity: 999 }], [], now).maximumCapacity, maximum_capacity);
+  }
+  for (const maximum_capacity of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity]) {
+    assert.equal(toVenueCard({ ...venue, maximum_capacity }, [space], [], now).maximumCapacity, null);
+  }
 });
 
 test('currency formatting respects zero-, two- and three-decimal currencies', () => {
@@ -241,12 +240,12 @@ test('detail adds exact-space media while preserving pricing, capacities, layout
 });
 
 test('search normalization handles blank, duplicate, trimmed and capped inputs', () => {
-  assert.deepEqual(normalizeCatalogSearch({}), { name: null, city: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: '  ', city: '\t' }), { name: null, city: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen House ', city: ' loNDOn ' }), { name: 'Linen House', city: 'loNDOn' });
-  assert.deepEqual(normalizeCatalogSearch({ q: [' First ', 'Second'], city: [' London ', 'Paris'] }), { name: 'First', city: 'London' });
-  assert.deepEqual(normalizeCatalogSearch({ q: [], city: ['', 'Paris'] }), { name: null, city: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: 'x'.repeat(121), city: 'y'.repeat(121) }), { name: 'x'.repeat(120), city: 'y'.repeat(120) });
+  assert.deepEqual(normalizeCatalogSearch({}), { name: null, city: null, guests: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: '  ', city: '\t' }), { name: null, city: null, guests: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen House ', city: ' loNDOn ' }), { name: 'Linen House', city: 'loNDOn', guests: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: [' First ', 'Second'], city: [' London ', 'Paris'] }), { name: 'First', city: 'London', guests: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: [], city: ['', 'Paris'] }), { name: null, city: null, guests: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: 'x'.repeat(121), city: 'y'.repeat(121) }), { name: 'x'.repeat(120), city: 'y'.repeat(120), guests: null });
 });
 
 test('regex escaping preserves literal metacharacters, percent and underscore', () => {
@@ -279,4 +278,17 @@ test('name regex is unanchored, city is anchored, and criteria remain separate',
   assert.equal(new RegExp(patterns.city!, 'i').test('london'), true);
   assert.equal(new RegExp(patterns.city!, 'i').test('Greater London'), false);
   assert.equal(new RegExp(patterns.city!, 'i').test('London Road'), false);
+});
+
+test('guest normalization accepts only bounded decimal integer text', () => {
+  for (const guests of [undefined, '', '  ', '0', '-1', '12.5', '1e3', 'abc', '12abc', '100001', '+1', '0x10', '9'.repeat(400)]) {
+    assert.equal(normalizeCatalogSearch({ guests }).guests, null);
+  }
+  for (const [input, expected] of [['1', 1], ['100', 100], ['00100', 100], [' 100 ', 100], ['100000', 100000]] as const) {
+    assert.equal(normalizeCatalogSearch({ guests: input }).guests, expected);
+  }
+  assert.equal(normalizeCatalogSearch({ guests: ['00100', '200'] }).guests, 100);
+  assert.equal(normalizeCatalogSearch({ guests: ['bad', '100'] }).guests, null);
+  assert.equal(normalizeCatalogSearch({ guests: [] }).guests, null);
+  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen ', city: ' London ', guests: '120' }), { name: 'Linen', city: 'London', guests: 120 });
 });
