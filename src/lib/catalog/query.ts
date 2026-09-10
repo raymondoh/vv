@@ -3,7 +3,7 @@ import 'server-only';
 import { createClient } from '../supabase/server';
 import { toVenueCard, type SpaceRow, type RateRow } from './model';
 
-async function allRows<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+export async function allRows<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += 500) {
     const { data, error } = await query(from, from + 499);

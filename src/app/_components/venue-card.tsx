@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { venuePath } from '@/lib/catalog/detail';
 import type { VenueCardModel } from '@/lib/catalog/model';
 import { formatMoney } from '@/lib/catalog/money';
 
@@ -22,6 +24,7 @@ export function VenueCard({ venue }: { venue: VenueCardModel }) {
           <p className="mt-1 text-xs leading-5 text-slate/70">Today’s base rate in the venue’s local time. Final pricing and availability vary by date.</p>
         </> : <p className="text-sm text-slate/75">Pricing on request</p>}
       </div>
+      <Link href={venuePath(venue.id, venue.slug)} className="inline-block font-medium text-clay underline" aria-label={`View ${venue.name}`}>View venue</Link>
     </div>
   </article>;
 }

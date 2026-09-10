@@ -1,3 +1,4 @@
+import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { toVenueCard, type VenueRow, type SpaceRow, type RateRow } from './model';
@@ -49,4 +50,34 @@ test('currency formatting respects zero-, two- and three-decimal currencies', ()
   assert.equal(formatMoney(1234, 'USD'), 'USD\u00a012.34');
   assert.equal(formatMoney(1234, 'JPY'), 'JPY\u00a01,234');
   assert.equal(formatMoney(1234, 'KWD'), 'KWD\u00a01.234');
+});
+
+test('detail shares discovery pricing and preserves actual capacities and layouts', () => {
+  const detailVenue = {
+    ...venue, address_line_1: null, address_line_2: null, postal_code: null,
+    latitude: null, longitude: null, published_at: null,
+  };
+  const detailSpace = {
+    ...space, slug: 'room', name: 'Room', description: null, square_meters: null,
+    seated_capacity: 20, standing_capacity: 30,
+  };
+  const layout = { id: 'l', space_id: 's', name: 'Dinner', layout_type: 'banquet', description: null, capacity: 12 };
+  const detail = toVenueDetail(detailVenue, [detailSpace], [layout], [rate], now);
+  assert.deepEqual(detail.spaces[0].basePrice, card([rate], [detailSpace]).startingPrice);
+  assert.equal(detail.spaces[0].seatedCapacity, 20);
+  assert.equal(detail.spaces[0].standingCapacity, 30);
+  assert.equal(detail.spaces[0].theatreCapacity, null);
+  assert.equal(detail.spaces[0].layouts[0].capacity, 12);
+  const ambiguous = [rate, { ...rate, id: 'tie' }];
+  assert.equal(toVenueDetail(detailVenue, [detailSpace], [], ambiguous, now).spaces[0].basePrice, null);
+  assert.equal(card(ambiguous).startingPrice, null);
+  assert.deepEqual(toVenueDetail(detailVenue, [detailSpace], [], [], now).spaces[0].layouts, []);
+  assert.deepEqual(toVenueDetail(detailVenue, [], [layout], [], now).spaces, []);
+});
+
+test('canonical URLs use authoritative IDs and the current slug', () => {
+  assert.equal(canonicalVenueRedirect({ id: 'id', slug: 'current' }, 'old'), '/venues/id/current');
+  assert.equal(canonicalVenueRedirect({ id: 'id', slug: 'current' }, 'current'), null);
+  assert.notEqual(venuePath('first', 'same-slug'), venuePath('second', 'same-slug'));
+  assert.equal(venuePath('id', 'a/b'), '/venues/id/a%2Fb');
 });
