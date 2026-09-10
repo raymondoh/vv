@@ -1,3 +1,4 @@
+import { PublicHeroImage } from '@/app/_components/public-image';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getVenueDetail } from '@/lib/catalog/detail-query';
@@ -20,11 +21,11 @@ export default async function VenuePage({ params }: {
     <Link href="/" className="font-medium text-clay">← Back to discovery</Link>
     <h1 className="mt-10 text-4xl font-semibold text-navy sm:text-6xl">{venue.name}</h1>
     {address && <p className="mt-5 text-slate/75">{address}</p>}
-    <div aria-hidden="true" className="mt-8 flex h-52 items-end justify-center gap-8 overflow-hidden rounded-2xl bg-navy/5 pt-8">
+    {venue.heroImage ? <PublicHeroImage image={venue.heroImage} className="mt-8 h-52 rounded-2xl" /> : <div aria-hidden="true" className="mt-8 flex h-52 items-end justify-center gap-8 overflow-hidden rounded-2xl bg-navy/5 pt-8">
       <div className="h-32 w-20 border border-navy/15 bg-linen" />
       <div className="h-44 w-32 rounded-t-full border border-clay/30 bg-clay/10" />
       <div className="h-24 w-16 border border-navy/15 bg-linen" />
-    </div>
+    </div>}
     {venue.description && <p className="mt-8 max-w-3xl whitespace-pre-line leading-8">{venue.description}</p>}
     <section aria-labelledby="spaces-heading" className="mt-12">
       <h2 id="spaces-heading" className="text-3xl font-semibold text-navy">Spaces</h2>

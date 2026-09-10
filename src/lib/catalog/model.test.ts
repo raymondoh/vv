@@ -1,3 +1,4 @@
+import { selectHeroAsset, toPublicImage, type HeroAsset } from './media';
 import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -80,4 +81,39 @@ test('canonical URLs use authoritative IDs and the current slug', () => {
   assert.equal(canonicalVenueRedirect({ id: 'id', slug: 'current' }, 'current'), null);
   assert.notEqual(venuePath('first', 'same-slug'), venuePath('second', 'same-slug'));
   assert.equal(venuePath('id', 'a/b'), '/venues/id/a%2Fb');
+});
+
+const heroAsset: HeroAsset = {
+  id: 'hero', status: 'ready', media_kind: 'image', storage_bucket: 'venue-media',
+  storage_path: 'organization/hero/photo.jpg', alt_text: null, width_px: 1200, height_px: 800,
+};
+const heroAttachment = { venue_id: 'v', media_asset_id: 'hero', purpose: 'hero' };
+
+test('only a ready image in the expected bucket and explicit hero attachment is selected', () => {
+  assert.equal(selectHeroAsset('v', [heroAttachment], [heroAsset]), heroAsset);
+  for (const status of ['processing', 'failed', 'archived']) {
+    assert.equal(selectHeroAsset('v', [heroAttachment], [{ ...heroAsset, status }]), null);
+  }
+  for (const media_kind of ['video', 'document']) {
+    assert.equal(selectHeroAsset('v', [heroAttachment], [{ ...heroAsset, media_kind }]), null);
+  }
+  assert.equal(selectHeroAsset('v', [heroAttachment], [{ ...heroAsset, storage_bucket: 'other' }]), null);
+  assert.equal(selectHeroAsset('v', [{ ...heroAttachment, purpose: 'gallery' }], [heroAsset]), null);
+  assert.equal(selectHeroAsset('other', [heroAttachment], [heroAsset]), null);
+  assert.equal(selectHeroAsset('v', [], [heroAsset]), null);
+  assert.equal(selectHeroAsset('v', [heroAttachment], []), null);
+});
+
+test('resolved image metadata is identical on discovery/detail and does not expose storage fields', () => {
+  const image = toPublicImage(heroAsset, 'https://example.test/signed-image');
+  assert.deepEqual(image, { id: 'hero', url: 'https://example.test/signed-image', altText: null, width: 1200, height: 800 });
+  assert.equal(toPublicImage({ ...heroAsset, alt_text: 'Courtyard' }, image.url).altText, 'Courtyard');
+  const detailVenue = {
+    ...venue, address_line_1: null, address_line_2: null, postal_code: null,
+    latitude: null, longitude: null, published_at: null,
+  };
+  assert.deepEqual(toVenueCard(venue, [], [], now, image).heroImage,
+    toVenueDetail(detailVenue, [], [], [], now, image).heroImage);
+  assert.equal(toVenueCard(venue, [], [], now).heroImage, null);
+  assert.equal(toVenueDetail(detailVenue, [], [], [], now).heroImage, null);
 });

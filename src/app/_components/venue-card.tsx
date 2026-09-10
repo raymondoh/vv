@@ -1,3 +1,4 @@
+import { PublicHeroImage } from './public-image';
 import Link from 'next/link';
 import { venuePath } from '@/lib/catalog/detail';
 import type { VenueCardModel } from '@/lib/catalog/model';
@@ -8,11 +9,11 @@ const units = { hourly: 'per hour', daily: 'per day', flat: 'flat rate' } as con
 export function VenueCard({ venue }: { venue: VenueCardModel }) {
   const location = [venue.city, venue.region, venue.countryCode].filter(Boolean).join(', ');
   return <article className="overflow-hidden rounded-2xl border border-navy/15 bg-white/50">
-    <div aria-hidden="true" className="flex h-40 items-end justify-center gap-4 overflow-hidden bg-navy/5 px-12 pt-8">
+    {venue.heroImage ? <PublicHeroImage image={venue.heroImage} className="h-40" /> : <div aria-hidden="true" className="flex h-40 items-end justify-center gap-4 overflow-hidden bg-navy/5 px-12 pt-8">
       <div className="h-24 w-16 border border-navy/15 bg-linen" />
       <div className="h-32 w-24 rounded-t-full border border-clay/30 bg-clay/10" />
       <div className="h-20 w-12 border border-navy/15 bg-linen" />
-    </div>
+    </div>}
     <div className="space-y-4 p-6">
       <h3 className="text-xl font-semibold text-navy">{venue.name}</h3>
       {location && <p className="text-sm text-slate/75">{location}</p>}

@@ -1,6 +1,8 @@
+import type { PublicImage } from './media';
 import type { Database } from '../supabase/database.types';
 
 export type VenueCardModel = {
+  heroImage: PublicImage | null;
   id: string;
   slug: string;
   name: string;
@@ -20,7 +22,7 @@ export type SpaceRow = Pick<Database['public']['Tables']['spaces']['Row'],
 export type RateRow = Pick<Database['public']['Views']['catalog_space_rate_plans']['Row'],
   'id' | 'space_id' | 'pricing_model' | 'unit_amount_minor' | 'currency_code' | 'weekdays' | 'valid_from' | 'valid_until' | 'priority'>;
 
-export function toVenueCard(venue: VenueRow, spaces: SpaceRow[], rates: RateRow[], now: Date): VenueCardModel {
+export function toVenueCard(venue: VenueRow, spaces: SpaceRow[], rates: RateRow[], now: Date, heroImage: PublicImage | null = null): VenueCardModel {
   const { id, slug, name, default_currency_code: currency, timezone } = venue;
   if (!id || !slug || !name || !currency || !timezone) throw new Error('Incomplete public venue summary');
   const publicSpaces = spaces.filter((space) => space.venue_id === id);
@@ -35,7 +37,7 @@ export function toVenueCard(venue: VenueRow, spaces: SpaceRow[], rates: RateRow[
   const comparable = new Set(candidates.map((price) => price.model)).size === 1;
   const startingPrice = comparable ? candidates.reduce((min, price) => price.amountMinor < min.amountMinor ? price : min) : null;
   return {
-    id, slug, name, description: venue.description, city: venue.city, region: venue.region,
+    heroImage, id, slug, name, description: venue.description, city: venue.city, region: venue.region,
     countryCode: venue.country_code, currency,
     maximumCapacity: capacities.length ? Math.max(...capacities) : null,
     startingPrice,

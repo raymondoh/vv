@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { getVenueHeroes } from './media-query';
+
 import { createClient } from '../supabase/server';
 import { toVenueCard, type SpaceRow, type RateRow } from './model';
 
@@ -36,6 +38,7 @@ export async function getCatalog() {
       .select('id, space_id, pricing_model, unit_amount_minor, currency_code, weekdays, valid_from, valid_until, priority')
       .in('space_id', spaceIds).order('id').range(from, to)));
   }
+  const heroes = await getVenueHeroes(supabase, ids);
   const now = new Date();
-  return venues.map((venue) => toVenueCard(venue, spaces, rates, now));
+  return venues.map((venue) => toVenueCard(venue, spaces, rates, now, heroes.get(venue.id!) ?? null));
 }

@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { getVenueHeroes } from './media-query';
+
 import { createClient } from '../supabase/server';
 import { allRows } from './query';
 import { toVenueDetail, type DetailSpaceRow, type LayoutRow } from './detail';
@@ -28,5 +30,7 @@ export async function getVenueDetail(venueId: string) {
       .select('id, space_id, pricing_model, unit_amount_minor, currency_code, weekdays, valid_from, valid_until, priority')
       .in('space_id', ids).order('id').range(from, to)));
   }
-  return toVenueDetail(venue, spaces, layouts, rates, new Date());
+  if (!venue.id) throw new Error('Missing public venue ID');
+  const heroes = await getVenueHeroes(supabase, [venue.id]);
+  return toVenueDetail(venue, spaces, layouts, rates, new Date(), heroes.get(venue.id) ?? null);
 }
