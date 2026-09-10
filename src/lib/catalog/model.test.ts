@@ -1,3 +1,4 @@
+import { normalizeCatalogSearch, escapeRegexLiteral, catalogSearchRegex } from './search';
 import { selectHeroAsset, selectGalleryAssets, toSpaceMedia, type SpaceMediaAttachment, toVenueMedia, toPublicImage, type HeroAsset } from './media';
 import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
@@ -237,4 +238,45 @@ test('detail adds exact-space media while preserving pricing, capacities, layout
   assert.equal('spaces' in discovery, false);
   assert.equal('galleryImages' in discovery, false);
   assert.deepEqual(discovery.heroImage, venueMedia.heroImage);
+});
+
+test('search normalization handles blank, duplicate, trimmed and capped inputs', () => {
+  assert.deepEqual(normalizeCatalogSearch({}), { name: null, city: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: '  ', city: '\t' }), { name: null, city: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen House ', city: ' loNDOn ' }), { name: 'Linen House', city: 'loNDOn' });
+  assert.deepEqual(normalizeCatalogSearch({ q: [' First ', 'Second'], city: [' London ', 'Paris'] }), { name: 'First', city: 'London' });
+  assert.deepEqual(normalizeCatalogSearch({ q: [], city: ['', 'Paris'] }), { name: null, city: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: 'x'.repeat(121), city: 'y'.repeat(121) }), { name: 'x'.repeat(120), city: 'y'.repeat(120) });
+});
+
+test('regex escaping preserves literal metacharacters, percent and underscore', () => {
+  for (const character of ['*', '.', '+', '?', '^', '$', '{', '}', '(', ')', '|', '[', ']', '\\']) {
+    assert.equal(escapeRegexLiteral(character), `\\${character}`);
+  }
+  assert.equal(escapeRegexLiteral('%_-'), '%_-');
+  assert.equal(escapeRegexLiteral('50%_*.Hall[1]'), '50%_\\*\\.Hall\\[1\\]');
+  assert.equal(escapeRegexLiteral('50%_*\\'), '50%_\\*\\\\');
+  for (const literal of ['.*', 'a|b', '(?i)Hall', '[a-z]+', '^Hall$', 'a{1,3}', '\\d', '50%_*.Hall[1]']) {
+    const escaped = escapeRegexLiteral(literal);
+    // These literal constructs share syntax with PostgreSQL; live PostgreSQL checks remain separate.
+    const regex = new RegExp(`^${escaped}$`, 'i');
+    assert.equal(regex.test(literal), true);
+    assert.equal(regex.test('unrelated venue'), false);
+  }
+});
+
+test('name regex is unanchored, city is anchored, and criteria remain separate', () => {
+  assert.deepEqual(catalogSearchRegex({ name: 'Linen', city: 'loNDOn' }), { name: 'Linen', city: '^loNDOn$' });
+  assert.deepEqual(catalogSearchRegex({ name: '*', city: '*' }), { name: '\\*', city: '^\\*$' });
+  assert.deepEqual(catalogSearchRegex({ name: '50%_*.Hall[1]', city: '50%_*.Hall[1]' }), {
+    name: '50%_\\*\\.Hall\\[1\\]', city: '^50%_\\*\\.Hall\\[1\\]$',
+  });
+  assert.deepEqual(catalogSearchRegex({ name: null, city: 'London' }), { name: null, city: '^London$' });
+  assert.deepEqual(catalogSearchRegex({ name: 'House', city: null }), { name: 'House', city: null });
+  assert.deepEqual(catalogSearchRegex({ name: null, city: null }), { name: null, city: null });
+  const patterns = catalogSearchRegex({ name: 'Linen', city: 'London' });
+  assert.equal(new RegExp(patterns.name!, 'i').test('The LINEN House'), true);
+  assert.equal(new RegExp(patterns.city!, 'i').test('london'), true);
+  assert.equal(new RegExp(patterns.city!, 'i').test('Greater London'), false);
+  assert.equal(new RegExp(patterns.city!, 'i').test('London Road'), false);
 });

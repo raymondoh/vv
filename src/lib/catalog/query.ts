@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { catalogSearchRegex, type CatalogSearch } from './search';
+
 import { getVenueHeroes } from './media-query';
 
 import { createClient } from '../supabase/server';
@@ -15,11 +17,15 @@ export async function allRows<T>(query: (from: number, to: number) => PromiseLik
   }
 }
 
-export async function getCatalog() {
+export async function getCatalog(search: CatalogSearch = { name: null, city: null }) {
   const supabase = await createClient();
   // A bounded first discovery page; no private venue table or prototype data.
-  const { data: venues, error } = await supabase.from('catalog_venues')
-    .select('id, slug, name, description, city, region, country_code, default_currency_code, timezone')
+  const patterns = catalogSearchRegex(search);
+  let query = supabase.from('catalog_venues')
+    .select('id, slug, name, description, city, region, country_code, default_currency_code, timezone');
+  if (patterns.name !== null) query = query.filter('name', 'imatch', patterns.name);
+  if (patterns.city !== null) query = query.filter('city', 'imatch', patterns.city);
+  const { data: venues, error } = await query
     .order('published_at', { ascending: false }).order('id').limit(24);
   if (error || !venues) throw new Error('Public catalog query failed');
   if (!venues.length) return [];
