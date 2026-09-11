@@ -3061,6 +3061,39 @@ export type Database = {
           requested_refund_id: string
         }[]
       }
+      search_catalog_venues: {
+        Args: {
+          city_query?: string
+          end_local?: string
+          guests?: number
+          name_query?: string
+          start_local?: string
+        }
+        Returns: {
+          address_line_1: string | null
+          address_line_2: string | null
+          city: string | null
+          country_code: string | null
+          default_currency_code: string | null
+          description: string | null
+          id: string | null
+          latitude: number | null
+          longitude: number | null
+          maximum_capacity: number | null
+          name: string | null
+          postal_code: string | null
+          published_at: string | null
+          region: string | null
+          slug: string | null
+          timezone: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "catalog_venues"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       set_organization_member_role: {
         Args: {
           new_role_value: string

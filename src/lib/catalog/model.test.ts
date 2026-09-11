@@ -1,4 +1,4 @@
-import { normalizeCatalogSearch, escapeRegexLiteral, catalogSearchRegex } from './search';
+import { normalizeCatalogSearch } from './search';
 import { selectHeroAsset, selectGalleryAssets, toSpaceMedia, type SpaceMediaAttachment, toVenueMedia, toPublicImage, type HeroAsset } from './media';
 import { toVenueDetail, canonicalVenueRedirect, venuePath } from './detail';
 import assert from 'node:assert/strict';
@@ -240,44 +240,12 @@ test('detail adds exact-space media while preserving pricing, capacities, layout
 });
 
 test('search normalization handles blank, duplicate, trimmed and capped inputs', () => {
-  assert.deepEqual(normalizeCatalogSearch({}), { name: null, city: null, guests: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: '  ', city: '\t' }), { name: null, city: null, guests: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen House ', city: ' loNDOn ' }), { name: 'Linen House', city: 'loNDOn', guests: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: [' First ', 'Second'], city: [' London ', 'Paris'] }), { name: 'First', city: 'London', guests: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: [], city: ['', 'Paris'] }), { name: null, city: null, guests: null });
-  assert.deepEqual(normalizeCatalogSearch({ q: 'x'.repeat(121), city: 'y'.repeat(121) }), { name: 'x'.repeat(120), city: 'y'.repeat(120), guests: null });
-});
-
-test('regex escaping preserves literal metacharacters, percent and underscore', () => {
-  for (const character of ['*', '.', '+', '?', '^', '$', '{', '}', '(', ')', '|', '[', ']', '\\']) {
-    assert.equal(escapeRegexLiteral(character), `\\${character}`);
-  }
-  assert.equal(escapeRegexLiteral('%_-'), '%_-');
-  assert.equal(escapeRegexLiteral('50%_*.Hall[1]'), '50%_\\*\\.Hall\\[1\\]');
-  assert.equal(escapeRegexLiteral('50%_*\\'), '50%_\\*\\\\');
-  for (const literal of ['.*', 'a|b', '(?i)Hall', '[a-z]+', '^Hall$', 'a{1,3}', '\\d', '50%_*.Hall[1]']) {
-    const escaped = escapeRegexLiteral(literal);
-    // These literal constructs share syntax with PostgreSQL; live PostgreSQL checks remain separate.
-    const regex = new RegExp(`^${escaped}$`, 'i');
-    assert.equal(regex.test(literal), true);
-    assert.equal(regex.test('unrelated venue'), false);
-  }
-});
-
-test('name regex is unanchored, city is anchored, and criteria remain separate', () => {
-  assert.deepEqual(catalogSearchRegex({ name: 'Linen', city: 'loNDOn' }), { name: 'Linen', city: '^loNDOn$' });
-  assert.deepEqual(catalogSearchRegex({ name: '*', city: '*' }), { name: '\\*', city: '^\\*$' });
-  assert.deepEqual(catalogSearchRegex({ name: '50%_*.Hall[1]', city: '50%_*.Hall[1]' }), {
-    name: '50%_\\*\\.Hall\\[1\\]', city: '^50%_\\*\\.Hall\\[1\\]$',
-  });
-  assert.deepEqual(catalogSearchRegex({ name: null, city: 'London' }), { name: null, city: '^London$' });
-  assert.deepEqual(catalogSearchRegex({ name: 'House', city: null }), { name: 'House', city: null });
-  assert.deepEqual(catalogSearchRegex({ name: null, city: null }), { name: null, city: null });
-  const patterns = catalogSearchRegex({ name: 'Linen', city: 'London' });
-  assert.equal(new RegExp(patterns.name!, 'i').test('The LINEN House'), true);
-  assert.equal(new RegExp(patterns.city!, 'i').test('london'), true);
-  assert.equal(new RegExp(patterns.city!, 'i').test('Greater London'), false);
-  assert.equal(new RegExp(patterns.city!, 'i').test('London Road'), false);
+  assert.deepEqual(normalizeCatalogSearch({}), { name: null, city: null, guests: null, startLocal: null, endLocal: null, timeError: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: '  ', city: '\t' }), { name: null, city: null, guests: null, startLocal: null, endLocal: null, timeError: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen House ', city: ' loNDOn ' }), { name: 'Linen House', city: 'loNDOn', guests: null, startLocal: null, endLocal: null, timeError: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: [' First ', 'Second'], city: [' London ', 'Paris'] }), { name: 'First', city: 'London', guests: null, startLocal: null, endLocal: null, timeError: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: [], city: ['', 'Paris'] }), { name: null, city: null, guests: null, startLocal: null, endLocal: null, timeError: null });
+  assert.deepEqual(normalizeCatalogSearch({ q: 'x'.repeat(121), city: 'y'.repeat(121) }), { name: 'x'.repeat(120), city: 'y'.repeat(120), guests: null, startLocal: null, endLocal: null, timeError: null });
 });
 
 test('guest normalization accepts only bounded decimal integer text', () => {
@@ -290,5 +258,79 @@ test('guest normalization accepts only bounded decimal integer text', () => {
   assert.equal(normalizeCatalogSearch({ guests: ['00100', '200'] }).guests, 100);
   assert.equal(normalizeCatalogSearch({ guests: ['bad', '100'] }).guests, null);
   assert.equal(normalizeCatalogSearch({ guests: [] }).guests, null);
-  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen ', city: ' London ', guests: '120' }), { name: 'Linen', city: 'London', guests: 120 });
+  assert.deepEqual(normalizeCatalogSearch({ q: ' Linen ', city: ' London ', guests: '120' }), { name: 'Linen', city: 'London', guests: 120, startLocal: null, endLocal: null, timeError: null });
+});
+
+const noTime = { startLocal: null, endLocal: null, timeError: null };
+function normalizedTime(start?: string | string[], end?: string | string[]) {
+  const { startLocal, endLocal, timeError } = normalizeCatalogSearch({ start, end });
+  return { startLocal, endLocal, timeError };
+}
+
+test('absent and empty datetime controls leave discovery undated', () => {
+  assert.deepEqual(normalizedTime(), noTime);
+  assert.deepEqual(normalizedTime('', ''), noTime);
+  assert.deepEqual(normalizedTime([], []), noTime);
+});
+
+test('valid same-day, overnight and leap-day pairs preserve local components', () => {
+  for (const [start, end] of [
+    ['2026-11-14T18:00', '2026-11-14T20:00'],
+    ['2026-11-14T18:00', '2026-11-15T01:00'],
+    ['2028-02-29T00:00', '2028-02-29T23:59'],
+    ['2000-02-29T00:00', '2000-03-01T00:00'],
+    ['0001-01-01T00:00', '0001-01-01T00:01'],
+  ]) assert.deepEqual(normalizedTime(start, end), { startLocal: start, endLocal: end, timeError: null });
+});
+
+test('incomplete pairs retain the individually valid endpoint', () => {
+  const value = '2026-11-14T18:00';
+  for (const absent of [undefined, '']) {
+    assert.deepEqual(normalizedTime(value, absent), { startLocal: value, endLocal: null, timeError: 'incomplete' });
+    assert.deepEqual(normalizedTime(absent, value), { startLocal: null, endLocal: value, timeError: 'incomplete' });
+  }
+  assert.equal(normalizedTime('bad', '').timeError, 'incomplete');
+});
+
+test('calendar and lexical errors cannot become undated searches', () => {
+  const valid = '2026-11-14T18:00';
+  for (const invalid of [
+    '2026-13-01T18:00', '2026-00-01T18:00', '2026-04-31T18:00', '2026-01-00T18:00',
+    '2026-02-29T18:00', '1900-02-29T18:00', '0000-01-01T18:00',
+    '2026-11-14T24:00', '2026-11-14T18:60', '2026-11-14T18:00:00',
+    '2026-11-14T18:00Z', '2026-11-14T18:00+01:00', '2026-11-14T18:00 Europe/London',
+    ' 2026-11-14T18:00', '2026-11-14T18:00 ', '2026-11-14T18:00\n',
+    '2026-1-14T18:00', '2026-11-14', 'November 14 2026 18:00', ' ',
+  ]) {
+    assert.deepEqual(normalizedTime(invalid, valid), { startLocal: null, endLocal: valid, timeError: 'invalid' }, invalid);
+    assert.deepEqual(normalizedTime(valid, invalid), { startLocal: valid, endLocal: null, timeError: 'invalid' }, invalid);
+  }
+});
+
+test('equal and reversed local endpoints retain values but report order errors', () => {
+  const start = '2026-11-14T18:00';
+  for (const end of [start, '2026-11-14T17:59', '2026-11-13T23:59']) {
+    assert.deepEqual(normalizedTime(start, end), { startLocal: start, endLocal: end, timeError: 'order' });
+  }
+});
+
+test('duplicate datetime parameters always use the first value', () => {
+  const start = '2026-11-14T18:00';
+  const end = '2026-11-14T20:00';
+  assert.deepEqual(normalizedTime([start, 'bad'], [end, 'bad']), { startLocal: start, endLocal: end, timeError: null });
+  assert.equal(normalizedTime(['bad', start], end).timeError, 'invalid');
+  assert.equal(normalizedTime(start, ['bad', end]).timeError, 'invalid');
+  assert.deepEqual(normalizedTime(['', start], ['', end]), noTime);
+});
+
+test('name, city and guests compose with dates and survive invalid time input', () => {
+  const criteria = { q: ' Linen ', city: ' loNDOn ', guests: '100' };
+  const start = '2026-11-14T18:00';
+  const end = '2026-11-14T20:00';
+  assert.deepEqual(normalizeCatalogSearch({ ...criteria, start, end }), {
+    name: 'Linen', city: 'loNDOn', guests: 100, startLocal: start, endLocal: end, timeError: null,
+  });
+  assert.deepEqual(normalizeCatalogSearch({ ...criteria, start }), {
+    name: 'Linen', city: 'loNDOn', guests: 100, startLocal: start, endLocal: null, timeError: 'incomplete',
+  });
 });
