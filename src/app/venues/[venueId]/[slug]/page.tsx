@@ -2,20 +2,29 @@ import { PublicCatalogImage } from '@/app/_components/public-image';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getVenueDetail } from '@/lib/catalog/detail-query';
-import { canonicalVenueRedirect } from '@/lib/catalog/detail';
+import { canonicalVenueRedirect, venuePath } from '@/lib/catalog/detail';
 import { formatMoney } from '@/lib/catalog/money';
+
+import { eventContext, eventVenueUrl } from '@/lib/booking-request/presentation';
+import { firstValue, requestContextParams, type BookingRequestParams } from '@/lib/booking-request/model';
+import { bookingRequestUrl } from '@/lib/booking-request/urls';
+import { getEligibleBookingSpaces } from '@/lib/booking-request/query';
 
 export const dynamic = 'force-dynamic';
 const units = { hourly: 'per hour', daily: 'per day', flat: 'flat rate' } as const;
 
-export default async function VenuePage({ params }: {
+export default async function VenuePage({ params, searchParams }: {
   params: Promise<{ venueId: string; slug: string }>;
+  searchParams: Promise<BookingRequestParams>;
 }) {
   const { venueId, slug } = await params;
   const venue = await getVenueDetail(venueId);
   if (!venue) notFound();
+  const query = await searchParams;
+  const { absent, context } = eventContext(venueId, query);
   const canonical = canonicalVenueRedirect(venue, slug);
-  if (canonical) permanentRedirect(canonical);
+  if (canonical) permanentRedirect(eventVenueUrl(venue.id, venue.slug, query));
+  const eligibility = context ? await getEligibleBookingSpaces(context) : null;
   const address = [venue.addressLine1, venue.addressLine2, venue.city, venue.region, venue.postalCode, venue.countryCode].filter(Boolean).join(', ');
   return <main className="mx-auto max-w-6xl px-6 py-12 sm:px-12">
     <Link href="/" className="font-medium text-clay">← Back to discovery</Link>
@@ -36,11 +45,27 @@ export default async function VenuePage({ params }: {
         </figure>)}
       </div>
     </section>}
+    <section aria-labelledby="event-heading" className="mt-12 rounded-2xl border border-navy/15 p-6">
+      <h2 id="event-heading" className="text-2xl font-semibold text-navy">Your event details</h2>
+      <p className="mt-2">Times are local to this venue.</p>
+      {!absent && !context && <p role="alert" className="mt-3 text-clay">Enter a valid guest count and both local dates, with the end after the start.</p>}
+      <form action={venuePath(venue.id, venue.slug)} method="get" className="mt-5 flex flex-wrap items-end gap-4">
+        <label className="grid gap-2">Guests<input name="guests" type="number" min="1" max="100000" step="1" required defaultValue={firstValue(query.guests) ?? ''} className="rounded-lg border border-navy/25 bg-white p-3" /></label>
+        <label className="grid gap-2">Start<input name="start" type="datetime-local" step="60" required defaultValue={firstValue(query.start) ?? ''} className="rounded-lg border border-navy/25 bg-white p-3" /></label>
+        <label className="grid gap-2">End<input name="end" type="datetime-local" step="60" required defaultValue={firstValue(query.end) ?? ''} className="rounded-lg border border-navy/25 bg-white p-3" /></label>
+        <button className="rounded-lg bg-navy px-5 py-3 text-linen focus-visible:outline-2 focus-visible:outline-clay">Check spaces</button>
+      </form>
+      {eligibility?.ok === false && <p role="alert" className="mt-4 text-clay">We couldn’t check these event details. Check your dates and try again.</p>}
+      {eligibility?.ok === true && <p role="status" className="mt-4 text-sm">Availability is a current snapshot. Sending a request does not reserve the space.</p>}
+    </section>
     <section aria-labelledby="spaces-heading" className="mt-12">
       <h2 id="spaces-heading" className="text-3xl font-semibold text-navy">Spaces</h2>
       {!venue.spaces.length && <p className="mt-6">Space details are not available yet.</p>}
       <div className="mt-6 space-y-8">
         {venue.spaces.map((space) => <article key={space.id} className="space-y-5 rounded-2xl border border-navy/15 bg-white/50 p-6 sm:p-8">
+          {context && eligibility?.ok === true && (eligibility.data.includes(space.id)
+            ? <Link className="inline-block font-semibold text-clay underline focus-visible:outline-2" href={bookingRequestUrl(venue.id, { ...requestContextParams(context), space: space.id })!}>Request this space</Link>
+            : <p className="text-sm text-slate/75">Not eligible for these event details.</p>)}
           <h3 className="text-2xl font-semibold text-navy">{space.name}</h3>
           {space.heroImage && <PublicCatalogImage image={space.heroImage} className="h-48 rounded-xl sm:h-64" />}
           {space.description && <p className="whitespace-pre-line leading-7">{space.description}</p>}

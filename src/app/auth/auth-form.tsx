@@ -4,17 +4,20 @@ import Link from 'next/link';
 import { useActionState } from 'react';
 import { authenticate, type AuthState } from './actions';
 
-export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
+import { authReturnUrl } from '@/lib/booking-request/presentation';
+
+export function AuthForm({ mode, next }: { mode: 'login' | 'signup'; next?: string | null }) {
   const [state, action, pending] = useActionState(authenticate.bind(null, mode), {} as AuthState);
   const signup = mode === 'signup';
   if (state.confirmation) {
     return <div role="status" className="space-y-4 leading-7">
       <h2 className="text-xl font-semibold text-navy">Check your email</h2>
       <p>If confirmation is needed, follow the link in your email in this browser to finish signing up. If you already have an account, sign in.</p>
-      <Link href="/login" className="text-clay underline">Go to login</Link>
+      <Link href={authReturnUrl('/login', next)} className="text-clay underline">Go to login</Link>
     </div>;
   }
   return <form action={action} className="space-y-5">
+    {next && <input type="hidden" name="next" value={next} />}
     <div>
       <label htmlFor="email" className="mb-2 block font-medium">Email</label>
       <input id="email" name="email" type="email" autoComplete="email" required

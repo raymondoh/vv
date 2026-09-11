@@ -94,7 +94,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {search.endLocal !== null && <input type="hidden" name="end" value={search.endLocal} />}
             <button className="mt-4 text-clay underline">Try again</button></form>
         </div> : venues.length ? <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {venues.map((venue) => <VenueCard key={venue.id} venue={venue} />)}
+          {venues.map((venue) => <VenueCard key={venue.id} venue={venue} bookingContext={{ guests: search.guests === null ? undefined : String(search.guests), start: search.startLocal ?? undefined, end: search.endLocal ?? undefined }} />)}
         </div> : searchActive ? <div className="rounded-xl border border-navy/15 p-8">
           <h3 className="text-xl font-semibold text-navy">{availabilityActive ? 'No venues match your requested time' : 'No venues match your search'}</h3>
           <p className="mt-3 text-slate/75">{availabilityActive ? 'Try a different venue name, city, guest count, or event times, or clear your search.' : 'Try a different venue name, city, or guest count, or clear your search.'}</p>

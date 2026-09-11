@@ -5,9 +5,13 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 
+import { safeBookingReturnPath } from '@/lib/auth/return-path';
+import { authReturnUrl } from '@/lib/booking-request/presentation';
+
 export type AuthState = { error?: string; confirmation?: boolean };
 
 export async function authenticate(mode: 'login' | 'signup', _state: AuthState, form: FormData): Promise<AuthState> {
+  const next = safeBookingReturnPath(form.get('next'));
   const emailValue = form.get('email');
   const password = form.get('password');
   const email = typeof emailValue === 'string' ? emailValue.trim() : '';
@@ -33,7 +37,7 @@ export async function authenticate(mode: 'login' | 'signup', _state: AuthState, 
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: new URL('/auth/callback', origin).toString() },
+        options: { emailRedirectTo: new URL(authReturnUrl('/auth/callback', next), origin).toString() },
       });
       // Profile creation belongs exclusively to the database trigger; no metadata or profile writes.
       if (error) return { error: 'Unable to create an account. Check your details and password requirements, or try again later.' };
@@ -43,7 +47,7 @@ export async function authenticate(mode: 'login' | 'signup', _state: AuthState, 
     return { error: 'Authentication is temporarily unavailable. Please try again.' };
   }
   revalidatePath('/', 'layout');
-  redirect('/account');
+  redirect(next ?? '/account');
 }
 
 export async function logout(): Promise<AuthState> {
