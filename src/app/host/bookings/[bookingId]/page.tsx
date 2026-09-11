@@ -1,3 +1,5 @@
+import { DeclineForm } from './decline-form';
+import { canDecline } from '@/lib/host-requests/decline';
 import Link from 'next/link';
 import { ApprovalForm } from './approval-form';
 import { canApprove } from '@/lib/host-requests/approval';
@@ -39,6 +41,7 @@ export default async function HostBookingPage({ params }: { params: Promise<{ bo
       </dl>
     </section>
     <ApprovalForm key={result.data.bookingId} bookingId={result.data.bookingId} enabled={canApprove(result.data)} />
+    <DeclineForm key={`decline:${result.data.bookingId}`} bookingId={result.data.bookingId} enabled={canDecline(result.data)} />
     <section aria-labelledby="notes-heading" className="space-y-3">
       <h2 id="notes-heading" className="text-2xl font-semibold text-navy">Customer notes</h2>
       <p className="whitespace-pre-wrap">{booking.notes}</p>
