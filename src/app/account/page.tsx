@@ -32,7 +32,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     </section> : <ul className="space-y-6" aria-label="Your booking requests and events">
       {result.data.events.map(event => <li key={event.bookingId}><CustomerEventCard card={customerEventCard(event, now)} /></li>)}
     </ul>}
-    {links && <nav aria-label="Events pagination" className="mt-8 flex flex-wrap items-center gap-6">
+    {links && (links.previous || links.next) && <nav aria-label="Events pagination" className="mt-8 flex flex-wrap items-center gap-6">
       {links.previous && <Link href={links.previous} className={linkStyle} aria-label="Previous page of events">Previous</Link>}
       <span>Page {page}</span>
       {links.next && <Link href={links.next} className={linkStyle} aria-label="Next page of events">Next</Link>}
