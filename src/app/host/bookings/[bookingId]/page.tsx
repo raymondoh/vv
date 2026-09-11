@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { ApprovalForm } from './approval-form';
+import { canApprove } from '@/lib/host-requests/approval';
 import { notFound, redirect } from 'next/navigation';
 import { getHostBooking } from '@/lib/host-requests/query';
 import { hostPresentation } from '@/lib/host-requests/presentation';
@@ -36,6 +38,7 @@ export default async function HostBookingPage({ params }: { params: Promise<{ bo
         {booking.holdDeadline && <div><dt>Recorded hold deadline</dt><dd>{booking.holdDeadline.text} ({booking.holdDeadline.timezone})</dd></div>}
       </dl>
     </section>
+    <ApprovalForm key={result.data.bookingId} bookingId={result.data.bookingId} enabled={canApprove(result.data)} />
     <section aria-labelledby="notes-heading" className="space-y-3">
       <h2 id="notes-heading" className="text-2xl font-semibold text-navy">Customer notes</h2>
       <p className="whitespace-pre-wrap">{booking.notes}</p>
