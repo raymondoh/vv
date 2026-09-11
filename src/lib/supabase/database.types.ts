@@ -61,6 +61,13 @@ export type Database = {
             foreignKeyName: "booking_items_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -149,6 +156,13 @@ export type Database = {
             foreignKeyName: "booking_payment_schedule_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payment_schedule_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -230,6 +244,13 @@ export type Database = {
             foreignKeyName: "booking_payments_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -301,6 +322,13 @@ export type Database = {
             foreignKeyName: "booking_price_lines_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_price_lines_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -309,6 +337,13 @@ export type Database = {
             columns: ["booking_item_id"]
             isOneToOne: false
             referencedRelation: "booking_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_price_lines_booking_item_id_fkey"
+            columns: ["booking_item_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_item_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -381,6 +416,13 @@ export type Database = {
             foreignKeyName: "booking_space_allocations_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_space_allocations_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -389,6 +431,13 @@ export type Database = {
             columns: ["booking_item_id"]
             isOneToOne: false
             referencedRelation: "booking_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_space_allocations_booking_item_id_fkey"
+            columns: ["booking_item_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_item_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -444,6 +493,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_status_history_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -520,6 +576,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_transfers_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -824,6 +887,13 @@ export type Database = {
             foreignKeyName: "event_plans_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: true
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_plans_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -888,6 +958,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_tour_appointments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -1357,6 +1434,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_refunds_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -2280,6 +2364,56 @@ export type Database = {
         }
         Relationships: []
       }
+      my_booking_item_summaries: {
+        Row: {
+          booking_id: string | null
+          id: string | null
+          item_ends_at: string | null
+          item_starts_at: string | null
+          layout_name: string | null
+          sort_order: number | null
+          space_id: string | null
+          space_layout_id: string | null
+          space_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_space_layout_id_fkey"
+            columns: ["space_layout_id"]
+            isOneToOne: false
+            referencedRelation: "space_layouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       my_booking_items: {
         Row: {
           booking_id: string | null
@@ -2298,6 +2432,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -2363,6 +2504,13 @@ export type Database = {
             foreignKeyName: "booking_payment_schedule_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payment_schedule_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -2390,6 +2538,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -2439,6 +2594,13 @@ export type Database = {
             foreignKeyName: "booking_price_lines_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_price_lines_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -2447,6 +2609,13 @@ export type Database = {
             columns: ["booking_item_id"]
             isOneToOne: false
             referencedRelation: "booking_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_price_lines_booking_item_id_fkey"
+            columns: ["booking_item_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_item_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -2478,7 +2647,86 @@ export type Database = {
             foreignKeyName: "booking_status_history_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_status_history_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      my_booking_summaries: {
+        Row: {
+          booking_reference: string | null
+          booking_status: string | null
+          created_at: string | null
+          currency_code: string | null
+          customer_total_minor: number | null
+          event_ends_at: string | null
+          event_starts_at: string | null
+          event_type: string | null
+          guest_count: number | null
+          hold_expires_at: string | null
+          id: string | null
+          payment_status: string | null
+          submitted_at: string | null
+          venue_id: string | null
+          venue_name: string | null
+          venue_timezone: string | null
+        }
+        Insert: {
+          booking_reference?: string | null
+          booking_status?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          customer_total_minor?: number | null
+          event_ends_at?: string | null
+          event_starts_at?: string | null
+          event_type?: string | null
+          guest_count?: number | null
+          hold_expires_at?: string | null
+          id?: string | null
+          payment_status?: string | null
+          submitted_at?: string | null
+          venue_id?: string | null
+          venue_name?: never
+          venue_timezone?: never
+        }
+        Update: {
+          booking_reference?: string | null
+          booking_status?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          customer_total_minor?: number | null
+          event_ends_at?: string | null
+          event_starts_at?: string | null
+          event_type?: string | null
+          guest_count?: number | null
+          hold_expires_at?: string | null
+          id?: string | null
+          payment_status?: string | null
+          submitted_at?: string | null
+          venue_id?: string | null
+          venue_name?: never
+          venue_timezone?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -2594,6 +2842,13 @@ export type Database = {
             foreignKeyName: "payment_refunds_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_refunds_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -2678,6 +2933,13 @@ export type Database = {
             foreignKeyName: "booking_payments_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: false
+            referencedRelation: "my_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
             referencedRelation: "my_bookings"
             referencedColumns: ["id"]
           },
@@ -2746,6 +3008,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_refunds_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "my_booking_summaries"
             referencedColumns: ["id"]
           },
           {
@@ -3018,6 +3287,17 @@ export type Database = {
           status: string
         }[]
       }
+      get_eligible_booking_spaces: {
+        Args: {
+          end_local: string
+          guests: number
+          start_local: string
+          target_venue_id: string
+        }
+        Returns: {
+          space_id: string
+        }[]
+      }
       publish_venue: {
         Args: { target_venue_id: string }
         Returns: {
@@ -3130,6 +3410,29 @@ export type Database = {
           guest_count_value?: number
           request_details?: Json
           selected_items: Json
+          submission_id: string
+          target_venue_id: string
+        }
+        Returns: {
+          booking_reference: string
+          customer_total_minor: number
+          deposit_amount_minor: number
+          final_amount_minor: number
+          final_due_at: string
+          items_created: number
+          status: string
+          submitted_booking_id: string
+        }[]
+      }
+      submit_booking_request_local: {
+        Args: {
+          end_local: string
+          event_type?: string
+          guest_count: number
+          notes?: string
+          selected_layout_id?: string
+          selected_space_id: string
+          start_local: string
           submission_id: string
           target_venue_id: string
         }
