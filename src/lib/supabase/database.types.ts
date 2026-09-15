@@ -3410,6 +3410,23 @@ export type Database = {
           cancelled_blackout_id: string
         }[]
       }
+      claim_payment_provider_events: {
+        Args: { batch_limit?: number }
+        Returns: {
+          attempt_count: number
+          claim_token: string
+          event_id: number
+          event_type: string
+          integration_environment: string
+          lease_expires_at: string
+          normalized_payload: Json
+          occurred_at: string
+          provider: string
+          provider_account_scope: string
+          provider_event_id: string
+          receipt_id: string
+        }[]
+      }
       complete_booking: {
         Args: { target_booking_id: string }
         Returns: {
@@ -3583,6 +3600,13 @@ export type Database = {
           status: string
         }[]
       }
+      fail_payment_provider_event: {
+        Args: { claim_token: string; error_code: string; event_id: number }
+        Returns: {
+          next_attempt_at: string
+          processing_state: string
+        }[]
+      }
       get_deposit_payment_creation_context: {
         Args: { target_payment_id: string }
         Returns: {
@@ -3609,6 +3633,21 @@ export type Database = {
           space_id: string
         }[]
       }
+      ingest_payment_provider_event: {
+        Args: {
+          account_scope_value: string
+          environment_value: string
+          event_id_value: string
+          event_type_value: string
+          normalized_payload: Json
+          occurred_at_value: string
+          provider_value: string
+        }
+        Returns: {
+          event_id: number
+          ingestion_result: string
+        }[]
+      }
       prepare_deposit_payment: {
         Args: { target_booking_id: string }
         Returns: {
@@ -3627,6 +3666,14 @@ export type Database = {
           first_published_at: string
           venue_id: string
           venue_status: string
+        }[]
+      }
+      record_payment_provider_receipt: {
+        Args: { claim_token: string; event_id: number }
+        Returns: {
+          processing_state: string
+          receipt_id: string
+          recording_result: string
         }[]
       }
       register_media_asset: {
@@ -3663,6 +3710,10 @@ export type Database = {
           remaining_refundable_minor: number
           requested_refund_id: string
         }[]
+      }
+      review_payment_provider_event: {
+        Args: { claim_token: string; event_id: number; reason_code: string }
+        Returns: string
       }
       search_catalog_venues: {
         Args: {
