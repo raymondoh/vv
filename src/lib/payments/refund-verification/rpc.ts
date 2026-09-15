@@ -1,9 +1,9 @@
 import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../supabase/database.types';
-import type { Evidence } from './model';
+import type { Evidence, Scope } from './model';
 import { createStripeReader, environmentRoute } from './stripe-reader';
-import { verifyAndReconcile, type VerificationRequest, type VerificationPorts } from './service';
+import { verifyAndReconcile, verifyHistoricalEvidence, type VerificationRequest, type VerificationPorts } from './service';
 
 /** Exact narrow RPC contracts for unapplied migrations. Do not hand-edit the
  * generated database file; replace this overlay after authorized regeneration.
@@ -17,6 +17,15 @@ type ContextRow = {
 };
 type VerificationDatabase = Omit<Database, 'public'> & {
   public: Omit<Database['public'], 'Functions'> & { Functions: Database['public']['Functions'] & {
+    get_ordinary_refund_verification_context: { Args: { target_refund_id: string }; Returns: {
+      refund_request_id: string; payment_id: string; booking_id: string; provider_refund_id: string;
+      provider: string; integration_environment: string; provider_account_scope: string;
+      provider_payment_id: string; provider_charge_id: string; amount_minor: number; currency_code: string; request_status: string;
+    }[] };
+    apply_ordinary_refund_success: { Args: { target_refund_id: string; refund_receipt_id: string }; Returns: {
+      application_id: string | null; outcome: string; reason_code: string; payment_refunded_total_minor: number | null;
+      payment_status: string | null; booking_payment_status: string | null;
+    }[] };
     get_payment_refund_verification_context: { Args: { target_obligation_id: string }; Returns: ContextRow[] };
     record_payment_refund_success_evidence: { Args: {
       provider_value: string; environment_value: string; account_scope_value: string;
@@ -38,6 +47,8 @@ function createPorts(): VerificationPorts {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
   return {
+    ordinaryContext: async (id) => db.rpc('get_ordinary_refund_verification_context', { target_refund_id: id }),
+    applyOrdinary: async (id, receiptId) => db.rpc('apply_ordinary_refund_success', { target_refund_id: id, refund_receipt_id: receiptId }),
     context: async (id) => db.rpc('get_payment_refund_verification_context', { target_obligation_id: id }),
     read: createStripeReader(environmentRoute),
     record: async (e: Evidence) => db.rpc('record_payment_refund_success_evidence', {
@@ -53,5 +64,11 @@ function createPorts(): VerificationPorts {
 /** Trusted server entry only; intentionally not a Server Action or route. */
 export async function verifyHistoricalRefund(request: VerificationRequest) {
   try { return await verifyAndReconcile(request, createPorts()); }
-  catch { return { code: 'CONTEXT_UNAVAILABLE', disposition: 'manual_review' } as const; }
+  catch { return { stage: 'provider', code: 'CONTEXT_UNAVAILABLE', disposition: 'manual_review' } as const; }
+}
+
+/** Historical observations never select a financial workflow. */
+export async function recordHistoricalRefundEvidence(request: { refundId: string; historicalScope: Scope }) {
+  try { return await verifyHistoricalEvidence(request, createPorts()); }
+  catch { return { stage: 'provider', code: 'CONTEXT_UNAVAILABLE', disposition: 'manual_review' } as const; }
 }

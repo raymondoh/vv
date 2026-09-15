@@ -1,8 +1,7 @@
 /** Provider evidence is distinct from VV association. No metadata is accepted. */
 export type Environment = 'test' | 'live';
 export type Scope = { provider: 'stripe'; environment: Environment; accountScope: string };
-export type Context = Scope & {
-  obligationId: string;
+export type FinancialContext = Scope & {
   refundId: string | null;
   paymentIntentId: string;
   chargeId: string;
@@ -13,6 +12,11 @@ export type Context = Scope & {
   correlation: 'matched' | 'uncorrelated' | 'mismatch';
   candidateCount: number;
 };
+export type Context = FinancialContext & { obligationId: string };
+export type OrdinaryContext = FinancialContext & { refundRequestId: string; requestStatus: string };
+export type RefundWorkflowTarget =
+  | { kind: 'compensation'; obligationId: string }
+  | { kind: 'ordinary'; refundRequestId: string };
 export type Evidence = Scope & {
   refundId: string;
   paymentIntentId: string;
@@ -56,3 +60,11 @@ export type CreationRecovery =
   | { state: 'known_refund'; refundId: string }
   | { state: 'same_key_recovery'; idempotencyKey: string; permittedUntil: string }
   | { state: 'manual_review'; reason: 'RECOVERY_WINDOW_EXHAUSTED' };
+
+export function parseTarget(value: unknown): RefundWorkflowTarget | null {
+  const r = object(value);
+  if (!r || typeof r.kind !== 'string' || Object.keys(r).length !== 2) return null;
+  if (r.kind === 'compensation' && uuid(r.obligationId)) return { kind: r.kind, obligationId: r.obligationId.toLowerCase() };
+  if (r.kind === 'ordinary' && uuid(r.refundRequestId)) return { kind: r.kind, refundRequestId: r.refundRequestId.toLowerCase() };
+  return null;
+}

@@ -1,4 +1,4 @@
-import { type Context, object, providerId, uuid } from './model';
+import { type Context, type OrdinaryContext, object, providerId, uuid } from './model';
 
 /** Generated view/RPC nullable types never bypass runtime validation. */
 export function parseContext(value: unknown, expectedId: string): Context | null {
@@ -23,4 +23,17 @@ export function parseContext(value: unknown, expectedId: string): Context | null
     paymentIntentId: r.provider_payment_id, chargeId: r.provider_charge_id, amountMinor: r.amount_minor, currency: r.currency_code,
     bookingId: r.booking_id, paymentId: r.payment_id,
     correlation: r.correlation_status, candidateCount: r.candidate_count };
+}
+
+/** The SQL RPC returns no row for missing binding or unsafe historical identity. */
+export function parseOrdinaryContext(value: unknown, expectedId: string): OrdinaryContext | null {
+  if (!Array.isArray(value) || value.length !== 1) return null;
+  const r = object(value[0]);
+  if (!r || !uuid(r.refund_request_id) || r.refund_request_id.toLowerCase() !== expectedId.toLowerCase()
+    || !uuid(r.payment_id) || !uuid(r.booking_id) || !providerId(r.provider_refund_id, 're')
+    || typeof r.request_status !== 'string' || !['pending','processing','succeeded','failed','cancelled'].includes(r.request_status)) return null;
+  const common = parseContext([{ ...r, obligation_id: r.refund_request_id, correlation_status: 'matched', candidate_count: 1 }], expectedId);
+  if (!common) return null;
+  const { obligationId, ...financial } = common;
+  return { ...financial, refundRequestId: obligationId, requestStatus: r.request_status };
 }

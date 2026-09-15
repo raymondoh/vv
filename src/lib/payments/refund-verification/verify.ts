@@ -1,7 +1,7 @@
-import { type Context, type Decision, type Observation, type Scope, failure, object, providerId, relatedId } from './model';
+import { type FinancialContext, type Decision, type Observation, type Scope, failure, object, providerId, relatedId } from './model';
 
 /** Only the server reader establishes authenticity. This pure function checks its facts. */
-export function verifyRefund(input: Observation, expected: Scope, requestedId: string, context: Context | null): Decision {
+export function verifyRefund(input: Observation, expected: Scope, requestedId: string, context: FinancialContext | null): Decision {
   if (expected.provider !== 'stripe' || !providerId(expected.accountScope, 'acct')
     || input.scope.provider !== expected.provider || input.scope.accountScope !== expected.accountScope) return failure('ACCOUNT_MISMATCH');
   if (!['test', 'live'].includes(expected.environment) || input.scope.environment !== expected.environment) return failure('MODE_MISMATCH');
