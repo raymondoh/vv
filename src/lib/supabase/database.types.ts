@@ -3391,6 +3391,17 @@ export type Database = {
           payment_state: string
         }[]
       }
+      attach_payment_refund_provider: {
+        Args: {
+          claim_token: string
+          obligation_id: string
+          provider_refund_id: string
+        }
+        Returns: {
+          next_attempt_at: string
+          obligation_state: string
+        }[]
+      }
       cancel_booking: {
         Args: { cancellation_reason: string; target_booking_id: string }
         Returns: {
@@ -3431,6 +3442,15 @@ export type Database = {
           provider_account_scope: string
           provider_event_id: string
           receipt_id: string
+        }[]
+      }
+      claim_payment_refund_obligations: {
+        Args: { batch_limit?: number }
+        Returns: {
+          attempt_count: number
+          claim_token: string
+          lease_expires_at: string
+          obligation_id: string
         }[]
       }
       complete_booking: {
@@ -3613,6 +3633,13 @@ export type Database = {
           processing_state: string
         }[]
       }
+      fail_payment_refund_obligation: {
+        Args: { claim_token: string; error_code: string; obligation_id: string }
+        Returns: {
+          next_attempt_at: string
+          obligation_state: string
+        }[]
+      }
       get_deposit_payment_creation_context: {
         Args: { target_payment_id: string }
         Returns: {
@@ -3637,6 +3664,25 @@ export type Database = {
         }
         Returns: {
           space_id: string
+        }[]
+      }
+      get_payment_refund_execution_context: {
+        Args: { claim_token: string; obligation_id: string }
+        Returns: {
+          action: string
+          amount_minor: number
+          currency_code: string
+          integration_environment: string
+          lease_expires_at: string
+          provider: string
+          provider_account_scope: string
+          provider_charge_id: string
+          provider_idempotency_key: string
+          provider_payment_id: string
+          provider_refund_id: string
+          refund_application_fee: boolean
+          refund_obligation_id: string
+          reverse_transfer: boolean
         }[]
       }
       ingest_payment_provider_event: {
@@ -3730,6 +3776,14 @@ export type Database = {
       }
       review_payment_provider_event: {
         Args: { claim_token: string; event_id: number; reason_code: string }
+        Returns: string
+      }
+      review_payment_refund_obligation: {
+        Args: {
+          claim_token: string
+          obligation_id: string
+          reason_code: string
+        }
         Returns: string
       }
       search_catalog_venues: {
