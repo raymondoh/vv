@@ -201,10 +201,12 @@ export type Database = {
           payment_schedule_id: string | null
           payment_status: string
           provider: string
+          provider_charge_id: string | null
           provider_destination_account_id: string | null
           provider_fee_minor: number | null
           provider_idempotency_key: string | null
           provider_payment_id: string | null
+          provider_success_at: string | null
           succeeded_at: string | null
           updated_at: string
         }
@@ -226,10 +228,12 @@ export type Database = {
           payment_schedule_id?: string | null
           payment_status?: string
           provider: string
+          provider_charge_id?: string | null
           provider_destination_account_id?: string | null
           provider_fee_minor?: number | null
           provider_idempotency_key?: string | null
           provider_payment_id?: string | null
+          provider_success_at?: string | null
           succeeded_at?: string | null
           updated_at?: string
         }
@@ -251,10 +255,12 @@ export type Database = {
           payment_schedule_id?: string | null
           payment_status?: string
           provider?: string
+          provider_charge_id?: string | null
           provider_destination_account_id?: string | null
           provider_fee_minor?: number | null
           provider_idempotency_key?: string | null
           provider_payment_id?: string | null
+          provider_success_at?: string | null
           succeeded_at?: string | null
           updated_at?: string
         }
@@ -3666,6 +3672,17 @@ export type Database = {
           first_published_at: string
           venue_id: string
           venue_status: string
+        }[]
+      }
+      reconcile_deposit_payment_success: {
+        Args: { claim_token: string; event_id: number }
+        Returns: {
+          booking_id: string
+          booking_payment_status: string
+          booking_status: string
+          outcome: string
+          payment_id: string
+          receipt_id: string
         }[]
       }
       record_payment_provider_receipt: {
