@@ -185,6 +185,7 @@ export type Database = {
       booking_payments: {
         Row: {
           amount_minor: number
+          application_fee_minor: number | null
           booking_id: string
           cancelled_at: string | null
           created_at: string
@@ -193,11 +194,14 @@ export type Database = {
           failure_code: string | null
           failure_message: string | null
           id: string
+          integration_environment: string | null
           metadata: Json
+          organization_payment_account_id: string | null
           payment_kind: string
           payment_schedule_id: string | null
           payment_status: string
           provider: string
+          provider_destination_account_id: string | null
           provider_fee_minor: number | null
           provider_idempotency_key: string | null
           provider_payment_id: string | null
@@ -206,6 +210,7 @@ export type Database = {
         }
         Insert: {
           amount_minor: number
+          application_fee_minor?: number | null
           booking_id: string
           cancelled_at?: string | null
           created_at?: string
@@ -214,11 +219,14 @@ export type Database = {
           failure_code?: string | null
           failure_message?: string | null
           id?: string
+          integration_environment?: string | null
           metadata?: Json
+          organization_payment_account_id?: string | null
           payment_kind: string
           payment_schedule_id?: string | null
           payment_status?: string
           provider: string
+          provider_destination_account_id?: string | null
           provider_fee_minor?: number | null
           provider_idempotency_key?: string | null
           provider_payment_id?: string | null
@@ -227,6 +235,7 @@ export type Database = {
         }
         Update: {
           amount_minor?: number
+          application_fee_minor?: number | null
           booking_id?: string
           cancelled_at?: string | null
           created_at?: string
@@ -235,11 +244,14 @@ export type Database = {
           failure_code?: string | null
           failure_message?: string | null
           id?: string
+          integration_environment?: string | null
           metadata?: Json
+          organization_payment_account_id?: string | null
           payment_kind?: string
           payment_schedule_id?: string | null
           payment_status?: string
           provider?: string
+          provider_destination_account_id?: string | null
           provider_fee_minor?: number | null
           provider_idempotency_key?: string | null
           provider_payment_id?: string | null
@@ -273,6 +285,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "operator_booking_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_payments_organization_payment_account_id_fkey"
+            columns: ["organization_payment_account_id"]
+            isOneToOne: false
+            referencedRelation: "organization_payment_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -1347,6 +1366,7 @@ export type Database = {
           details_submitted: boolean
           disabled_at: string | null
           id: string
+          integration_environment: string | null
           organization_id: string
           payouts_enabled: boolean
           provider: string
@@ -1364,6 +1384,7 @@ export type Database = {
           details_submitted?: boolean
           disabled_at?: string | null
           id?: string
+          integration_environment?: string | null
           organization_id: string
           payouts_enabled?: boolean
           provider: string
@@ -1381,6 +1402,7 @@ export type Database = {
           details_submitted?: boolean
           disabled_at?: string | null
           id?: string
+          integration_environment?: string | null
           organization_id?: string
           payouts_enabled?: boolean
           provider?: string
@@ -3350,6 +3372,19 @@ export type Database = {
           venue_status: string
         }[]
       }
+      attach_deposit_payment_provider: {
+        Args: {
+          environment_value: string
+          provider_payment_id_value: string
+          provider_value: string
+          target_payment_id: string
+        }
+        Returns: {
+          attachment_result: string
+          payment_id: string
+          payment_state: string
+        }[]
+      }
       cancel_booking: {
         Args: { cancellation_reason: string; target_booking_id: string }
         Returns: {
@@ -3548,6 +3583,21 @@ export type Database = {
           status: string
         }[]
       }
+      get_deposit_payment_creation_context: {
+        Args: { target_payment_id: string }
+        Returns: {
+          amount_minor: number
+          application_fee_minor: number
+          booking_id: string
+          currency_code: string
+          destination_account_id: string
+          hold_expires_at: string
+          integration_environment: string
+          payment_id: string
+          provider: string
+          provider_idempotency_key: string
+        }[]
+      }
       get_eligible_booking_spaces: {
         Args: {
           end_local: string
@@ -3557,6 +3607,18 @@ export type Database = {
         }
         Returns: {
           space_id: string
+        }[]
+      }
+      prepare_deposit_payment: {
+        Args: { target_booking_id: string }
+        Returns: {
+          amount_minor: number
+          booking_id: string
+          currency_code: string
+          hold_expires_at: string
+          payment_id: string
+          payment_state: string
+          preparation_result: string
         }[]
       }
       publish_venue: {
